@@ -1,204 +1,65 @@
 # VUT FIT PIS 2026
 
-A microservices-based information system for university project registration.
+Microservice-based university project registration system.
 
-This repository contains:
+## Overview
 
-- a **React frontend**
-- a **Rust gRPC gateway router** for the frontend
-- a **Rust authentication service**
-- a **Rust notification service**
+The repository currently contains:
 
-TODO
+- `frontend/`: React frontend served by nginx
+- `services/router-rust/`: Rust gRPC / gRPC-Web gateway for the frontend
+- `services/auth-service-rust/`: Rust authentication service
+- `services/notification-service-rust/`: Rust notification service
+- `proto/`: shared protobuf contracts
+- `services/subject-service-dart-template/`: subject-service template
+- `services/project-service-dotnet-template/`: project-service template
 
-- subject service
-- project service
+The frontend talks to the router through gRPC-Web. Backend services communicate with each other over gRPC.
 
-Services communicate internally with **gRPC**, and the frontend communicates with the backend through **gRPC-Web**.
+## Current State
 
----
+Implemented and usable:
 
-## Current status
+- frontend in React + Vite
+- typed gRPC gateway in Rust with `tonic` and `tonic-web`
+- JWT-based authentication through `auth-service`
+- notification service in Rust
+- Docker Compose setup for local development
+- OpenTelemetry collector and Prometheus in the compose stack
 
-This is the **current working repository structure**, not the original design only.
+Not finished yet:
 
-Implemented or partially implemented:
+- subject service is still a Dart template
+- project service is still a .NET template
+- some frontend flows still degrade when those two services are unavailable
 
-- frontend in **React**
-- API router in **Rust** using **Tonic**
-- typed gRPC / gRPC-Web gateway for the frontend
-- JWT-based authentication at the gateway boundary
-- authentication service in **Rust**
-- embedded database for auth service using **SurrealDB (embedded)**
-- notification service in **Rust**
-- embedded database for notification service using **Fjall**
-- OpenTelemetry integration scaffold
-- Dockerfiles and Docker Compose for local development
+In the current `docker-compose.yml`, `subject-service` and `project-service` are commented out. That means related gateway calls will fail unless you provide those services yourself.
 
-Still incomplete / template-level:
+## Architecture
 
-- subject service is currently a **Dart template**
-- project service is currently a **.NET template**
-- some frontend pages support **mock / hybrid / live** behavior depending on backend readiness
-- some cross-service flows are scaffolded but may still need finishing
+High-level flow:
 
----
+- `frontend` -> gRPC-Web -> `router-rust`
+- `router-rust` -> gRPC -> backend services
+- shared contracts live in `proto/*.proto`
 
-## Architecture overview
+Current backend services:
 
-### High-level architecture
+- `auth-service-rust`
+  - user registration
+  - login
+  - token validation
+  - logout / revocation
+- `notification-service-rust`
+  - create notifications
+  - list notifications
+  - mark notifications as read
+- `router-rust`
+  - exposes the typed `FrontendGateway`
+  - validates bearer tokens on protected RPCs
+  - forwards calls to internal services
 
-- **Frontend** → React + Material UI
-- **Router** → gRPC / gRPC-Web gateway in Rust/Tonic
-- **Internal communication** → gRPC using `tonic`
-- **Auth service** → Rust + embedded SurrealDB
-- **Notification service** → Rust + Fjall
-- **Subject service** → Dart template
-- **Project service** → .NET template
-- **Observability** → OpenTelemetry + OTEL Collector
-
-### Communication model
-
-- Frontend → Router: **gRPC-Web**
-- Router → Services: **gRPC**
-- Router handles:
-  - public and protected gateway RPCs
-  - JWT validation for protected RPCs
-  - request routing to internal services
-
----
-
-## Entity model
-
-The system is based on these logical entities:
-
-### User
-- Id
-- Firstname
-- Lastname
-- Email
-- Password
-- Role (`student`, `teacher`, `admin`)
-
-### Subject
-- Id
-- Name
-- Description
-- Abbreviation
-
-### Project
-- Id
-- Title
-- Description
-- Teacher
-- Max Students
-- Current Students
-- Start Date
-- End Date
-- SubjectId
-
-### Notification
-- Id
-- UserId
-- Message
-- Date
-
-### Team
-- Id
-- ProjectId
-- list of StudentId
-
----
-
-## Services
-
-### 1. Router
-Rust service acting as a typed gRPC gateway.
-
-Responsibilities:
-- expose the typed `FrontendGateway` service to the frontend
-- validate JWT for protected RPCs
-- forward requests to internal gRPC services
-- request logging / tracing
-
-Main stack:
-- `tonic`
-- `tonic-web`
-- `tower`
-
-### 2. Auth Service
-Rust service for authentication and authorization.
-
-Responsibilities:
-- register user
-- login user
-- validate JWT
-- seed demo users for development
-- manage user persistence
-
-Current storage:
-- **embedded SurrealDB**
-
-Current JWT mode:
-- **shared-secret JWT (HS256)**
-
-### 3. Notification Service
-Rust service for notifications.
-
-Responsibilities:
-- create notifications
-- get user notifications
-- mark notifications as read
-
-Current storage:
-- **Fjall**
-
-### 4. Subject Service
-Currently a **Dart template**.
-
-Intended responsibilities:
-- subject CRUD
-- student subject registration
-
-### 5. Project Service
-Currently a **.NET template**.
-
-Intended responsibilities:
-- project CRUD
-- team creation
-- project registration
-
----
-
-## Frontend use cases
-
-### Student
-- register account
-- login
-- view available projects
-- view available subjects
-- register for a subject
-- register for a project
-- create a team
-- add members to a team
-- receive notifications
-
-### Teacher
-- register account
-- login
-- create and manage projects
-- receive notifications about registrations or updates
-
-### Admin
-- register account
-- login
-- manage users
-- manage subjects
-- manage projects
-
----
-
-## Repository structure
+## Repository Layout
 
 ```text
 .
@@ -207,196 +68,143 @@ Intended responsibilities:
 ├── services/
 │   ├── auth-service-rust/
 │   ├── notification-service-rust/
-│   ├── router/
-│   ├── subject-service-dart-template/
-│   └── project-service-dotnet-template/
-├── infra/
-│   ├── docker-compose.yml
-│   └── otel-collector-config.yaml
+│   ├── project-service-dotnet-template/
+│   ├── router-rust/
+│   └── subject-service-dart-template/
 ├── docker-compose.yml
+├── grpc-web-generate.sh
+├── Makefile
+├── otel-collector-config.yaml
 └── README.md
 ```
 
-### Important folders
+## Prerequisites
 
-#### `frontend/`
-React frontend application.
+For Docker-based development:
 
-#### `proto/`
-Shared gRPC contract definitions.  
-This is the main shared boundary between services.
-
-#### `services/router/`
-Rust REST gateway / router.
-
-#### `services/auth-service-rust/`
-Rust authentication service with embedded SurrealDB.
-
-#### `services/notification-service-rust/`
-Rust notification service with Fjall.
-
-#### `services/subject-service-dart-template/`
-Dart subject-service template.
-
-#### `services/project-service-dotnet-template/`
-.NET project-service template.
-
----
-
-## Technology stack
-
-### Frontend
-- React
-- Vite
-- Material UI
-- React Router
-
-### Backend
-- Rust
-- Tonic
-- Tokio
-
-### Storage
-- Embedded SurrealDB for auth
-- Fjall for notifications
-
-### Observability
-- OpenTelemetry
-- OTEL Collector
-
-### Containers
 - Docker
 - Docker Compose
 
----
+For local frontend / Rust development:
 
-## Gateway API
+- Node.js 22+
+- npm
+- Rust toolchain
+- `protoc`
 
-The frontend talks to the router through the gRPC-Web gateway proxied at `/grpc`.
+## Quick Start
 
----
+Start the stack with Docker:
 
-## Authentication
+```bash
+make up-build
+```
 
-The current implementation uses **JWT with shared secret (HS256)**.
-
-### Flow
-1. User logs in via the router gateway
-2. Router forwards login request to auth-service over gRPC
-3. Auth-service validates credentials
-4. Auth-service returns JWT
-5. Router returns token to frontend
-6. Frontend includes token in `Authorization: Bearer <token>`
-
-### Protected RPCs
-Protected gateway methods are guarded by a router auth layer that validates the JWT before allowing access.
-
----
-
-## Demo users
-
-For development, demo users are seeded automatically on startup.
-
-Available accounts:
-
-- `student@example.com` / `student123`
-- `teacher@example.com` / `teacher123`
-- `admin@example.com` / `admin123`
-
-These are intended for local development only.
-
----
-
-## Running the project with Docker
-
-From the repository root:
+Or directly:
 
 ```bash
 docker compose up --build
 ```
 
-### Typical exposed ports
+Main endpoints:
 
-- Frontend: `http://localhost:3000`
-- Router gRPC: `http://localhost:8081`
-- OTEL Collector:
-  - `4317`
-  - `4318`
+- frontend: `http://localhost:3000`
+- router gRPC: `http://localhost:8081`
+- auth service gRPC: `http://localhost:50051`
+- notification service gRPC: `http://localhost:50052`
+- Prometheus: `http://localhost:9090`
+- OTLP gRPC: `http://localhost:4317`
 
-Exact port bindings depend on the current `docker-compose.yml`.
-
----
-
-## Running frontend locally
-
-From the `frontend/` folder:
+Stop the stack:
 
 ```bash
-npm install
-npm run dev
+make down
 ```
 
-If you run the frontend outside Docker, make sure its API base URL points to the router.
+## Common Commands
 
----
+List available tasks:
 
-## Internal service contracts
+```bash
+make help
+```
 
-Services should **not share internal code** with each other.
+Useful targets:
 
-The intended service boundary is:
+- `make up-build`: build and start the compose stack
+- `make down`: stop the compose stack
+- `make logs`: follow compose logs
+- `make grpc`: regenerate frontend protobuf JavaScript
+- `make rust-check`: run `cargo check` in all Rust services
+- `make rust-test`: run `cargo test` in all Rust services
+- `make rust-fmt`: run `cargo fmt` in all Rust services
+- `make check`: regenerate gRPC files, build the frontend, and run Rust checks
 
-- each service owns its own codebase
-- each service owns its own storage
-- the only shared contract between services is the **proto file definitions**
+## Frontend Development
 
-This keeps services language-independent and supports polyglot development across:
-- Rust
-- Dart
-- .NET
+Install dependencies:
 
----
+```bash
+make frontend-install
+```
 
-## Notes on current design
+Run the Vite dev server:
 
-### Why only proto files should be shared
-Sharing only `.proto` contracts is a good microservice boundary because:
-- contracts stay language-neutral
-- services remain loosely coupled
-- each service can evolve independently
-- Rust, Dart, and .NET can generate their own code from the same contracts
+```bash
+make frontend-dev
+```
 
-### What should not be shared
-Avoid sharing:
-- internal libraries
-- database models
-- common persistence code
-- direct access to another service's database
+Build the frontend:
 
-That would tightly couple the services and reduce the benefits of microservice architecture.
+```bash
+make frontend-build
+```
 
----
+Environment variables are described in [frontend/.env.example](/home/tmokenc/workspace/vut/pis/projekt/frontend/.env.example).
 
-## Logging and observability
+The frontend uses the nginx proxy in [frontend/nginx.conf](/home/tmokenc/workspace/vut/pis/projekt/frontend/nginx.conf) to reach the router at `/grpc`.
 
-The router includes request logging middleware.
+## gRPC and Protobuf
 
-OpenTelemetry integration is scaffolded so the services can emit traces to the OTEL collector.
+Frontend protobuf files are generated into:
 
-This is intended to support:
-- distributed tracing
-- request visibility
-- monitoring during development
+- [frontend/src/lib/grpc/generated](/home/tmokenc/workspace/vut/pis/projekt/frontend/src/lib/grpc/generated)
 
----
+Generation command:
 
-## Current limitations
+```bash
+make grpc
+```
 
-This repository is still in active development.
+That runs [grpc-web-generate.sh](/home/tmokenc/workspace/vut/pis/projekt/grpc-web-generate.sh), which compiles the shared `.proto` files for the frontend grpc-web client.
 
-Known limitations:
-- subject service is template-level
-- project service is template-level
-- some router-to-service flows may still need finishing
-- frontend may fall back to mock or hybrid behavior in incomplete areas
-- not all business rules are fully enforced yet
+## Authentication
+
+The router expects bearer tokens in gRPC metadata:
+
+```text
+authorization: Bearer <jwt>
+```
+
+Protected gateway methods are validated through `AuthService.ValidateToken`.
+
+Demo users are seeded by `auth-service` in local development:
+
+- `student@example.com` / `student123`
+- `teacher@example.com` / `teacher123`
+- `admin@example.com` / `admin123`
+
+## Observability
+
+The compose stack includes:
+
+- OpenTelemetry Collector
+- Prometheus
+
+Services are configured to export traces to the collector at `http://otel-collector:4317`.
+
+## Notes
+
+- The router is gRPC-only now. There is no REST API, Swagger UI, or `/health` endpoint in the router.
+- The subject and project services are not active by default in the current compose file.
+- The shared service boundary is the protobuf contract in `proto/`. Services should not share internal code or storage models.
