@@ -2,7 +2,11 @@ pub mod auth {
     tonic::include_proto!("auth");
 }
 pub mod common {
+    #![allow(unused)]
     tonic::include_proto!("common");
+}
+pub mod gateway {
+    tonic::include_proto!("gateway");
 }
 pub mod notification {
     tonic::include_proto!("notification");

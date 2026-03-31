@@ -8,15 +8,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     tonic_prost_build::configure().compile_protos(
         &[
             "../../proto/auth.proto",
+            "../../proto/gateway.proto",
             "../../proto/notification.proto",
             "../../proto/subject.proto",
             "../../proto/project.proto",
             "../../proto/common.proto",
         ],
-        &[
-            "../../proto",
-            protoc_include.to_str().unwrap(),
-        ],
+        &["../../proto", protoc_include.to_str().unwrap()],
     )?;
 
     Ok(())

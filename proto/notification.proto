@@ -11,6 +11,8 @@ service NotificationService {
   rpc ListNotifications(ListNotificationsRequest)
       returns (ListNotificationsResponse);
   rpc MarkAsRead(MarkAsReadRequest) returns (common.Ack);
+  rpc StreamNotifications(StreamNotificationsRequest)
+      returns (stream Notification);
 }
 
 message Notification {
@@ -33,4 +35,4 @@ message ListNotificationsResponse { repeated Notification notifications = 1; }
 
 message MarkAsReadRequest { string notification_id = 1; }
 
-// TODO: Send notification to group
+message StreamNotificationsRequest { string user_id = 1; }

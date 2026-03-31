@@ -90,7 +90,7 @@ services:
       context: .
       dockerfile: services/router-rust/Dockerfile
     environment:
-      ROUTER_ADDR: 0.0.0.0:8080
+      ROUTER_GRPC_ADDR: 0.0.0.0:8081
       AUTH_GRPC_ENDPOINT: http://auth-service:50051
       NOTIFICATION_GRPC_ENDPOINT: http://notification-service:50052
       SUBJECT_GRPC_ENDPOINT: http://subject-service:50053
@@ -105,15 +105,15 @@ services:
       # - project-service
       - otel-collector
     ports:
-      - "8080:8080"
+      - "8081:8081"
 
   frontend:
     build:
       context: .
       dockerfile: frontend/Dockerfile
       args:
-        VITE_API_BASE_URL: ""
         VITE_API_MODE: live
+        VITE_GRPC_BASE_URL: /grpc
     depends_on:
       - router
     ports:

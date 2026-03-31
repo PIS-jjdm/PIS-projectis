@@ -49,6 +49,7 @@ export default function DashboardPage() {
   const { token, user } = useAuth()
   const [summary, setSummary] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     let active = true
@@ -56,7 +57,22 @@ export default function DashboardPage() {
     async function load() {
       try {
         const data = await api.getDashboardSummary({ token, user })
-        if (active) setSummary(data)
+        if (active) {
+          setSummary(data)
+          setError('')
+        }
+      } catch (err) {
+        if (active) {
+          setSummary({
+            subjects: 0,
+            registeredSubjects: 0,
+            projects: 0,
+            ownProjects: 0,
+            teams: 0,
+            unreadNotifications: 0,
+          })
+          setError(err.message || 'Failed to load dashboard summary')
+        }
       } finally {
         if (active) setLoading(false)
       }
@@ -92,6 +108,8 @@ export default function DashboardPage() {
       <Alert severity="info" sx={{ mb: 3 }}>
         This dashboard adapts to your role. Student, teacher, and admin actions are grouped into the same UI for easier navigation.
       </Alert>
+
+      {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
 
       <Box
         sx={{

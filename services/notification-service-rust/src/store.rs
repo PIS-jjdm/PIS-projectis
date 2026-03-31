@@ -10,6 +10,7 @@ use chrono::Utc;
 use fjall::KeyspaceCreateOptions;
 use fjall::{Database, Keyspace, PersistMode};
 use serde::{Deserialize, Serialize};
+use tokio::sync::broadcast;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NotificationRecord {
@@ -25,6 +26,7 @@ pub struct NotificationStore {
     db: Database,
     notifications: Keyspace,
     user_index: Keyspace,
+    events: broadcast::Sender<NotificationRecord>,
 }
 
 impl NotificationStore {
@@ -32,11 +34,18 @@ impl NotificationStore {
         let db = Database::builder(path).open()?;
         let notifications = db.keyspace("notifications", KeyspaceCreateOptions::default)?;
         let user_index = db.keyspace("user_notifications", KeyspaceCreateOptions::default)?;
+        let (events, _) = broadcast::channel(1024);
+
         Ok(Self {
             db,
             notifications,
             user_index,
+            events,
         })
+    }
+
+    pub fn subscribe(&self) -> broadcast::Receiver<NotificationRecord> {
+        self.events.subscribe()
     }
 
     fn user_index_key(user_id: &str, date: chrono::DateTime<Utc>, notification_id: &str) -> String {
@@ -51,7 +60,10 @@ impl NotificationStore {
         let index_key = Self::user_index_key(&record.user_id, record.date, &record.id);
         self.user_index
             .insert(index_key.as_bytes(), record.id.as_bytes())?;
+
+        let _ = self.events.send(record.clone());
         self.db.persist(PersistMode::SyncAll)?;
+
         Ok(())
     }
 
@@ -82,7 +94,10 @@ impl NotificationStore {
         record.read = true;
         let value = serde_json::to_vec(&record)?;
         self.notifications.insert(record.id.as_bytes(), value)?;
+        let _ = self.events.send(record);
+
         self.db.persist(PersistMode::SyncAll)?;
+
         Ok(())
     }
 }

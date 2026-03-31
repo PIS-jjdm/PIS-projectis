@@ -46,7 +46,24 @@ export default function NotificationsPage() {
   }
 
   useEffect(() => {
-    loadNotifications()
+    let unsubscribe = () => {}
+
+    loadNotifications().then(() => {
+      unsubscribe = api.subscribeNotifications(session, {
+        onMessage: (items) => {
+          if (Array.isArray(items)) {
+            setNotifications(items)
+            setError('')
+            setLoading(false)
+          }
+        },
+        onError: (err) => {
+          setError(err.message || 'Notification stream disconnected')
+        },
+      })
+    })
+
+    return () => unsubscribe()
   }, [token, user])
 
   async function handleMarkRead(notificationId) {

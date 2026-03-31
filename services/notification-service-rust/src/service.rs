@@ -1,6 +1,11 @@
-use crate::store::{NotificationRecord, NotificationStore};
+use crate::{
+    service::notification::StreamNotificationsRequest,
+    store::{NotificationRecord, NotificationStore},
+};
+use async_stream::stream;
 use chrono::Utc;
 use prost_types::Timestamp;
+use std::pin::Pin;
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
 
@@ -50,6 +55,9 @@ fn internal<E: std::fmt::Display>(err: E) -> Status {
 
 #[tonic::async_trait]
 impl NotificationService for NotificationGrpc {
+    type StreamNotificationsStream =
+        Pin<Box<dyn tokio_stream::Stream<Item = Result<Notification, Status>> + Send + 'static>>;
+
     async fn create_notification(
         &self,
         request: Request<CreateNotificationRequest>,
@@ -93,5 +101,33 @@ impl NotificationService for NotificationGrpc {
             success: true,
             message: "notification marked as read".into(),
         }))
+    }
+
+    async fn stream_notifications(
+        &self,
+        request: Request<StreamNotificationsRequest>,
+    ) -> Result<Response<Self::StreamNotificationsStream>, Status> {
+        let user_id = request.into_inner().user_id;
+        let mut receiver = self.store.subscribe();
+
+        let output = stream! {
+            loop {
+                match receiver.recv().await {
+                    Ok(rec) if rec.user_id == user_id => yield Ok(rec.into()),
+                    Ok(_) => continue, // Not for this user, ignore
+                    Err(tokio::sync::broadcast::error::RecvError::Closed) => {
+                        break;
+                    }
+                    Err(e) => {
+                        yield Err(Status::internal(format!("Stream error: {}", e)));
+                        continue;
+                    }
+                }
+            }
+        };
+
+        Ok(Response::new(
+            Box::pin(output) as Self::StreamNotificationsStream
+        ))
     }
 }

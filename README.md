@@ -5,7 +5,7 @@ A microservices-based information system for university project registration.
 This repository contains:
 
 - a **React frontend**
-- a **Rust API router** exposing REST endpoints to the frontend
+- a **Rust gRPC gateway router** for the frontend
 - a **Rust authentication service**
 - a **Rust notification service**
 
@@ -14,7 +14,7 @@ TODO
 - subject service
 - project service
 
-Services communicate internally with **gRPC**, while the frontend communicates with the backend through **REST API**.
+Services communicate internally with **gRPC**, and the frontend communicates with the backend through **gRPC-Web**.
 
 ---
 
@@ -25,9 +25,9 @@ This is the **current working repository structure**, not the original design on
 Implemented or partially implemented:
 
 - frontend in **React**
-- API router in **Rust** using **Axum**
-- Swagger / OpenAPI using **utoipa**
-- JWT-based authentication middleware for private routes
+- API router in **Rust** using **Tonic**
+- typed gRPC / gRPC-Web gateway for the frontend
+- JWT-based authentication at the gateway boundary
 - authentication service in **Rust**
 - embedded database for auth service using **SurrealDB (embedded)**
 - notification service in **Rust**
@@ -49,7 +49,7 @@ Still incomplete / template-level:
 ### High-level architecture
 
 - **Frontend** → React + Material UI
-- **Router** → REST API gateway in Rust/Axum
+- **Router** → gRPC / gRPC-Web gateway in Rust/Tonic
 - **Internal communication** → gRPC using `tonic`
 - **Auth service** → Rust + embedded SurrealDB
 - **Notification service** → Rust + Fjall
@@ -59,13 +59,12 @@ Still incomplete / template-level:
 
 ### Communication model
 
-- Frontend → Router: **REST**
+- Frontend → Router: **gRPC-Web**
 - Router → Services: **gRPC**
 - Router handles:
-  - public and private REST routes
-  - JWT validation for protected endpoints
+  - public and protected gateway RPCs
+  - JWT validation for protected RPCs
   - request routing to internal services
-  - Swagger UI / OpenAPI docs
 
 ---
 
@@ -114,20 +113,18 @@ The system is based on these logical entities:
 ## Services
 
 ### 1. Router
-Rust service acting as API gateway.
+Rust service acting as a typed gRPC gateway.
 
 Responsibilities:
-- expose REST API to frontend
-- validate JWT for protected routes
+- expose the typed `FrontendGateway` service to the frontend
+- validate JWT for protected RPCs
 - forward requests to internal gRPC services
-- expose Swagger UI
 - request logging / tracing
 
 Main stack:
-- `axum`
 - `tonic`
-- `utoipa`
-- `tower-http`
+- `tonic-web`
+- `tower`
 
 ### 2. Auth Service
 Rust service for authentication and authorization.
@@ -256,9 +253,7 @@ Dart subject-service template.
 
 ### Backend
 - Rust
-- Axum
 - Tonic
-- Utoipa / Swagger UI
 - Tokio
 
 ### Storage
@@ -275,19 +270,9 @@ Dart subject-service template.
 
 ---
 
-## API and documentation
+## Gateway API
 
-The router exposes Swagger UI for REST API exploration.
-
-Typical endpoints:
-
-- Swagger UI: `/swagger-ui`
-- OpenAPI JSON: `/api-docs/openapi.json`
-
-Depending on Docker setup, this is typically available at:
-
-- `http://localhost:8080/swagger-ui`
-- or via frontend proxy at `http://localhost:3000/swagger-ui`
+The frontend talks to the router through the gRPC-Web gateway proxied at `/grpc`.
 
 ---
 
@@ -296,15 +281,15 @@ Depending on Docker setup, this is typically available at:
 The current implementation uses **JWT with shared secret (HS256)**.
 
 ### Flow
-1. User logs in via router REST endpoint
+1. User logs in via the router gateway
 2. Router forwards login request to auth-service over gRPC
 3. Auth-service validates credentials
 4. Auth-service returns JWT
 5. Router returns token to frontend
 6. Frontend includes token in `Authorization: Bearer <token>`
 
-### Protected routes
-Private routes are guarded by router middleware that validates the JWT before allowing access.
+### Protected RPCs
+Protected gateway methods are guarded by a router auth layer that validates the JWT before allowing access.
 
 ---
 
@@ -333,7 +318,7 @@ docker compose up --build
 ### Typical exposed ports
 
 - Frontend: `http://localhost:3000`
-- Router: `http://localhost:8080`
+- Router gRPC: `http://localhost:8081`
 - OTEL Collector:
   - `4317`
   - `4318`
@@ -415,4 +400,3 @@ Known limitations:
 - some router-to-service flows may still need finishing
 - frontend may fall back to mock or hybrid behavior in incomplete areas
 - not all business rules are fully enforced yet
-

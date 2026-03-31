@@ -4,10 +4,21 @@ WORKDIR /app
 RUN apt-get update     && apt-get install -y --no-install-recommends protobuf-compiler pkg-config libssl-dev ca-certificates     && rm -rf /var/lib/apt/lists/*
 
 COPY proto ./proto
-COPY services/auth-service-rust ./services/auth-service-rust
+COPY services/auth-service-rust/Cargo.toml ./services/auth-service-rust/Cargo.toml
+COPY services/auth-service-rust/Cargo.lock ./services/auth-service-rust/Cargo.lock
+COPY services/auth-service-rust/build.rs ./services/auth-service-rust/build.rs
 
 WORKDIR /app/services/auth-service-rust
-RUN cargo build --release
+
+# Build dependencies first so source-only changes reuse this layer.
+RUN mkdir src \
+    && printf 'fn main() {}\n' > src/main.rs \
+    && cargo build --release --locked \
+    && rm -rf src
+
+COPY services/auth-service-rust/src ./src
+COPY services/auth-service-rust/demo_users.toml ./demo_users.toml
+RUN cargo build --release --locked
 
 FROM debian:bookworm-slim
 RUN apt-get update     && apt-get install -y --no-install-recommends ca-certificates libssl3     && rm -rf /var/lib/apt/lists/*

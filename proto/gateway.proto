@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package gateway;
+
+import "auth.proto";
+import "common.proto";
+import "notification.proto";
+import "project.proto";
+import "subject.proto";
+
+service FrontendGateway {
+  rpc Register(auth.RegisterRequest) returns (auth.AuthResponse);
+  rpc Login(auth.LoginRequest) returns (auth.AuthResponse);
+  rpc GetMe(common.Empty) returns (auth.User);
+  rpc Logout(common.Empty) returns (common.Ack);
+
+  rpc ListSubjects(common.Empty) returns (subject.ListSubjectsResponse);
+  rpc CreateSubject(subject.CreateSubjectRequest) returns (subject.Subject);
+  rpc UpdateSubject(subject.UpdateSubjectRequest) returns (subject.Subject);
+  rpc DeleteSubject(subject.DeleteSubjectRequest) returns (common.Ack);
+  rpc RegisterSubject(RegisterSubjectGatewayRequest) returns (common.Ack);
+
+  rpc ListProjects(common.Empty) returns (project.ListProjectsResponse);
+  rpc GetProject(project.GetProjectRequest) returns (project.Project);
+  rpc RegisterTeam(RegisterTeamGatewayRequest) returns (project.Team);
+  rpc AddTeamMember(project.AddTeamMemberRequest) returns (project.Team);
+  rpc RemoveTeamMember(project.RemoveTeamMemberRequest) returns (project.Team);
+
+  rpc ListNotifications(common.Empty) returns (notification.ListNotificationsResponse);
+  rpc CreateNotification(notification.CreateNotificationRequest)
+      returns (notification.Notification);
+  rpc MarkNotificationRead(notification.MarkAsReadRequest) returns (common.Ack);
+  rpc StreamNotifications(common.Empty) returns (stream notification.Notification);
+}
+
+message RegisterSubjectGatewayRequest { string subject_id = 1; }
+
+message RegisterTeamGatewayRequest { string project_id = 1; }
