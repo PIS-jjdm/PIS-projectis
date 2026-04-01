@@ -7,7 +7,9 @@ import "google/protobuf/timestamp.proto";
 service ProjectService {
   rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse);
   rpc GetProject(GetProjectRequest) returns (Project);
+  rpc CreateProject(CreateProjectRequest) returns (Project);
   rpc RegisterTeam(RegisterTeamRequest) returns (Team);
+  rpc ListTeamsByProject(ListTeamsByProjectRequest) returns (ListTeamsByProjectResponse);
 
   rpc AddTeamMember(AddTeamMemberRequest) returns (Team);
   rpc RemoveTeamMember(RemoveTeamMemberRequest) returns (Team);
@@ -42,10 +44,24 @@ message ListProjectsResponse { repeated Project projects = 1; }
 
 message GetProjectRequest { string project_id = 1; }
 
+message CreateProjectRequest {
+  string title = 1;
+  string description = 2;
+  string teacher_id = 3;
+  uint32 max_students_per_team = 4;
+  google.protobuf.Timestamp start_date = 5;
+  google.protobuf.Timestamp end_date = 6;
+  string subject_id = 7;
+}
+
 message RegisterTeamRequest {
   string project_id = 1;
   string creator_student_id = 2;
 }
+
+message ListTeamsByProjectRequest { string project_id = 1; }
+
+message ListTeamsByProjectResponse { repeated Team teams = 1; }
 
 message AddTeamMemberRequest {
   string team_id = 1;
