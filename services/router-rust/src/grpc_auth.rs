@@ -102,13 +102,20 @@ enum RouteAuthPolicy {
 
 fn route_auth_policy(path: &str) -> RouteAuthPolicy {
     match path {
-        "/gateway.FrontendGateway/Register" | "/gateway.FrontendGateway/Login" => {
-            RouteAuthPolicy::Public
-        }
+        "/gateway.FrontendGateway/Login" => RouteAuthPolicy::Public,
+        "/gateway.FrontendGateway/Register" => RouteAuthPolicy::Roles(&[UserRole::Admin]),
+        "/gateway.FrontendGateway/CreateUser" => RouteAuthPolicy::Roles(&[UserRole::Admin]),
+        "/gateway.FrontendGateway/ListUsers" => RouteAuthPolicy::Roles(TEACHER_OR_ADMIN),
         "/gateway.FrontendGateway/CreateSubject"
         | "/gateway.FrontendGateway/UpdateSubject"
         | "/gateway.FrontendGateway/DeleteSubject"
-        | "/gateway.FrontendGateway/CreateNotification" => RouteAuthPolicy::Roles(TEACHER_OR_ADMIN),
+        | "/gateway.FrontendGateway/CreateProject"
+        | "/gateway.FrontendGateway/CreateNotification"
+        | "/gateway.FrontendGateway/ListScheduledNotifications"
+        | "/gateway.FrontendGateway/CancelScheduledNotification"
+        | "/gateway.FrontendGateway/RescheduleScheduledNotification" => {
+            RouteAuthPolicy::Roles(TEACHER_OR_ADMIN)
+        }
         "/gateway.FrontendGateway/RegisterSubject" => RouteAuthPolicy::Roles(STUDENT_ONLY),
         _ => RouteAuthPolicy::Authenticated,
     }

@@ -7,11 +7,15 @@ import "common.proto";
 import "notification.proto";
 import "project.proto";
 import "subject.proto";
+import "google/protobuf/timestamp.proto";
 
 service FrontendGateway {
   rpc Register(auth.RegisterRequest) returns (auth.AuthResponse);
+  rpc CreateUser(auth.CreateUserRequest) returns (auth.User);
   rpc Login(auth.LoginRequest) returns (auth.AuthResponse);
   rpc GetMe(common.Empty) returns (auth.User);
+  rpc ListUsers(common.Empty) returns (auth.ListUsersResponse);
+  rpc ChangePassword(ChangePasswordGatewayRequest) returns (common.Ack);
   rpc Logout(common.Empty) returns (common.Ack);
 
   rpc ListSubjects(common.Empty) returns (subject.ListSubjectsResponse);
@@ -21,18 +25,54 @@ service FrontendGateway {
   rpc RegisterSubject(RegisterSubjectGatewayRequest) returns (common.Ack);
 
   rpc ListProjects(common.Empty) returns (project.ListProjectsResponse);
+  rpc CreateProject(CreateProjectGatewayRequest) returns (project.Project);
   rpc GetProject(project.GetProjectRequest) returns (project.Project);
   rpc RegisterTeam(RegisterTeamGatewayRequest) returns (project.Team);
+  rpc ListTeamsByProject(project.ListTeamsByProjectRequest)
+      returns (project.ListTeamsByProjectResponse);
   rpc AddTeamMember(project.AddTeamMemberRequest) returns (project.Team);
   rpc RemoveTeamMember(project.RemoveTeamMemberRequest) returns (project.Team);
 
   rpc ListNotifications(common.Empty) returns (notification.ListNotificationsResponse);
-  rpc CreateNotification(notification.CreateNotificationRequest)
-      returns (notification.Notification);
+  rpc ListScheduledNotifications(common.Empty)
+      returns (notification.ListScheduledNotificationsResponse);
+  rpc CreateNotification(CreateNotificationGatewayRequest)
+      returns (notification.CreateNotificationResponse);
   rpc MarkNotificationRead(notification.MarkAsReadRequest) returns (common.Ack);
+  rpc CancelScheduledNotification(CancelScheduledNotificationGatewayRequest)
+      returns (common.Ack);
+  rpc RescheduleScheduledNotification(RescheduleScheduledNotificationGatewayRequest)
+      returns (common.Ack);
   rpc StreamNotifications(common.Empty) returns (stream notification.Notification);
 }
 
 message RegisterSubjectGatewayRequest { string subject_id = 1; }
 
+message ChangePasswordGatewayRequest {
+  string current_password = 1;
+  string new_password = 2;
+}
+
+message CreateProjectGatewayRequest {
+  string title = 1;
+  string description = 2;
+  uint32 max_students_per_team = 3;
+  google.protobuf.Timestamp start_date = 4;
+  google.protobuf.Timestamp end_date = 5;
+  string subject_id = 6;
+}
+
 message RegisterTeamGatewayRequest { string project_id = 1; }
+
+message CreateNotificationGatewayRequest {
+  repeated string user_ids = 1;
+  string message = 2;
+  google.protobuf.Timestamp trigger_at = 3;
+}
+
+message CancelScheduledNotificationGatewayRequest { string batch_id = 1; }
+
+message RescheduleScheduledNotificationGatewayRequest {
+  string batch_id = 1;
+  google.protobuf.Timestamp trigger_at = 2;
+}

@@ -2,23 +2,31 @@ use tonic::{Request, Response, Status};
 
 use crate::auth_context::{AuthToken, CurrentUser};
 use crate::proto::{
-    auth::{AuthResponse, GetUserRequest, LoginRequest, LogoutRequest, RegisterRequest, User},
+    auth::{
+        AuthResponse, ChangePasswordRequest, CreateUserRequest, GetUserRequest,
+        ListUsersRequest, ListUsersResponse, LoginRequest, LogoutRequest, RegisterRequest, User,
+    },
     common::{Ack, Empty, UserRole},
     gateway::{
-        frontend_gateway_server::FrontendGateway, RegisterSubjectGatewayRequest,
-        RegisterTeamGatewayRequest,
+        frontend_gateway_server::FrontendGateway, CancelScheduledNotificationGatewayRequest,
+        ChangePasswordGatewayRequest, CreateNotificationGatewayRequest, CreateProjectGatewayRequest,
+        RegisterSubjectGatewayRequest, RegisterTeamGatewayRequest,
+        RescheduleScheduledNotificationGatewayRequest,
     },
     notification::{
-        CreateNotificationRequest, ListNotificationsRequest, ListNotificationsResponse,
-        MarkAsReadRequest, Notification, StreamNotificationsRequest,
+        CancelScheduledNotificationRequest, CreateNotificationRequest,
+        CreateNotificationResponse, ListNotificationsRequest, ListNotificationsResponse,
+        ListScheduledNotificationsRequest, ListScheduledNotificationsResponse, MarkAsReadRequest,
+        Notification, RescheduleScheduledNotificationRequest, StreamNotificationsRequest,
     },
     project::{
-        AddTeamMemberRequest, GetProjectRequest, ListProjectsRequest, ListProjectsResponse,
-        Project, RegisterTeamRequest, RemoveTeamMemberRequest, Team,
+        AddTeamMemberRequest, CreateProjectRequest, GetProjectRequest, ListProjectsRequest,
+        ListProjectsResponse, ListTeamsByProjectRequest, ListTeamsByProjectResponse, Project,
+        RegisterTeamRequest, RemoveTeamMemberRequest, Team,
     },
     subject::{
         CreateSubjectRequest, DeleteSubjectRequest, ListSubjectsRequest, ListSubjectsResponse,
-        RegisterStudentToSubjectRequest, Subject, UpdateSubjectRequest,
+        Subject, UpdateSubjectRequest, UserSubjectRequest,
     },
 };
 use crate::AppState;
@@ -84,6 +92,23 @@ impl FrontendGateway for FrontendGatewayService {
         Ok(Response::new(response))
     }
 
+    async fn create_user(
+        &self,
+        request: Request<CreateUserRequest>,
+    ) -> Result<Response<User>, Status> {
+        let current_user = Self::current_user(&request)?;
+        Self::require_roles(&current_user, &[UserRole::Admin])?;
+
+        let response = self
+            .state
+            .auth_client()
+            .create_user(request.into_inner())
+            .await?
+            .into_inner();
+
+        Ok(Response::new(response))
+    }
+
     async fn login(
         &self,
         request: Request<LoginRequest>,
@@ -112,12 +137,52 @@ impl FrontendGateway for FrontendGatewayService {
         Ok(Response::new(response))
     }
 
+    async fn list_users(
+        &self,
+        request: Request<Empty>,
+    ) -> Result<Response<ListUsersResponse>, Status> {
+        let current_user = Self::current_user(&request)?;
+        Self::require_roles(&current_user, &[UserRole::Teacher, UserRole::Admin])?;
+
+        let response = self
+            .state
+            .auth_client()
+            .list_users(ListUsersRequest {})
+            .await?
+            .into_inner();
+
+        Ok(Response::new(response))
+    }
+
     async fn logout(&self, request: Request<Empty>) -> Result<Response<Ack>, Status> {
         let access_token = Self::auth_token(&request)?;
         let response = self
             .state
             .auth_client()
             .logout(LogoutRequest { access_token })
+            .await?
+            .into_inner();
+
+        Ok(Response::new(response))
+    }
+
+    async fn change_password(
+        &self,
+        request: Request<ChangePasswordGatewayRequest>,
+    ) -> Result<Response<Ack>, Status> {
+        let current_user = Self::current_user(&request)?;
+        let body = request.into_inner();
+        Self::require_non_empty(&body.current_password, "current password")?;
+        Self::require_non_empty(&body.new_password, "new password")?;
+
+        let response = self
+            .state
+            .auth_client()
+            .change_password(ChangePasswordRequest {
+                user_id: current_user.user_id,
+                current_password: body.current_password,
+                new_password: body.new_password,
+            })
             .await?
             .into_inner();
 
@@ -202,9 +267,9 @@ impl FrontendGateway for FrontendGatewayService {
         let response = self
             .state
             .subject_client()
-            .register_student_to_subject(RegisterStudentToSubjectRequest {
+            .register_user_to_subject(UserSubjectRequest {
                 subject_id: body.subject_id,
-                student_id: current_user.user_id,
+                user_id: current_user.user_id,
             })
             .await?
             .into_inner();
@@ -240,6 +305,36 @@ impl FrontendGateway for FrontendGatewayService {
         Ok(Response::new(response))
     }
 
+    async fn create_project(
+        &self,
+        request: Request<CreateProjectGatewayRequest>,
+    ) -> Result<Response<Project>, Status> {
+        let current_user = Self::current_user(&request)?;
+        Self::require_roles(&current_user, &[UserRole::Teacher, UserRole::Admin])?;
+
+        let body = request.into_inner();
+        Self::require_non_empty(&body.title, "project title")?;
+        Self::require_non_empty(&body.description, "project description")?;
+        Self::require_non_empty(&body.subject_id, "subject id")?;
+
+        let response = self
+            .state
+            .project_client()
+            .create_project(CreateProjectRequest {
+                title: body.title,
+                description: body.description,
+                teacher_id: current_user.user_id,
+                max_students_per_team: body.max_students_per_team,
+                start_date: body.start_date,
+                end_date: body.end_date,
+                subject_id: body.subject_id,
+            })
+            .await?
+            .into_inner();
+
+        Ok(Response::new(response))
+    }
+
     async fn register_team(
         &self,
         request: Request<RegisterTeamGatewayRequest>,
@@ -255,6 +350,20 @@ impl FrontendGateway for FrontendGatewayService {
                 project_id: body.project_id,
                 creator_student_id: current_user.user_id,
             })
+            .await?
+            .into_inner();
+
+        Ok(Response::new(response))
+    }
+
+    async fn list_teams_by_project(
+        &self,
+        request: Request<ListTeamsByProjectRequest>,
+    ) -> Result<Response<ListTeamsByProjectResponse>, Status> {
+        let response = self
+            .state
+            .project_client()
+            .list_teams_by_project(request.into_inner())
             .await?
             .into_inner();
 
@@ -308,15 +417,47 @@ impl FrontendGateway for FrontendGatewayService {
 
     async fn create_notification(
         &self,
-        request: Request<CreateNotificationRequest>,
-    ) -> Result<Response<Notification>, Status> {
+        request: Request<CreateNotificationGatewayRequest>,
+    ) -> Result<Response<CreateNotificationResponse>, Status> {
+        let current_user = Self::current_user(&request)?;
+        Self::require_roles(&current_user, &[UserRole::Teacher, UserRole::Admin])?;
+
+        let body = request.into_inner();
+        if body.user_ids.iter().all(|user_id| user_id.trim().is_empty()) {
+            return Err(Status::invalid_argument(
+                "at least one recipient user id is required",
+            ));
+        }
+        Self::require_non_empty(&body.message, "notification message")?;
+
+        let response = self
+            .state
+            .notification_client()
+            .create_notification(CreateNotificationRequest {
+                user_ids: body.user_ids,
+                message: body.message,
+                trigger_at: body.trigger_at,
+                creator_user_id: current_user.user_id,
+            })
+            .await?
+            .into_inner();
+
+        Ok(Response::new(response))
+    }
+
+    async fn list_scheduled_notifications(
+        &self,
+        request: Request<Empty>,
+    ) -> Result<Response<ListScheduledNotificationsResponse>, Status> {
         let current_user = Self::current_user(&request)?;
         Self::require_roles(&current_user, &[UserRole::Teacher, UserRole::Admin])?;
 
         let response = self
             .state
             .notification_client()
-            .create_notification(request.into_inner())
+            .list_scheduled_notifications(ListScheduledNotificationsRequest {
+                creator_user_id: current_user.user_id,
+            })
             .await?
             .into_inner();
 
@@ -331,6 +472,56 @@ impl FrontendGateway for FrontendGatewayService {
             .state
             .notification_client()
             .mark_as_read(request.into_inner())
+            .await?
+            .into_inner();
+
+        Ok(Response::new(response))
+    }
+
+    async fn cancel_scheduled_notification(
+        &self,
+        request: Request<CancelScheduledNotificationGatewayRequest>,
+    ) -> Result<Response<Ack>, Status> {
+        let current_user = Self::current_user(&request)?;
+        Self::require_roles(&current_user, &[UserRole::Teacher, UserRole::Admin])?;
+
+        let body = request.into_inner();
+        Self::require_non_empty(&body.batch_id, "batch id")?;
+
+        let response = self
+            .state
+            .notification_client()
+            .cancel_scheduled_notification(CancelScheduledNotificationRequest {
+                batch_id: body.batch_id,
+                creator_user_id: current_user.user_id,
+            })
+            .await?
+            .into_inner();
+
+        Ok(Response::new(response))
+    }
+
+    async fn reschedule_scheduled_notification(
+        &self,
+        request: Request<RescheduleScheduledNotificationGatewayRequest>,
+    ) -> Result<Response<Ack>, Status> {
+        let current_user = Self::current_user(&request)?;
+        Self::require_roles(&current_user, &[UserRole::Teacher, UserRole::Admin])?;
+
+        let body = request.into_inner();
+        Self::require_non_empty(&body.batch_id, "batch id")?;
+        if body.trigger_at.is_none() {
+            return Err(Status::invalid_argument("missing trigger timestamp"));
+        }
+
+        let response = self
+            .state
+            .notification_client()
+            .reschedule_scheduled_notification(RescheduleScheduledNotificationRequest {
+                batch_id: body.batch_id,
+                creator_user_id: current_user.user_id,
+                trigger_at: body.trigger_at,
+            })
             .await?
             .into_inner();
 

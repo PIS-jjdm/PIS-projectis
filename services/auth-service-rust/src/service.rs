@@ -18,7 +18,8 @@ pub mod common {
 
 use auth::auth_service_server::AuthService;
 use auth::{
-    AuthResponse, GetUserRequest, LoginRequest, LogoutRequest, RegisterRequest, User,
+    AuthResponse, ChangePasswordRequest, CreateUserRequest, GetUserRequest, ListUsersRequest,
+    ListUsersResponse, LoginRequest, LogoutRequest, RegisterRequest, User,
     ValidateTokenRequest, ValidateTokenResponse,
 };
 use common::{Ack, UserRole};
@@ -33,6 +34,36 @@ impl AuthGrpc {
     pub fn new(db: Db, jwt_keys: JwtKeys) -> Self {
         Self { db, jwt_keys }
     }
+
+    async fn create_user_record(
+        &self,
+        firstname: String,
+        lastname: String,
+        email: String,
+        password: String,
+        role: i32,
+    ) -> Result<crate::models::UserRecord, Status> {
+        if self
+            .db
+            .find_user_by_email(&email)
+            .await
+            .map_err(internal)?
+            .is_some()
+        {
+            return Err(Status::already_exists("user already exists"));
+        }
+
+        let role = models::role_from_proto(role)?.to_owned();
+        let user = NewUserRecord {
+            firstname,
+            lastname,
+            email,
+            password_hash: hash(password, DEFAULT_COST).map_err(internal)?,
+            role,
+        };
+
+        self.db.insert_user(&user).await.map_err(internal)
+    }
 }
 
 fn internal<E: std::fmt::Display>(err: E) -> Status {
@@ -46,26 +77,9 @@ impl AuthService for AuthGrpc {
         request: Request<RegisterRequest>,
     ) -> Result<Response<AuthResponse>, Status> {
         let req = request.into_inner();
-        if self
-            .db
-            .find_user_by_email(&req.email)
-            .await
-            .map_err(internal)?
-            .is_some()
-        {
-            return Err(Status::already_exists("user already exists"));
-        }
-
-        let role = models::role_from_proto(req.role)?.to_owned();
-        let user = NewUserRecord {
-            firstname: req.firstname,
-            lastname: req.lastname,
-            email: req.email,
-            password_hash: hash(req.password, DEFAULT_COST).map_err(internal)?,
-            role,
-        };
-
-        let created = self.db.insert_user(&user).await.map_err(internal)?;
+        let created = self
+            .create_user_record(req.firstname, req.lastname, req.email, req.password, req.role)
+            .await?;
         let token =
             create_token(&created.id, &created.role, &self.jwt_keys.secret).map_err(internal)?;
 
@@ -73,6 +87,18 @@ impl AuthService for AuthGrpc {
             access_token: token,
             user: Some(created.into()),
         }))
+    }
+
+    async fn create_user(
+        &self,
+        request: Request<CreateUserRequest>,
+    ) -> Result<Response<User>, Status> {
+        let req = request.into_inner();
+        let created = self
+            .create_user_record(req.firstname, req.lastname, req.email, req.password, req.role)
+            .await?;
+
+        Ok(Response::new(created.into()))
     }
 
     async fn login(
@@ -154,6 +180,61 @@ impl AuthService for AuthGrpc {
             .ok_or_else(|| Status::not_found("user not found"))?;
 
         Ok(Response::new(user.into()))
+    }
+
+    async fn list_users(
+        &self,
+        _request: Request<ListUsersRequest>,
+    ) -> Result<Response<ListUsersResponse>, Status> {
+        let users = self.db.list_users().await.map_err(internal)?;
+
+        Ok(Response::new(ListUsersResponse {
+            users: users.into_iter().map(User::from).collect(),
+        }))
+    }
+
+    async fn change_password(
+        &self,
+        request: Request<ChangePasswordRequest>,
+    ) -> Result<Response<Ack>, Status> {
+        let req = request.into_inner();
+        if req.user_id.trim().is_empty() {
+            return Err(Status::invalid_argument("user id is required"));
+        }
+        if req.current_password.is_empty() {
+            return Err(Status::invalid_argument("current password is required"));
+        }
+        if req.new_password.is_empty() {
+            return Err(Status::invalid_argument("new password is required"));
+        }
+        if req.current_password == req.new_password {
+            return Err(Status::invalid_argument(
+                "new password must be different from current password",
+            ));
+        }
+
+        let user = self
+            .db
+            .find_user_by_id(&req.user_id)
+            .await
+            .map_err(internal)?
+            .ok_or_else(|| Status::not_found("user not found"))?;
+
+        if !verify(req.current_password, &user.password_hash).map_err(internal)? {
+            return Err(Status::permission_denied("current password is incorrect"));
+        }
+
+        let password_hash = hash(req.new_password, DEFAULT_COST).map_err(internal)?;
+        self.db
+            .update_user_password(&req.user_id, &password_hash)
+            .await
+            .map_err(internal)?
+            .ok_or_else(|| Status::not_found("user not found"))?;
+
+        Ok(Response::new(Ack {
+            success: true,
+            message: "password updated".into(),
+        }))
     }
 
     async fn logout(&self, request: Request<LogoutRequest>) -> Result<Response<Ack>, Status> {

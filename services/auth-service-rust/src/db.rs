@@ -76,12 +76,36 @@ impl Db {
             .map_err(|e| e.into())
     }
 
+    pub async fn list_users(&self) -> anyhow::Result<Vec<UserRecord>> {
+        let mut result = self
+            .inner
+            .query("SELECT * FROM user ORDER BY lastname ASC, firstname ASC, email ASC;")
+            .await?;
+
+        let users: Vec<UserRecord> = result.take(0)?;
+        Ok(users)
+    }
+
     pub async fn insert_user(&self, user: &NewUserRecord) -> anyhow::Result<UserRecord> {
         self.inner
             .create("user")
             .content(user.clone())
             .await?
             .ok_or_else(|| anyhow::anyhow!("failed to create user"))
+    }
+
+    pub async fn update_user_password(
+        &self,
+        user_id: &str,
+        password_hash: &str,
+    ) -> anyhow::Result<Option<UserRecord>> {
+        self.inner
+            .query("UPDATE type::thing('user', $user_id) MERGE { password_hash: $password_hash };")
+            .bind(("user_id", user_id.to_string()))
+            .bind(("password_hash", password_hash.to_string()))
+            .await?
+            .take(0)
+            .map_err(|e| e.into())
     }
 
     pub async fn revoke_token(&self, token: &str) -> anyhow::Result<()> {
