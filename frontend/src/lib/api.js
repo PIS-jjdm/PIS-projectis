@@ -82,6 +82,8 @@ function normalizeSubject(subject) {
       name: subject.getName(),
       description: subject.getDescription(),
       abbreviation: subject.getAbbreviation(),
+      user_ids: subject.getUserIdsList?.() || [],
+      teacher_ids: subject.getTeacherIdsList?.() || [],
     }
   }
   return subject
@@ -118,18 +120,39 @@ function normalizeTeam(team) {
   return team
 }
 
+function uniqueIds(values) {
+  return [...new Set((values || []).map((value) => String(value || '').trim()).filter(Boolean))]
+}
+
 function normalizeNotification(notification) {
   if (!notification) return null
   if (typeof notification.getId === 'function') {
     return {
       id: notification.getId(),
+      batch_id: notification.getBatchId?.() || '',
       user_id: notification.getUserId(),
+      creator_user_id: notification.getCreatorUserId?.() || '',
       message: notification.getMessage(),
       date: timestampToIso(notification.getDate()),
+      trigger_at: timestampToIso(notification.getTriggerAt?.()),
       read: notification.getRead(),
     }
   }
   return notification
+}
+
+function normalizeScheduledNotificationBatch(batch) {
+  if (!batch) return null
+  if (typeof batch.getBatchId === 'function') {
+    return {
+      batch_id: batch.getBatchId(),
+      message: batch.getMessage(),
+      trigger_at: timestampToIso(batch.getTriggerAt()),
+      creator_user_id: batch.getCreatorUserId(),
+      user_ids: batch.getUserIdsList(),
+    }
+  }
+  return batch
 }
 
 async function buildDashboardSummary(session) {
@@ -169,6 +192,13 @@ export const api = {
     )
   },
 
+  async createUser(session, payload) {
+    return tryLive(
+      async () => normalizeUser(await gatewayClient.createUser(accessToken(session), payload)),
+      () => mockApi.createUser(session, payload),
+    )
+  },
+
   async getMe(session) {
     return tryLive(
       async () => normalizeUser(await gatewayClient.getMe(accessToken(session))),
@@ -178,6 +208,13 @@ export const api = {
         }
         return session.user
       },
+    )
+  },
+
+  async changePassword(session, payload) {
+    return tryLive(
+      async () => gatewayClient.changePassword(accessToken(session), payload),
+      () => mockApi.changePassword(session, payload),
     )
   },
 
@@ -196,6 +233,16 @@ export const api = {
       },
       () => mockApi.listSubjects(session),
     )
+  },
+
+  async getSubjectNotificationRecipients(session, subjectId) {
+    const subjects = await api.listSubjects(session)
+    const subject = subjects.find((item) => item.id === subjectId)
+    if (!subject) {
+      throw new Error('Subject not found')
+    }
+
+    return uniqueIds([...(subject.user_ids || []), ...(subject.teacher_ids || [])])
   },
 
   async createSubject(session, payload) {
@@ -238,6 +285,18 @@ export const api = {
     )
   },
 
+  async getProjectNotificationRecipients(session, projectId) {
+    const [project, teams] = await Promise.all([
+      api.getProject(session, projectId),
+      api.listTeamsByProject(session, projectId),
+    ])
+
+    return uniqueIds([
+      project?.teacher_id,
+      ...teams.flatMap((team) => [team.leader_student_id, ...(team.student_ids || [])]),
+    ])
+  },
+
   async getProject(session, projectId) {
     return tryLive(
       async () => normalizeProject(await gatewayClient.getProject(accessToken(session), projectId)),
@@ -247,9 +306,7 @@ export const api = {
 
   async createProject(session, payload) {
     return tryLive(
-      async () => {
-        throw new Error('CreateProject is not available through the gRPC gateway yet')
-      },
+      async () => normalizeProject(await gatewayClient.createProject(accessToken(session), payload)),
       () => mockApi.createProject(session, payload),
     )
   },
@@ -273,7 +330,8 @@ export const api = {
   async listTeamsByProject(session, projectId) {
     return tryLive(
       async () => {
-        throw new Error('ListTeamsByProject is not available through the gRPC gateway yet')
+        const response = await gatewayClient.listTeamsByProject(accessToken(session), projectId)
+        return response.getTeamsList().map(normalizeTeam)
       },
       () => mockApi.listTeamsByProject(projectId),
     )
@@ -286,6 +344,16 @@ export const api = {
         return response.getNotificationsList().map(normalizeNotification)
       },
       () => mockApi.listNotifications(session, userId),
+    )
+  },
+
+  async listScheduledNotifications(session) {
+    return tryLive(
+      async () => {
+        const response = await gatewayClient.listScheduledNotifications(accessToken(session))
+        return response.getBatchesList().map(normalizeScheduledNotificationBatch)
+      },
+      () => mockApi.listScheduledNotifications(session),
     )
   },
 
@@ -304,9 +372,10 @@ export const api = {
 
   async createNotification(session, payload) {
     return tryLive(
-      async () => normalizeNotification(
-        await gatewayClient.createNotification(accessToken(session), payload),
-      ),
+      async () => {
+        const response = await gatewayClient.createNotification(accessToken(session), payload)
+        return response.getNotificationsList().map(normalizeNotification)
+      },
       () => mockApi.createNotification(session, payload),
     )
   },
@@ -318,10 +387,26 @@ export const api = {
     )
   },
 
+  async cancelScheduledNotification(session, batchId) {
+    return tryLive(
+      async () => gatewayClient.cancelScheduledNotification(accessToken(session), batchId),
+      () => mockApi.cancelScheduledNotification(session, batchId),
+    )
+  },
+
+  async rescheduleScheduledNotification(session, batchId, triggerAt) {
+    return tryLive(
+      async () =>
+        gatewayClient.rescheduleScheduledNotification(accessToken(session), batchId, triggerAt),
+      () => mockApi.rescheduleScheduledNotification(session, batchId, triggerAt),
+    )
+  },
+
   async listUsers(session) {
     return tryLive(
       async () => {
-        throw new Error('ListUsers is not available through the gRPC gateway yet')
+        const response = await gatewayClient.listUsers(accessToken(session))
+        return response.getUsersList().map(normalizeUser)
       },
       () => mockApi.listUsers(session),
     )

@@ -7,19 +7,30 @@ export default function PageHeader({ eyebrow, title, subtitle, actions }) {
       justifyContent="space-between"
       alignItems={{ xs: 'flex-start', md: 'center' }}
       spacing={2}
-      sx={{ mb: 3 }}
+      sx={{ mb: 5 }}
     >
-      <Box>
+      <Box sx={{ maxWidth: 760 }}>
         {eyebrow && (
-          <Typography variant="overline" color="primary.main" sx={{ letterSpacing: 1.5 }}>
-            {eyebrow}
-          </Typography>
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.25 }}>
+            <Typography
+              variant="overline"
+              color="primary.main"
+              sx={{ letterSpacing: 2, fontWeight: 700 }}
+            >
+              {eyebrow}
+            </Typography>
+            <Box sx={{ width: 44, height: 1, bgcolor: 'rgba(69,95,136,0.3)' }} />
+          </Stack>
         )}
-        <Typography variant="h4" sx={{ mt: 0.5 }}>
+        <Typography variant="h3" sx={{ mt: 0.5, fontSize: { xs: '2rem', md: '2.9rem' } }}>
           {title}
         </Typography>
         {subtitle && (
-          <Typography variant="body1" color="text.secondary" sx={{ mt: 1 }}>
+          <Typography
+            variant="body1"
+            color="text.secondary"
+            sx={{ mt: 1.5, maxWidth: 680, lineHeight: 1.7 }}
+          >
             {subtitle}
           </Typography>
         )}

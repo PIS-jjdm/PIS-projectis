@@ -2,7 +2,6 @@ import { Navigate, Route, Routes } from 'react-router'
 import AppShell from './components/AppShell'
 import ProtectedRoute from './components/ProtectedRoute'
 import LoginPage from './pages/auth/LoginPage'
-import RegisterPage from './pages/auth/RegisterPage'
 import DashboardPage from './pages/DashboardPage'
 import SubjectsPage from './pages/SubjectsPage'
 import ProjectsPage from './pages/ProjectsPage'
@@ -14,7 +13,6 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
       <Route
         path="/"
         element={

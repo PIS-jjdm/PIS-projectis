@@ -1,6 +1,6 @@
-import { Alert, Box, Button, Link, Stack, TextField } from '@mui/material'
+import { Alert, Box, Button, Stack, TextField } from '@mui/material'
 import { useState } from 'react'
-import { Link as RouterLink, useLocation, useNavigate } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 import AuthLayout from './AuthLayout'
 import { useAuth } from '../../contexts/AuthContext'
 
@@ -54,9 +54,6 @@ export default function LoginPage() {
           <Button size="large" type="submit" variant="contained" disabled={submitting}>
             {submitting ? 'Signing in...' : 'Sign in'}
           </Button>
-          <Link component={RouterLink} to="/register" underline="hover">
-            Need an account? Register here.
-          </Link>
           <Alert severity="info">
             Demo accounts in mock mode: student@example.com / student123, teacher@example.com / teacher123, admin@example.com / admin123.
           </Alert>

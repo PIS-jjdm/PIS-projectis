@@ -137,6 +137,20 @@ impl FrontendGateway for FrontendGatewayService {
         Ok(Response::new(response))
     }
 
+    async fn get_user(&self, request: Request<GetUserRequest>) -> Result<Response<User>, Status> {
+        let body = request.into_inner();
+        Self::require_non_empty(&body.user_id, "user id")?;
+
+        let response = self
+            .state
+            .auth_client()
+            .get_user(body)
+            .await?
+            .into_inner();
+
+        Ok(Response::new(response))
+    }
+
     async fn list_users(
         &self,
         request: Request<Empty>,

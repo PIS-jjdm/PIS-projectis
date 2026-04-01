@@ -14,6 +14,7 @@ service FrontendGateway {
   rpc CreateUser(auth.CreateUserRequest) returns (auth.User);
   rpc Login(auth.LoginRequest) returns (auth.AuthResponse);
   rpc GetMe(common.Empty) returns (auth.User);
+  rpc GetUser(auth.GetUserRequest) returns (auth.User);
   rpc ListUsers(common.Empty) returns (auth.ListUsersResponse);
   rpc ChangePassword(ChangePasswordGatewayRequest) returns (common.Ack);
   rpc Logout(common.Empty) returns (common.Ack);

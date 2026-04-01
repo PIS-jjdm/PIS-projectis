@@ -4,61 +4,91 @@ export const theme = createTheme({
   palette: {
     mode: 'light',
     primary: {
-      main: '#1565c0',
-      light: '#5e92f3',
-      dark: '#003c8f',
+      main: '#455f88',
+      light: '#d6e3ff',
+      dark: '#39537c',
     },
     secondary: {
-      main: '#00897b',
-      light: '#4ebaaa',
-      dark: '#005b4f',
+      main: '#546073',
+      light: '#d8e3fa',
+      dark: '#495467',
     },
     background: {
-      default: '#f4f7fb',
+      default: '#f7fafc',
       paper: '#ffffff',
     },
+    text: {
+      primary: '#283439',
+      secondary: '#546166',
+    },
     success: {
-      main: '#2e7d32',
+      main: '#1a61a4',
     },
     warning: {
-      main: '#ed6c02',
+      main: '#67a1e8',
     },
     error: {
-      main: '#d32f2f',
+      main: '#9f403d',
     },
   },
   shape: {
-    borderRadius: 16,
+    borderRadius: 12,
   },
   typography: {
-    fontFamily: [
-      'Inter',
-      'Roboto',
-      'Helvetica',
-      'Arial',
-      'sans-serif',
-    ].join(','),
+    fontFamily: ['Inter', 'sans-serif'].join(','),
+    h3: {
+      fontWeight: 800,
+      letterSpacing: '-0.03em',
+      fontFamily: ['Manrope', 'sans-serif'].join(','),
+    },
     h4: {
-      fontWeight: 700,
+      fontWeight: 800,
+      letterSpacing: '-0.03em',
+      fontFamily: ['Manrope', 'sans-serif'].join(','),
     },
     h5: {
-      fontWeight: 700,
+      fontWeight: 800,
+      letterSpacing: '-0.02em',
+      fontFamily: ['Manrope', 'sans-serif'].join(','),
     },
     h6: {
       fontWeight: 700,
+      letterSpacing: '-0.01em',
+      fontFamily: ['Manrope', 'sans-serif'].join(','),
+    },
+    subtitle1: {
+      fontWeight: 600,
     },
     button: {
       textTransform: 'none',
-      fontWeight: 600,
+      fontWeight: 700,
     },
   },
   components: {
+    MuiCssBaseline: {
+      styleOverrides: {
+        body: {
+          background: '#f7fafc',
+        },
+        '#root': {
+          minHeight: '100vh',
+        },
+      },
+    },
     MuiAppBar: {
       styleOverrides: {
         root: {
-          backgroundImage:
-            'linear-gradient(135deg, rgba(21,101,192,1) 0%, rgba(0,137,123,1) 100%)',
-          boxShadow: '0 12px 24px rgba(21, 101, 192, 0.15)',
+          background: alpha('#ffffff', 0.98),
+          boxShadow: 'none',
+          borderBottom: '1px solid rgba(167, 180, 186, 0.2)',
+          color: '#283439',
+        },
+      },
+    },
+    MuiDrawer: {
+      styleOverrides: {
+        paper: {
+          background: '#f8fafc',
         },
       },
     },
@@ -73,13 +103,54 @@ export const theme = createTheme({
       styleOverrides: {
         root: ({ theme }) => ({
           border: `1px solid ${alpha(theme.palette.primary.main, 0.08)}`,
-          boxShadow: '0 10px 30px rgba(15, 23, 42, 0.06)',
+          boxShadow: '0 6px 18px rgba(40, 52, 57, 0.06)',
+          borderRadius: theme.shape.borderRadius,
         }),
       },
     },
     MuiButton: {
       defaultProps: {
         disableElevation: true,
+      },
+      styleOverrides: {
+        root: {
+          borderRadius: 8,
+          paddingInline: 18,
+        },
+        containedPrimary: {
+          backgroundImage: 'linear-gradient(135deg, #455f88 0%, #39537c 100%)',
+        },
+      },
+    },
+    MuiChip: {
+      styleOverrides: {
+        root: {
+          borderRadius: 999,
+          fontWeight: 600,
+        },
+      },
+    },
+    MuiTextField: {
+      defaultProps: {
+        variant: 'outlined',
+      },
+    },
+    MuiOutlinedInput: {
+      styleOverrides: {
+        root: {
+          borderRadius: 10,
+          backgroundColor: '#eff4f7',
+        },
+        notchedOutline: {
+          borderColor: 'transparent',
+        },
+      },
+    },
+    MuiDialog: {
+      styleOverrides: {
+        paper: {
+          borderRadius: 14,
+        },
       },
     },
   },

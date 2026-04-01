@@ -15,6 +15,7 @@ const gatewayPb = proto.gateway
 const notificationPb = proto.notification
 const projectPb = proto.project
 const subjectPb = proto.subject
+const timestampPb = proto.google?.protobuf
 
 function metadata(accessToken) {
   if (!accessToken) return {}
@@ -60,6 +61,18 @@ function parseRole(role) {
   }
 }
 
+function toTimestamp(value) {
+  if (!value) return undefined
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime()) || !timestampPb?.Timestamp) {
+    return undefined
+  }
+
+  const timestamp = new timestampPb.Timestamp()
+  timestamp.fromDate(date)
+  return timestamp
+}
+
 class FrontendGatewayClient {
   constructor(baseUrl) {
     this.baseUrl = baseUrl
@@ -91,6 +104,11 @@ const methods = {
     authPb.RegisterRequest,
     authPb.AuthResponse,
   ),
+  createUser: unaryDescriptor(
+    '/gateway.FrontendGateway/CreateUser',
+    authPb.CreateUserRequest,
+    authPb.User,
+  ),
   login: unaryDescriptor(
     '/gateway.FrontendGateway/Login',
     authPb.LoginRequest,
@@ -100,6 +118,16 @@ const methods = {
     '/gateway.FrontendGateway/GetMe',
     commonPb.Empty,
     authPb.User,
+  ),
+  listUsers: unaryDescriptor(
+    '/gateway.FrontendGateway/ListUsers',
+    commonPb.Empty,
+    authPb.ListUsersResponse,
+  ),
+  changePassword: unaryDescriptor(
+    '/gateway.FrontendGateway/ChangePassword',
+    gatewayPb.ChangePasswordGatewayRequest,
+    commonPb.Ack,
   ),
   logout: unaryDescriptor(
     '/gateway.FrontendGateway/Logout',
@@ -136,6 +164,11 @@ const methods = {
     commonPb.Empty,
     projectPb.ListProjectsResponse,
   ),
+  createProject: unaryDescriptor(
+    '/gateway.FrontendGateway/CreateProject',
+    gatewayPb.CreateProjectGatewayRequest,
+    projectPb.Project,
+  ),
   getProject: unaryDescriptor(
     '/gateway.FrontendGateway/GetProject',
     projectPb.GetProjectRequest,
@@ -145,6 +178,11 @@ const methods = {
     '/gateway.FrontendGateway/RegisterTeam',
     gatewayPb.RegisterTeamGatewayRequest,
     projectPb.Team,
+  ),
+  listTeamsByProject: unaryDescriptor(
+    '/gateway.FrontendGateway/ListTeamsByProject',
+    projectPb.ListTeamsByProjectRequest,
+    projectPb.ListTeamsByProjectResponse,
   ),
   addTeamMember: unaryDescriptor(
     '/gateway.FrontendGateway/AddTeamMember',
@@ -161,14 +199,29 @@ const methods = {
     commonPb.Empty,
     notificationPb.ListNotificationsResponse,
   ),
+  listScheduledNotifications: unaryDescriptor(
+    '/gateway.FrontendGateway/ListScheduledNotifications',
+    commonPb.Empty,
+    notificationPb.ListScheduledNotificationsResponse,
+  ),
   createNotification: unaryDescriptor(
     '/gateway.FrontendGateway/CreateNotification',
-    notificationPb.CreateNotificationRequest,
-    notificationPb.Notification,
+    gatewayPb.CreateNotificationGatewayRequest,
+    notificationPb.CreateNotificationResponse,
   ),
   markNotificationRead: unaryDescriptor(
     '/gateway.FrontendGateway/MarkNotificationRead',
     notificationPb.MarkAsReadRequest,
+    commonPb.Ack,
+  ),
+  cancelScheduledNotification: unaryDescriptor(
+    '/gateway.FrontendGateway/CancelScheduledNotification',
+    gatewayPb.CancelScheduledNotificationGatewayRequest,
+    commonPb.Ack,
+  ),
+  rescheduleScheduledNotification: unaryDescriptor(
+    '/gateway.FrontendGateway/RescheduleScheduledNotification',
+    gatewayPb.RescheduleScheduledNotificationGatewayRequest,
     commonPb.Ack,
   ),
   streamNotifications: streamDescriptor(
@@ -191,6 +244,16 @@ export const gatewayClient = {
     return client.unary(methods.register, request)
   },
 
+  createUser(accessToken, payload) {
+    const request = new authPb.CreateUserRequest()
+    request.setFirstname(payload.firstname || '')
+    request.setLastname(payload.lastname || '')
+    request.setEmail(payload.email || '')
+    request.setPassword(payload.password || '')
+    request.setRole(parseRole(payload.role))
+    return client.unary(methods.createUser, request, accessToken)
+  },
+
   login(credentials) {
     const request = new authPb.LoginRequest()
     request.setEmail(credentials.email || '')
@@ -200,6 +263,17 @@ export const gatewayClient = {
 
   getMe(accessToken) {
     return client.unary(methods.getMe, new commonPb.Empty(), accessToken)
+  },
+
+  listUsers(accessToken) {
+    return client.unary(methods.listUsers, new commonPb.Empty(), accessToken)
+  },
+
+  changePassword(accessToken, payload) {
+    const request = new gatewayPb.ChangePasswordGatewayRequest()
+    request.setCurrentPassword(payload.current_password || '')
+    request.setNewPassword(payload.new_password || '')
+    return client.unary(methods.changePassword, request, accessToken)
   },
 
   logout(accessToken) {
@@ -243,6 +317,22 @@ export const gatewayClient = {
     return client.unary(methods.listProjects, new commonPb.Empty(), accessToken)
   },
 
+  createProject(accessToken, payload) {
+    const request = new gatewayPb.CreateProjectGatewayRequest()
+    request.setTitle(payload.title || '')
+    request.setDescription(payload.description || '')
+    request.setMaxStudentsPerTeam(Number(payload.max_students_per_team) || 0)
+    request.setSubjectId(payload.subject_id || '')
+
+    const startDate = toTimestamp(payload.start_date)
+    if (startDate) request.setStartDate(startDate)
+
+    const endDate = toTimestamp(payload.end_date)
+    if (endDate) request.setEndDate(endDate)
+
+    return client.unary(methods.createProject, request, accessToken)
+  },
+
   getProject(accessToken, projectId) {
     const request = new projectPb.GetProjectRequest()
     request.setProjectId(projectId || '')
@@ -253,6 +343,12 @@ export const gatewayClient = {
     const request = new gatewayPb.RegisterTeamGatewayRequest()
     request.setProjectId(projectId || '')
     return client.unary(methods.registerTeam, request, accessToken)
+  },
+
+  listTeamsByProject(accessToken, projectId) {
+    const request = new projectPb.ListTeamsByProjectRequest()
+    request.setProjectId(projectId || '')
+    return client.unary(methods.listTeamsByProject, request, accessToken)
   },
 
   addTeamMember(accessToken, teamId, studentId) {
@@ -273,10 +369,16 @@ export const gatewayClient = {
     return client.unary(methods.listNotifications, new commonPb.Empty(), accessToken)
   },
 
+  listScheduledNotifications(accessToken) {
+    return client.unary(methods.listScheduledNotifications, new commonPb.Empty(), accessToken)
+  },
+
   createNotification(accessToken, payload) {
-    const request = new notificationPb.CreateNotificationRequest()
-    request.setUserId(payload.user_id || '')
+    const request = new gatewayPb.CreateNotificationGatewayRequest()
+    request.setUserIdsList(payload.user_ids || [])
     request.setMessage(payload.message || '')
+    const triggerAt = toTimestamp(payload.trigger_at)
+    if (triggerAt) request.setTriggerAt(triggerAt)
     return client.unary(methods.createNotification, request, accessToken)
   },
 
@@ -284,6 +386,20 @@ export const gatewayClient = {
     const request = new notificationPb.MarkAsReadRequest()
     request.setNotificationId(notificationId || '')
     return client.unary(methods.markNotificationRead, request, accessToken)
+  },
+
+  cancelScheduledNotification(accessToken, batchId) {
+    const request = new gatewayPb.CancelScheduledNotificationGatewayRequest()
+    request.setBatchId(batchId || '')
+    return client.unary(methods.cancelScheduledNotification, request, accessToken)
+  },
+
+  rescheduleScheduledNotification(accessToken, batchId, triggerAtValue) {
+    const request = new gatewayPb.RescheduleScheduledNotificationGatewayRequest()
+    request.setBatchId(batchId || '')
+    const triggerAt = toTimestamp(triggerAtValue)
+    if (triggerAt) request.setTriggerAt(triggerAt)
+    return client.unary(methods.rescheduleScheduledNotification, request, accessToken)
   },
 
   streamNotifications(accessToken, handlers = {}) {

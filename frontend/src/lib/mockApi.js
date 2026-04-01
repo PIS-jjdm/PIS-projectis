@@ -34,18 +34,24 @@ let subjects = [
     name: 'Secure Software Systems',
     description: 'Focuses on secure coding, threat modeling, and software assurance.',
     abbreviation: 'SSS',
+    user_ids: [],
+    teacher_ids: ['user-teacher-1'],
   },
   {
     id: 'subject-2',
     name: 'Distributed Applications',
     description: 'Covers service design, microservices, messaging, and observability.',
     abbreviation: 'DIA',
+    user_ids: ['user-student-1'],
+    teacher_ids: ['user-teacher-1'],
   },
   {
     id: 'subject-3',
     name: 'Applied Cryptography',
     description: 'Practical symmetric and asymmetric cryptography used in real systems.',
     abbreviation: 'ACR',
+    user_ids: [],
+    teacher_ids: ['user-teacher-1'],
   },
 ]
 
@@ -95,22 +101,31 @@ let teams = [
 let notifications = [
   {
     id: 'notification-1',
+    batch_id: 'batch-1',
     user_id: 'user-student-1',
+    creator_user_id: 'system',
     message: 'Registration for Distributed Applications is open.',
+    trigger_at: iso(new Date(now.getTime() - 2 * day)),
     date: iso(new Date(now.getTime() - 2 * day)),
     read: false,
   },
   {
     id: 'notification-2',
+    batch_id: 'batch-2',
     user_id: 'user-student-1',
+    creator_user_id: 'system',
     message: 'Project proposal deadline is in 7 days.',
+    trigger_at: iso(new Date(now.getTime() - 1 * day)),
     date: iso(new Date(now.getTime() - 1 * day)),
     read: false,
   },
   {
     id: 'notification-3',
+    batch_id: 'batch-3',
     user_id: 'user-teacher-1',
+    creator_user_id: 'system',
     message: 'A new student registered interest in your project.',
+    trigger_at: iso(new Date(now.getTime() - 6 * 60 * 60 * 1000)),
     date: iso(new Date(now.getTime() - 6 * 60 * 60 * 1000)),
     read: false,
   },
@@ -150,6 +165,33 @@ function currentUserFromSession(session) {
   return users.find((user) => user.id === session.user?.id) || null
 }
 
+function syncSubjectsFromRegistrations() {
+  subjects = subjects.map((subject) => ({
+    ...subject,
+    user_ids: Object.entries(subjectRegistrations)
+      .filter(([, subjectIds]) => subjectIds.includes(subject.id))
+      .map(([userId]) => userId)
+      .sort(),
+  }))
+}
+
+function normalizeUserIds(values) {
+  const seen = new Set()
+  return (values || [])
+    .map((value) => String(value || '').trim())
+    .filter((value) => value && !seen.has(value) && seen.add(value))
+}
+
+function materializeDueNotifications() {
+  const currentIso = iso(new Date())
+  notifications = notifications.map((item) => {
+    if (!item.date && !item.cancelled_at && new Date(item.trigger_at).getTime() <= Date.now()) {
+      return { ...item, date: currentIso }
+    }
+    return item
+  })
+}
+
 export const mockApi = {
   async login({ email, password }) {
     const user = users.find((item) => item.email === email && item.password === password)
@@ -176,8 +218,11 @@ export const mockApi = {
     notifications = [
       {
         id: generateId('notification'),
+        batch_id: generateId('batch'),
         user_id: user.id,
+        creator_user_id: 'system',
         message: 'Welcome to the project registration system.',
+        trigger_at: iso(new Date()),
         date: iso(new Date()),
         read: false,
       },
@@ -187,10 +232,48 @@ export const mockApi = {
     return delay(authSession(user))
   },
 
+  async createUser(session, payload) {
+    if (session.user?.role !== 'admin') throw new Error('Forbidden')
+    const exists = users.some((user) => user.email === payload.email)
+    if (exists) throw new Error('Email already registered')
+
+    const user = {
+      id: generateId('user'),
+      firstname: payload.firstname,
+      lastname: payload.lastname,
+      email: payload.email,
+      password: payload.password,
+      role: payload.role,
+    }
+
+    users = [user, ...users]
+    return delay(stripPassword(user))
+  },
+
   async getMe(session) {
     const user = currentUserFromSession(session)
     if (!user) throw new Error('Unauthorized')
     return delay(stripPassword(user))
+  },
+
+  async changePassword(session, payload) {
+    const user = currentUserFromSession(session)
+    if (!user) throw new Error('Unauthorized')
+    if (payload.current_password !== user.password) {
+      throw new Error('Current password is incorrect')
+    }
+    if (!payload.new_password) {
+      throw new Error('New password is required')
+    }
+    if (payload.new_password === user.password) {
+      throw new Error('New password must be different from current password')
+    }
+
+    users = users.map((item) =>
+      item.id === user.id ? { ...item, password: payload.new_password } : item,
+    )
+
+    return delay({ success: true })
   },
 
   async logout() {
@@ -198,12 +281,13 @@ export const mockApi = {
   },
 
   async listSubjects() {
+    syncSubjectsFromRegistrations()
     return delay(subjects)
   },
 
   async createSubject(session, payload) {
     if (session.user?.role !== 'admin') throw new Error('Forbidden')
-    const subject = { id: generateId('subject'), ...payload }
+    const subject = { id: generateId('subject'), ...payload, user_ids: [], teacher_ids: [] }
     subjects = [subject, ...subjects]
     return delay(subject)
   },
@@ -227,11 +311,15 @@ export const mockApi = {
     const current = new Set(subjectRegistrations[session.user.id] || [])
     current.add(subjectId)
     subjectRegistrations[session.user.id] = [...current]
+    syncSubjectsFromRegistrations()
     notifications = [
       {
         id: generateId('notification'),
+        batch_id: generateId('batch'),
         user_id: session.user.id,
+        creator_user_id: session.user.id,
         message: `You registered to subject ${subjects.find((s) => s.id === subjectId)?.name || subjectId}.`,
+        trigger_at: iso(new Date()),
         date: iso(new Date()),
         read: false,
       },
@@ -296,27 +384,115 @@ export const mockApi = {
   },
 
   async listNotifications(session, userId) {
+    materializeDueNotifications()
     const effectiveUserId = userId || session.user?.id
-    return delay(notifications.filter((item) => item.user_id === effectiveUserId))
+    return delay(
+      notifications.filter(
+        (item) => item.user_id === effectiveUserId && item.date && !item.cancelled_at,
+      ),
+    )
   },
 
   async createNotification(session, payload) {
     if (!['teacher', 'admin'].includes(session.user?.role)) throw new Error('Forbidden')
-    const notification = {
+    const userIds = normalizeUserIds(payload.user_ids)
+    if (!userIds.length) throw new Error('At least one recipient is required')
+
+    const triggerDate = payload.trigger_at ? new Date(payload.trigger_at) : new Date()
+    if (Number.isNaN(triggerDate.getTime())) throw new Error('Invalid trigger time')
+
+    const isDue = triggerDate.getTime() <= Date.now()
+    const batchId = generateId('batch')
+    const created = userIds.map((userId) => ({
       id: generateId('notification'),
-      user_id: payload.user_id,
+      batch_id: batchId,
+      user_id: userId,
+      creator_user_id: session.user.id,
       message: payload.message,
-      date: iso(new Date()),
+      trigger_at: iso(triggerDate),
+      date: isDue ? iso(new Date()) : null,
+      cancelled_at: null,
       read: false,
-    }
-    notifications = [notification, ...notifications]
-    return delay(notification)
+    }))
+
+    notifications = [...created, ...notifications]
+    return delay(created)
   },
 
   async markNotificationRead(session, notificationId) {
+    materializeDueNotifications()
     notifications = notifications.map((item) =>
       item.id === notificationId ? { ...item, read: true } : item,
     )
+    return delay({ success: true })
+  },
+
+  async listScheduledNotifications(session) {
+    materializeDueNotifications()
+    if (!['teacher', 'admin'].includes(session.user?.role)) throw new Error('Forbidden')
+    const batches = new Map()
+    for (const item of notifications.filter(
+      (entry) =>
+        entry.creator_user_id === session.user.id && !entry.date && !entry.cancelled_at,
+    )) {
+      if (!batches.has(item.batch_id)) {
+        batches.set(item.batch_id, {
+          batch_id: item.batch_id,
+          message: item.message,
+          trigger_at: item.trigger_at,
+          creator_user_id: item.creator_user_id,
+          user_ids: [],
+        })
+      }
+      batches.get(item.batch_id).user_ids.push(item.user_id)
+    }
+
+    return delay(
+      [...batches.values()]
+        .map((batch) => ({
+          ...batch,
+          user_ids: [...new Set(batch.user_ids)].sort(),
+        }))
+        .sort((left, right) => new Date(left.trigger_at) - new Date(right.trigger_at)),
+    )
+  },
+
+  async cancelScheduledNotification(session, batchId) {
+    materializeDueNotifications()
+    if (!['teacher', 'admin'].includes(session.user?.role)) throw new Error('Forbidden')
+    const targets = notifications.filter((item) => item.batch_id === batchId)
+    if (!targets.length) throw new Error('Notification batch not found')
+    if (targets.some((item) => item.creator_user_id !== session.user.id)) throw new Error('Forbidden')
+    if (targets.every((item) => item.cancelled_at)) return delay({ success: true })
+    if (targets.every((item) => item.date)) throw new Error('Notification batch has already been delivered')
+
+    notifications = notifications.map((item) =>
+      item.batch_id === batchId && !item.date
+        ? { ...item, cancelled_at: iso(new Date()) }
+        : item,
+    )
+    return delay({ success: true })
+  },
+
+  async rescheduleScheduledNotification(session, batchId, triggerAt) {
+    materializeDueNotifications()
+    if (!['teacher', 'admin'].includes(session.user?.role)) throw new Error('Forbidden')
+
+    const triggerDate = new Date(triggerAt)
+    if (Number.isNaN(triggerDate.getTime())) throw new Error('Invalid trigger time')
+
+    const targets = notifications.filter((item) => item.batch_id === batchId)
+    if (!targets.length) throw new Error('Notification batch not found')
+    if (targets.some((item) => item.creator_user_id !== session.user.id)) throw new Error('Forbidden')
+    if (targets.some((item) => item.cancelled_at)) throw new Error('Notification batch has already been cancelled')
+    if (targets.some((item) => item.date)) throw new Error('Notification batch has already been delivered')
+
+    notifications = notifications.map((item) =>
+      item.batch_id === batchId
+        ? { ...item, trigger_at: iso(triggerDate) }
+        : item,
+    )
+
     return delay({ success: true })
   },
 
@@ -336,7 +512,7 @@ export const mockApi = {
       ownProjects: ownProjects.length,
       teams: ownTeams.length,
       unreadNotifications: notifications.filter(
-        (item) => item.user_id === session.user?.id && !item.read,
+        (item) => item.user_id === session.user?.id && item.date && !item.cancelled_at && !item.read,
       ).length,
     })
   },

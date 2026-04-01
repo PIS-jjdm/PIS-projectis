@@ -43,7 +43,7 @@ export default function AuthLayout({ title, subtitle, children }) {
               <Stack spacing={2}>
                 <Stack direction="row" spacing={1.5} alignItems="center">
                   <AssignmentTurnedInRoundedIcon sx={{ fontSize: 34 }} />
-                  <Typography variant="h5">Project Registration System</Typography>
+                  <Typography variant="h5">Scholarly Curator</Typography>
                 </Stack>
                 <Typography variant="h3" sx={{ fontWeight: 800, lineHeight: 1.1 }}>
                   Manage subjects, projects, teams, and notifications.
