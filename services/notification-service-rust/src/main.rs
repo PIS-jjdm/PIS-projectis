@@ -12,8 +12,10 @@ use opentelemetry::trace::TracerProvider as _;
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::{trace::SdkTracerProvider, Resource};
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::signal;
 use tonic::transport::Server;
+use tracing::error;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 #[tokio::main]
@@ -23,6 +25,7 @@ async fn main() -> anyhow::Result<()> {
     init_telemetry(&config.otel_service_name, &config.otel_endpoint)?;
 
     let store = Arc::new(NotificationStore::open(&config.db_path)?);
+    tokio::spawn(delivery_loop(Arc::clone(&store)));
     let addr = config.grpc_addr.parse()?;
 
     Server::builder()
@@ -31,6 +34,39 @@ async fn main() -> anyhow::Result<()> {
         .await?;
 
     Ok(())
+}
+
+async fn delivery_loop(store: Arc<NotificationStore>) {
+    let scheduler = store.scheduler_notifier();
+
+    loop {
+        if let Err(err) = store.deliver_due_notifications(chrono::Utc::now()) {
+            error!(error = %err, "failed to deliver scheduled notifications");
+        }
+
+        let sleep_duration = match store.next_scheduled_trigger_at() {
+            Ok(Some(trigger_at)) => {
+                let now = chrono::Utc::now();
+                if trigger_at <= now {
+                    Duration::from_millis(100)
+                } else {
+                    (trigger_at - now)
+                        .to_std()
+                        .unwrap_or_else(|_| Duration::from_millis(100))
+                }
+            }
+            Ok(None) => Duration::from_secs(3600),
+            Err(err) => {
+                error!(error = %err, "failed to determine next scheduled notification");
+                Duration::from_secs(1)
+            }
+        };
+
+        tokio::select! {
+            _ = tokio::time::sleep(sleep_duration) => {},
+            _ = scheduler.notified() => {},
+        }
+    }
 }
 
 // Samelessly taken from axum's graceful shutdown example:

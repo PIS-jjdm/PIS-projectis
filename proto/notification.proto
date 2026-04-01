@@ -4,13 +4,19 @@ package notification;
 
 import "common.proto";
 import "google/protobuf/timestamp.proto";
-import "google/protobuf/any.proto";
 
 service NotificationService {
-  rpc CreateNotification(CreateNotificationRequest) returns (Notification);
+  rpc CreateNotification(CreateNotificationRequest)
+      returns (CreateNotificationResponse);
   rpc ListNotifications(ListNotificationsRequest)
       returns (ListNotificationsResponse);
+  rpc ListScheduledNotifications(ListScheduledNotificationsRequest)
+      returns (ListScheduledNotificationsResponse);
   rpc MarkAsRead(MarkAsReadRequest) returns (common.Ack);
+  rpc CancelScheduledNotification(CancelScheduledNotificationRequest)
+      returns (common.Ack);
+  rpc RescheduleScheduledNotification(RescheduleScheduledNotificationRequest)
+      returns (common.Ack);
   rpc StreamNotifications(StreamNotificationsRequest)
       returns (stream Notification);
 }
@@ -21,18 +27,49 @@ message Notification {
   string message = 3;
   google.protobuf.Timestamp date = 4;
   bool read = 5;
+  google.protobuf.Timestamp trigger_at = 6;
+  string creator_user_id = 7;
+  string batch_id = 8;
 }
 
 message CreateNotificationRequest {
-  repeated string user_id = 1;
+  repeated string user_ids = 1;
   string message = 2;
-  google.protobuf.Timestamp timestamp = 3;
+  google.protobuf.Timestamp trigger_at = 3;
+  string creator_user_id = 4;
 }
+
+message CreateNotificationResponse { repeated Notification notifications = 1; }
 
 message ListNotificationsRequest { string user_id = 1; }
 
 message ListNotificationsResponse { repeated Notification notifications = 1; }
 
+message ScheduledNotificationBatch {
+  string batch_id = 1;
+  string message = 2;
+  google.protobuf.Timestamp trigger_at = 3;
+  string creator_user_id = 4;
+  repeated string user_ids = 5;
+}
+
+message ListScheduledNotificationsRequest { string creator_user_id = 1; }
+
+message ListScheduledNotificationsResponse {
+  repeated ScheduledNotificationBatch batches = 1;
+}
+
 message MarkAsReadRequest { string notification_id = 1; }
+
+message CancelScheduledNotificationRequest {
+  string batch_id = 1;
+  string creator_user_id = 2;
+}
+
+message RescheduleScheduledNotificationRequest {
+  string batch_id = 1;
+  string creator_user_id = 2;
+  google.protobuf.Timestamp trigger_at = 3;
+}
 
 message StreamNotificationsRequest { string user_id = 1; }
