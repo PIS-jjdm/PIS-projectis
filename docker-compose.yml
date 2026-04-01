@@ -42,8 +42,6 @@ services:
       - otel-collector
     volumes:
       - auth_data:/data
-    ports:
-      - "50051:50051"
 
   notification-service:
     build:
@@ -59,8 +57,6 @@ services:
       - otel-collector
     volumes:
       - notification_data:/data
-    ports:
-      - "50052:50052"
   #
   # subject-service:
   #   build:
