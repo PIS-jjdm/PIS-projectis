@@ -211,6 +211,13 @@ export const api = {
     )
   },
 
+  async getUser(session, userId) {
+    return tryLive(
+      async () => normalizeUser(await gatewayClient.getUser(accessToken(session), userId)),
+      () => mockApi.getUser(session, userId),
+    )
+  },
+
   async changePassword(session, payload) {
     return tryLive(
       async () => gatewayClient.changePassword(accessToken(session), payload),

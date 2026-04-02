@@ -10,11 +10,13 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
   FormControl,
-  InputLabel,
   MenuItem,
   Select,
+  FormControlLabel,
   Stack,
+  Switch,
   TextField,
   Typography,
 } from '@mui/material'
@@ -52,6 +54,44 @@ function unknownRecipientIds(selectedIds, knownUsers) {
   return selectedIds.filter((id) => !knownUsers.some((user) => user.id === id))
 }
 
+function renderNotificationMessage(message) {
+  const [firstLine = '', ...restLines] = String(message || '').split(/\r?\n/)
+  const remainingText = restLines.join('\n')
+
+  return (
+    <Typography variant="body1" sx={{ whiteSpace: 'pre-line' }}>
+      <Box component="span" sx={{ fontWeight: 700 }}>
+        {firstLine}
+      </Box>
+      {remainingText ? `\n${remainingText}` : ''}
+    </Typography>
+  )
+}
+
+function splitNotificationMessage(message) {
+  const [firstLine = '', ...restLines] = String(message || '').split(/\r?\n/)
+  const title = firstLine.trim()
+  const content = restLines.join(' ').replace(/\s+/g, ' ').trim()
+
+  return { title, content }
+}
+
+function trimNotificationText(value, maxLength) {
+  const normalized = String(value || '').trim()
+  if (!normalized) {
+    return { text: '', trimmed: false }
+  }
+
+  if (normalized.length <= maxLength) {
+    return { text: normalized, trimmed: false }
+  }
+
+  return {
+    text: `${normalized.slice(0, maxLength).trimEnd()}...`,
+    trimmed: true,
+  }
+}
+
 export default function NotificationsPage() {
   const { token, user } = useAuth()
   const session = useMemo(() => ({ token, user }), [token, user])
@@ -59,10 +99,12 @@ export default function NotificationsPage() {
 
   const [notifications, setNotifications] = useState([])
   const [scheduledNotifications, setScheduledNotifications] = useState([])
+  const [usersById, setUsersById] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [detailNotification, setDetailNotification] = useState(null)
   const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false)
   const [rescheduleBatch, setRescheduleBatch] = useState(null)
   const [rescheduleTriggerAt, setRescheduleTriggerAt] = useState(defaultTriggerAtValue())
@@ -106,6 +148,64 @@ export default function NotificationsPage() {
       setRecipientSourceId(options[0].id)
     }
   }, [recipientSourceType, recipientSourceId, subjectOptions, projectOptions])
+
+  useEffect(() => {
+    const knownIds = new Set([
+      user?.id,
+      ...Object.keys(usersById),
+      ...directoryUsers.map((item) => item.id),
+    ])
+    const missingUserIds = [...new Set(
+      [
+        ...notifications.map((item) => item.creator_user_id),
+        ...scheduledNotifications.flatMap((item) => item.user_ids || []),
+      ].filter((value) => value && value !== 'system' && !knownIds.has(value)),
+    )]
+
+    if (!missingUserIds.length) {
+      return
+    }
+
+    let active = true
+
+    async function loadSenders() {
+      const results = await Promise.allSettled(
+        missingUserIds.map(async (userId) => [userId, await api.getUser(session, userId)]),
+      )
+
+      if (!active) return
+
+      setUsersById((previous) => {
+        const next = { ...previous }
+        let changed = false
+
+        for (const [index, result] of results.entries()) {
+          const userId = missingUserIds[index]
+
+          if (result.status === 'fulfilled') {
+            const [, userRecord] = result.value
+            if (next[userId] !== userRecord) {
+              next[userId] = userRecord
+              changed = true
+            }
+            continue
+          }
+
+          if (!(userId in next)) {
+            next[userId] = null
+            changed = true
+          }
+        }
+
+        return changed ? next : previous
+      })
+    }
+
+    loadSenders()
+    return () => {
+      active = false
+    }
+  }, [notifications, scheduledNotifications, usersById, directoryUsers, session, user?.id])
 
   async function loadNotifications() {
     const items = await api.listNotifications(session, user?.id)
@@ -382,6 +482,49 @@ export default function NotificationsPage() {
     setForm((prev) => ({ ...prev, userIdsText: merged.join(', ') }))
   }
 
+  function resolveUser(userId) {
+    if (!userId || userId === 'system') return null
+    if (user?.id === userId) return user
+    return directoryUsers.find((item) => item.id === userId) || usersById[userId] || null
+  }
+
+  function senderDetails(notification) {
+    if (notification.creator_user_id === 'system') {
+      return { label: 'System', sublabel: '' }
+    }
+
+    const sender = resolveUser(notification.creator_user_id)
+    if (!sender) {
+      return {
+        label: notification.creator_user_id || 'Unknown sender',
+        sublabel: '',
+      }
+    }
+
+    return {
+      label: userSearchLabel(sender),
+      sublabel: sender.email || '',
+    }
+  }
+
+  function recipientLabel(userId) {
+    const person = resolveUser(userId)
+    if (!person) return userId
+    return `${userSearchLabel(person)}${person.email ? ` (${person.email})` : ''}`
+  }
+
+  function notificationPreview(notification) {
+    const { title, content } = splitNotificationMessage(notification.message)
+    const trimmedTitle = trimNotificationText(title || 'Untitled notification', 72)
+    const trimmedContent = trimNotificationText(content, 180)
+
+    return {
+      title: trimmedTitle.text,
+      content: trimmedContent.text,
+      isTrimmed: trimmedTitle.trimmed || trimmedContent.trimmed,
+    }
+  }
+
   if (loading) return <LoadingState />
 
   return (
@@ -453,7 +596,7 @@ export default function NotificationsPage() {
                         spacing={2}
                       >
                         <Stack spacing={0.75}>
-                          <Typography variant="body1">{notification.message}</Typography>
+                          {renderNotificationMessage(notification.message)}
                           <Typography variant="body2" color="text.secondary">
                             Recipients: {notification.user_ids.length}
                           </Typography>
@@ -461,7 +604,7 @@ export default function NotificationsPage() {
                             Triggers at {formatDate(notification.trigger_at)}
                           </Typography>
                           <Typography variant="body2" color="text.secondary">
-                            {notification.user_ids.join(', ')}
+                            {notification.user_ids.map(recipientLabel).join(', ')}
                           </Typography>
                         </Stack>
                         <Button
@@ -502,46 +645,152 @@ export default function NotificationsPage() {
           }}
         >
           {notifications.map((notification) => (
-            <Card
-              key={notification.id}
-              sx={{
-                borderLeft: notification.read ? undefined : '4px solid',
-                borderLeftColor: 'warning.main',
-              }}
-            >
-              <CardContent>
-                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2}>
-                  <Stack spacing={1.25}>
-                    <Typography variant="body1">{notification.message}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Delivered {formatDate(notification.date)}
-                    </Typography>
-                    {notification.trigger_at && (
-                      <Typography variant="body2" color="text.secondary">
-                        Trigger time {formatDate(notification.trigger_at)}
-                      </Typography>
-                    )}
-                  </Stack>
-                  <Chip
-                    label={notification.read ? 'Read' : 'Unread'}
-                    color={notification.read ? 'default' : 'warning'}
-                  />
-                </Stack>
-                {!notification.read && (
-                  <Button
-                    sx={{ mt: 2 }}
-                    size="small"
-                    startIcon={<MarkEmailReadRoundedIcon />}
-                    onClick={() => handleMarkRead(notification.id)}
-                  >
-                    Mark as read
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
+            (() => {
+              const sender = senderDetails(notification)
+              const preview = notificationPreview(notification)
+              const previewSx = preview.isTrimmed
+                ? {
+                    cursor: 'pointer',
+                    borderRadius: 2,
+                    mx: -1,
+                    px: 1,
+                    py: 0.75,
+                    transition: 'background-color 160ms ease',
+                    '&:hover': {
+                      bgcolor: 'action.hover',
+                    },
+                  }
+                : undefined
+
+              return (
+                <Card
+                  key={notification.id}
+                  sx={{
+                    borderLeft: notification.read ? undefined : '4px solid',
+                    borderLeftColor: 'warning.main',
+                  }}
+                >
+                  <CardContent>
+                    <Stack spacing={2}>
+                      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2}>
+                        <Box sx={{ minWidth: 0, flex: 1 }}>
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            noWrap
+                            sx={{ minWidth: 0, flex: 1 }}
+                          >
+                            From{' '}
+                            <Box component="span" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                              {sender.label}
+                            </Box>
+                            {sender.sublabel ? ` (${sender.sublabel})` : ''}
+                          </Typography>
+                        </Box>
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
+                        >
+                          {formatDate(notification.date)}
+                        </Typography>
+                        <Chip
+                          label={notification.read ? 'Read' : 'Unread'}
+                          color={notification.read ? 'default' : 'warning'}
+                        />
+                      </Stack>
+                      <Divider />
+                      <Box
+                        onClick={() => preview.isTrimmed && setDetailNotification(notification)}
+                        role={preview.isTrimmed ? 'button' : undefined}
+                        tabIndex={preview.isTrimmed ? 0 : undefined}
+                        onKeyDown={(event) => {
+                          if (!preview.isTrimmed) return
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault()
+                            setDetailNotification(notification)
+                          }
+                        }}
+                        sx={previewSx}
+                      >
+                        <Stack spacing={0.75}>
+                          <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                            {preview.title}
+                          </Typography>
+                          {preview.content && (
+                            <Typography variant="body2" color="text.secondary">
+                              {preview.content}
+                            </Typography>
+                          )}
+                          {preview.isTrimmed && (
+                            <Typography variant="caption" color="primary.main">
+                              Click to view full message
+                            </Typography>
+                          )}
+                        </Stack>
+                      </Box>
+                      {!notification.read && (
+                        <Box>
+                          <Button
+                            size="small"
+                            startIcon={<MarkEmailReadRoundedIcon />}
+                            onClick={() => handleMarkRead(notification.id)}
+                          >
+                            Mark as read
+                          </Button>
+                        </Box>
+                      )}
+                    </Stack>
+                  </CardContent>
+                </Card>
+              )
+            })()
           ))}
         </Box>
       )}
+
+      <Dialog
+        open={Boolean(detailNotification)}
+        onClose={() => setDetailNotification(null)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>Notification details</DialogTitle>
+        <DialogContent>
+          {detailNotification && (
+            (() => {
+              const sender = senderDetails(detailNotification)
+
+              return (
+                <Stack spacing={2} sx={{ mt: 1 }}>
+                  <Stack
+                    direction="row"
+                    justifyContent="space-between"
+                    alignItems="center"
+                    spacing={1.5}
+                    sx={{ minWidth: 0 }}
+                  >
+                    <Typography variant="body2" color="text.secondary" noWrap sx={{ minWidth: 0, flex: 1 }}>
+                      From{' '}
+                      <Box component="span" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                        {sender.label}
+                      </Box>
+                      {sender.sublabel ? ` (${sender.sublabel})` : ''}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}>
+                      {formatDate(detailNotification.date)}
+                    </Typography>
+                  </Stack>
+                  {renderNotificationMessage(detailNotification.message)}
+                </Stack>
+              )
+            })()
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDetailNotification(null)}>Close</Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle>Compose notification</DialogTitle>
@@ -694,18 +943,36 @@ export default function NotificationsPage() {
               onChange={(event) => setForm((prev) => ({ ...prev, message: event.target.value }))}
             />
             <FormControl fullWidth>
-              <InputLabel id="notification-trigger-mode-label">Trigger time</InputLabel>
-              <Select
-                labelId="notification-trigger-mode-label"
-                label="Trigger time"
-                value={form.triggerMode}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, triggerMode: event.target.value }))
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={form.triggerMode === 'now'}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        triggerMode: event.target.checked ? 'now' : 'date',
+                      }))
+                    }
+                  />
                 }
-              >
-                <MenuItem value="now">Now</MenuItem>
-                <MenuItem value="date">Choose date</MenuItem>
-              </Select>
+                label="Send now"
+                sx={{
+                  m: 0,
+                  px: 1.5,
+                  py: 1,
+                  borderRadius: 2.5,
+                  border: '1px solid rgba(167,180,186,0.22)',
+                  bgcolor: 'background.paper',
+                  justifyContent: 'space-between',
+                  '& .MuiFormControlLabel-label': {
+                    fontWeight: 500,
+                  },
+                  '& .MuiFormControlLabel-root': {
+                    width: '100%',
+                  },
+                }}
+                labelPlacement="start"
+              />
             </FormControl>
             {form.triggerMode === 'date' && (
               <TextField

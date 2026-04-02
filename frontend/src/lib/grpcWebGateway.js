@@ -119,6 +119,11 @@ const methods = {
     commonPb.Empty,
     authPb.User,
   ),
+  getUser: unaryDescriptor(
+    '/gateway.FrontendGateway/GetUser',
+    authPb.GetUserRequest,
+    authPb.User,
+  ),
   listUsers: unaryDescriptor(
     '/gateway.FrontendGateway/ListUsers',
     commonPb.Empty,
@@ -263,6 +268,12 @@ export const gatewayClient = {
 
   getMe(accessToken) {
     return client.unary(methods.getMe, new commonPb.Empty(), accessToken)
+  },
+
+  getUser(accessToken, userId) {
+    const request = new authPb.GetUserRequest()
+    request.setUserId(userId || '')
+    return client.unary(methods.getUser, request, accessToken)
   },
 
   listUsers(accessToken) {

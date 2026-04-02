@@ -256,6 +256,12 @@ export const mockApi = {
     return delay(stripPassword(user))
   },
 
+  async getUser(_session, userId) {
+    const user = users.find((item) => item.id === userId)
+    if (!user) throw new Error('User not found')
+    return delay(stripPassword(user))
+  },
+
   async changePassword(session, payload) {
     const user = currentUserFromSession(session)
     if (!user) throw new Error('Unauthorized')

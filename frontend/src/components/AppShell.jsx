@@ -355,7 +355,7 @@ export default function AppShell() {
 
             <Stack direction="row" spacing={1.5} alignItems="center">
               <Tooltip title="Notifications">
-                <IconButton>
+                <IconButton onClick={() => navigate('/notifications')}>
                   <Badge color="error" badgeContent={unreadCount}>
                     <NotificationsRoundedIcon sx={{ color: 'text.secondary' }} />
                   </Badge>
