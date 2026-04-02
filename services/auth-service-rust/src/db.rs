@@ -15,6 +15,14 @@ pub struct Db {
 }
 
 impl Db {
+    fn normalize_user_id(user_id: &str) -> &str {
+        user_id
+            .trim()
+            .strip_prefix("user:")
+            .unwrap_or(user_id.trim())
+            .trim_matches('`')
+    }
+
     pub async fn connect(config: &Config) -> anyhow::Result<Self> {
         let db = Surreal::new::<SurrealKv>(config.db_path.clone()).await?;
         db.use_ns(&config.surreal_namespace)
@@ -70,8 +78,9 @@ impl Db {
     }
 
     pub async fn find_user_by_id(&self, user_id: &str) -> anyhow::Result<Option<UserRecord>> {
+        let normalized = Self::normalize_user_id(user_id);
         self.inner
-            .select(("user", user_id))
+            .select(("user", normalized))
             .await
             .map_err(|e| e.into())
     }
