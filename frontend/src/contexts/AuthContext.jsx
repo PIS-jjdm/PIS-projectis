@@ -83,7 +83,7 @@ export function AuthProvider({ children }) {
 
   const refreshNotifications = useCallback(async () => {
     if (!session.user) return []
-    return api.listNotifications(session, session.user.id)
+    return api.listNotifications(session)
   }, [session])
 
   const value = useMemo(

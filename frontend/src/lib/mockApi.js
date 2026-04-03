@@ -441,9 +441,9 @@ export const mockApi = {
     return delay(teams.filter((team) => team.project_id === projectId))
   },
 
-  async listNotifications(session, userId) {
+  async listNotifications(session) {
     materializeDueNotifications()
-    const effectiveUserId = userId || session.user?.id
+    const effectiveUserId = session.user?.id
     return delay(
       attachNotificationSenders(
         notifications.filter(

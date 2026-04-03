@@ -1,6 +1,5 @@
 import {
   Alert,
-  Avatar,
   Box,
   Button,
   Card,
@@ -18,13 +17,13 @@ import {
 import ManageAccountsRoundedIcon from '@mui/icons-material/ManageAccountsRounded'
 import PersonAddAlt1RoundedIcon from '@mui/icons-material/PersonAddAlt1Rounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import EmptyState from '../components/EmptyState'
 import LoadingState from '../components/LoadingState'
 import PageHeader from '../components/PageHeader'
+import UserAvatar from '../components/UserAvatar'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
-import { avatarUrl } from '../lib/avatar'
 
 const initialForm = {
   firstname: '',
@@ -47,19 +46,18 @@ export default function AdminUsersPage() {
   const [editingUser, setEditingUser] = useState(null)
   const [form, setForm] = useState(initialForm)
 
-  async function loadUsers() {
+  const loadUsers = useCallback(async () => {
     setError('')
     const data = await api.listUsers(session)
     setUsers(data)
-  }
+  }, [session])
 
   useEffect(() => {
     let active = true
 
     async function load() {
       try {
-        const data = await api.listUsers(session)
-        if (active) setUsers(data)
+        await loadUsers()
       } catch (err) {
         if (active) setError(err.message || 'Failed to load users')
       } finally {
@@ -71,7 +69,7 @@ export default function AdminUsersPage() {
     return () => {
       active = false
     }
-  }, [token, user])
+  }, [loadUsers])
 
   function openCreateDialog() {
     setEditingUser(null)
@@ -177,9 +175,9 @@ export default function AdminUsersPage() {
               <CardContent>
                 <Stack direction="row" spacing={2} justifyContent="space-between" alignItems="flex-start">
                   <Stack direction="row" spacing={2} alignItems="center" sx={{ minWidth: 0, flex: 1 }}>
-                    <Avatar src={avatarUrl(item.id)} sx={{ bgcolor: 'primary.main' }}>
+                    <UserAvatar userId={item.id} sx={{ bgcolor: 'primary.main' }}>
                       <ManageAccountsRoundedIcon />
-                    </Avatar>
+                    </UserAvatar>
                     <Stack sx={{ minWidth: 0 }}>
                       <Typography variant="subtitle1" noWrap>
                         {item.firstname} {item.lastname}

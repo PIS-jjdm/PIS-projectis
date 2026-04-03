@@ -28,6 +28,7 @@ import EditCalendarRoundedIcon from '@mui/icons-material/EditCalendarRounded'
 import PageHeader from '../components/PageHeader'
 import EmptyState from '../components/EmptyState'
 import LoadingState from '../components/LoadingState'
+import { useOutletContext } from 'react-router'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
 import { formatDate } from '../utils/date'
@@ -42,7 +43,22 @@ function parseUserIds(value) {
 }
 
 function defaultTriggerAtValue() {
-  return new Date(Date.now() + 60 * 60 * 1000).toISOString().slice(0, 16)
+  return toLocalDateTimeInputValue(new Date(Date.now() + 60 * 60 * 1000))
+}
+
+function toLocalDateTimeInputValue(value) {
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return ''
+  }
+
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+
+  return `${year}-${month}-${day}T${hours}:${minutes}`
 }
 
 function userSearchLabel(user) {
@@ -50,13 +66,20 @@ function userSearchLabel(user) {
   return `${user.firstname} ${user.lastname}`.trim() || user.email || user.id
 }
 
-function unknownRecipientIds(selectedIds, knownUsers) {
-  return selectedIds.filter((id) => !knownUsers.some((user) => user.id === id))
+function parseNotificationMessage(message) {
+  const [firstLine = '', ...restLines] = String(message || '').split(/\r?\n/)
+  const remainingText = restLines.join('\n')
+
+  return {
+    firstLine,
+    remainingText,
+    title: firstLine.trim(),
+    content: restLines.join(' ').replace(/\s+/g, ' ').trim(),
+  }
 }
 
 function renderNotificationMessage(message) {
-  const [firstLine = '', ...restLines] = String(message || '').split(/\r?\n/)
-  const remainingText = restLines.join('\n')
+  const { firstLine, remainingText } = parseNotificationMessage(message)
 
   return (
     <Typography variant="body1" sx={{ whiteSpace: 'pre-line' }}>
@@ -66,14 +89,6 @@ function renderNotificationMessage(message) {
       {remainingText ? `\n${remainingText}` : ''}
     </Typography>
   )
-}
-
-function splitNotificationMessage(message) {
-  const [firstLine = '', ...restLines] = String(message || '').split(/\r?\n/)
-  const title = firstLine.trim()
-  const content = restLines.join(' ').replace(/\s+/g, ' ').trim()
-
-  return { title, content }
 }
 
 function trimNotificationText(value, maxLength) {
@@ -94,6 +109,7 @@ function trimNotificationText(value, maxLength) {
 
 export default function NotificationsPage() {
   const { token, user } = useAuth()
+  const { latestStreamedNotification, lastReadNotificationId, onNotificationRead } = useOutletContext()
   const session = useMemo(() => ({ token, user }), [token, user])
   const canManageNotifications = ['teacher', 'admin'].includes(user?.role)
 
@@ -131,10 +147,6 @@ export default function NotificationsPage() {
   const selectedDirectoryUsers = useMemo(
     () => searchableDirectoryUsers.filter((item) => selectedRecipientIds.includes(item.id)),
     [searchableDirectoryUsers, selectedRecipientIds],
-  )
-  const selectedUnknownIds = useMemo(
-    () => unknownRecipientIds(selectedRecipientIds, searchableDirectoryUsers),
-    [selectedRecipientIds, searchableDirectoryUsers],
   )
 
   useEffect(() => {
@@ -203,7 +215,7 @@ export default function NotificationsPage() {
   }, [scheduledNotifications, usersById, directoryUsers, session, user?.id])
 
   async function loadNotifications() {
-    const items = await api.listNotifications(session, user?.id)
+    const items = await api.listNotifications(session)
     setNotifications(items)
   }
 
@@ -230,40 +242,68 @@ export default function NotificationsPage() {
   }
 
   useEffect(() => {
-    let unsubscribe = () => {}
-
-    loadPageData().then(() => {
-      unsubscribe = api.subscribeNotifications(session, {
-        onMessage: (item) => {
-          if (!item) return
-          setNotifications((prev) => {
-            const next = [item, ...prev.filter((entry) => entry.id !== item.id)]
-            next.sort((left, right) => new Date(right.date || 0) - new Date(left.date || 0))
-            return next
-          })
-          setError('')
-          setLoading(false)
-          if (canManageNotifications) {
-            loadScheduledNotifications().catch(() => {})
-          }
-        },
-        onError: (err) => {
-          setError(err.message || 'Notification stream disconnected')
-        },
-      })
-    })
-
-    return () => unsubscribe()
+    loadPageData()
   }, [token, user?.id, user?.role])
+
+  useEffect(() => {
+    if (!latestStreamedNotification) {
+      return
+    }
+
+    setNotifications((prev) => {
+      const next = [
+        latestStreamedNotification,
+        ...prev.filter((entry) => entry.id !== latestStreamedNotification.id),
+      ]
+      next.sort((left, right) => new Date(right.date || 0) - new Date(left.date || 0))
+      return next
+    })
+    setError('')
+    setLoading(false)
+  }, [latestStreamedNotification])
+
+  useEffect(() => {
+    if (!lastReadNotificationId) {
+      return
+    }
+
+    setNotifications((prev) =>
+      prev.map((item) =>
+        item.id === lastReadNotificationId ? { ...item, read: true } : item,
+      ),
+    )
+    setDetailNotification((current) =>
+      current?.id === lastReadNotificationId ? { ...current, read: true } : current,
+    )
+  }, [lastReadNotificationId])
 
   async function handleMarkRead(notificationId) {
     setError('')
+    const targetNotification = notifications.find((item) => item.id === notificationId)
     try {
       await api.markNotificationRead(session, notificationId)
-      await loadNotifications()
+      setNotifications((prev) =>
+        prev.map((item) => (item.id === notificationId ? { ...item, read: true } : item)),
+      )
+      setDetailNotification((current) =>
+        current?.id === notificationId ? { ...current, read: true } : current,
+      )
+      if (targetNotification && !targetNotification.read) {
+        onNotificationRead?.()
+      }
     } catch (err) {
       setError(err.message || 'Failed to mark notification as read')
     }
+  }
+
+  async function openNotificationDetail(notification) {
+    setDetailNotification(notification)
+
+    if (notification.read) {
+      return
+    }
+
+    await handleMarkRead(notification.id)
   }
 
   async function handleCreate() {
@@ -279,6 +319,18 @@ export default function NotificationsPage() {
     if (!form.message.trim()) {
       setError('Notification message is required')
       return
+    }
+
+    if (form.triggerMode === 'date') {
+      const scheduledAt = new Date(form.triggerAt)
+      if (Number.isNaN(scheduledAt.getTime())) {
+        setError('Choose a valid scheduled date.')
+        return
+      }
+      if (scheduledAt <= new Date()) {
+        setError('Scheduled notification time must be in the future.')
+        return
+      }
     }
 
     const payload = {
@@ -335,7 +387,7 @@ export default function NotificationsPage() {
   function openRescheduleDialog(batch) {
     setRescheduleBatch(batch)
     setRescheduleTriggerAt(
-      batch?.trigger_at ? new Date(batch.trigger_at).toISOString().slice(0, 16) : defaultTriggerAtValue(),
+      batch?.trigger_at ? toLocalDateTimeInputValue(batch.trigger_at) : defaultTriggerAtValue(),
     )
     setRescheduleDialogOpen(true)
   }
@@ -349,11 +401,21 @@ export default function NotificationsPage() {
       return
     }
 
+    const scheduledAt = new Date(rescheduleTriggerAt)
+    if (Number.isNaN(scheduledAt.getTime())) {
+      setError('Choose a valid scheduled date.')
+      return
+    }
+    if (scheduledAt <= new Date()) {
+      setError('Scheduled notification time must be in the future.')
+      return
+    }
+
     try {
       await api.rescheduleScheduledNotification(
         session,
         rescheduleBatch.batch_id,
-        new Date(rescheduleTriggerAt).toISOString(),
+        scheduledAt.toISOString(),
       )
       setRescheduleDialogOpen(false)
       setRescheduleBatch(null)
@@ -509,7 +571,7 @@ export default function NotificationsPage() {
   }
 
   function notificationPreview(notification) {
-    const { title, content } = splitNotificationMessage(notification.message)
+    const { title, content } = parseNotificationMessage(notification.message)
     const trimmedTitle = trimNotificationText(title || 'Untitled notification', 72)
     const trimmedContent = trimNotificationText(content, 180)
 
@@ -637,6 +699,7 @@ export default function NotificationsPage() {
             display: 'grid',
             gridTemplateColumns: { xs: '1fr', lg: 'repeat(2, 1fr)' },
             gap: 2.5,
+            alignItems: 'stretch',
           }}
         >
           {notifications.map((notification) => (
@@ -661,12 +724,13 @@ export default function NotificationsPage() {
                 <Card
                   key={notification.id}
                   sx={{
+                    height: '100%',
                     borderLeft: notification.read ? undefined : '4px solid',
                     borderLeftColor: 'warning.main',
                   }}
                 >
-                  <CardContent>
-                    <Stack spacing={2}>
+                  <CardContent sx={{ height: '100%' }}>
+                    <Stack spacing={2} sx={{ height: '100%' }}>
                       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={2}>
                         <Box sx={{ minWidth: 0, flex: 1 }}>
                           <Typography
@@ -696,17 +760,17 @@ export default function NotificationsPage() {
                       </Stack>
                       <Divider />
                       <Box
-                        onClick={() => preview.isTrimmed && setDetailNotification(notification)}
+                        onClick={() => preview.isTrimmed && openNotificationDetail(notification)}
                         role={preview.isTrimmed ? 'button' : undefined}
                         tabIndex={preview.isTrimmed ? 0 : undefined}
                         onKeyDown={(event) => {
                           if (!preview.isTrimmed) return
                           if (event.key === 'Enter' || event.key === ' ') {
                             event.preventDefault()
-                            setDetailNotification(notification)
+                            openNotificationDetail(notification)
                           }
                         }}
-                        sx={previewSx}
+                        sx={{ ...previewSx, flexGrow: 1 }}
                       >
                         <Stack spacing={0.75}>
                           <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
@@ -879,55 +943,6 @@ export default function NotificationsPage() {
                     </Box>
                   )}
                 />
-                <Box
-                  sx={{
-                    p: 1.5,
-                    borderRadius: 2.5,
-                    bgcolor: 'background.paper',
-                    border: '1px solid rgba(167,180,186,0.22)',
-                  }}
-                >
-                  <Stack
-                    direction={{ xs: 'column', sm: 'row' }}
-                    justifyContent="space-between"
-                    alignItems={{ xs: 'flex-start', sm: 'center' }}
-                    spacing={1.5}
-                  >
-                    <Box>
-                      <Typography variant="subtitle2">Selected recipients</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {selectedRecipientIds.length
-                          ? `${selectedRecipientIds.length} recipients selected`
-                          : 'No recipients selected yet'}
-                      </Typography>
-                    </Box>
-                    {selectedRecipientIds.length > 0 && (
-                      <Button
-                        size="small"
-                        color="inherit"
-                        onClick={() =>
-                          setForm((prev) => ({ ...prev, userIdsText: '' }))
-                        }
-                      >
-                        Clear selection
-                      </Button>
-                    )}
-                  </Stack>
-                  {(selectedDirectoryUsers.length > 0 || selectedUnknownIds.length > 0) && (
-                    <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 1.5 }}>
-                      {selectedDirectoryUsers.map((person) => (
-                        <Chip
-                          key={person.id}
-                          label={`${userSearchLabel(person)} (${person.email})`}
-                          variant="outlined"
-                        />
-                      ))}
-                      {selectedUnknownIds.map((id) => (
-                        <Chip key={id} label={id} variant="outlined" color="warning" />
-                      ))}
-                    </Stack>
-                  )}
-                </Box>
               </Stack>
             </Box>
             <TextField

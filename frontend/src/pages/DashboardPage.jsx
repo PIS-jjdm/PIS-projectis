@@ -70,7 +70,7 @@ export default function DashboardPage() {
           api.getDashboardSummary(session),
           api.listSubjects(session),
           api.listProjects(session),
-          api.listNotifications(session, user?.id),
+          api.listNotifications(session),
         ])
 
         if (!active) return

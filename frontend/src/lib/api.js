@@ -201,7 +201,7 @@ async function buildDashboardSummary(session) {
   const [subjectsResult, projectsResult, notificationsResult] = await Promise.allSettled([
     api.listSubjects(session),
     api.listProjects(session),
-    api.listNotifications(session, session.user?.id),
+    api.listNotifications(session),
   ])
 
   const subjects = subjectsResult.status === 'fulfilled' ? subjectsResult.value : []
@@ -404,13 +404,13 @@ export const api = {
     )
   },
 
-  async listNotifications(session, userId) {
+  async listNotifications(session) {
     return tryLive(
       async () => {
         const response = await gatewayClient.listNotifications(accessToken(session))
         return response.getNotificationsList().map(normalizeNotification)
       },
-      () => mockApi.listNotifications(session, userId),
+      () => mockApi.listNotifications(session),
     )
   },
 

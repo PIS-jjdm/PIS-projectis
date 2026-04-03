@@ -1,7 +1,6 @@
 import {
   Alert,
   AppBar,
-  Avatar,
   Badge,
   Box,
   Button,
@@ -19,6 +18,7 @@ import {
   Menu,
   MenuItem,
   Stack,
+  Snackbar,
   TextField,
   Toolbar,
   Tooltip,
@@ -41,7 +41,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
-import { avatarUrl } from '../lib/avatar'
+import UserAvatar from './UserAvatar'
 
 const drawerWidth = 256
 const SUPPORTED_AVATAR_TYPES = new Set([
@@ -93,6 +93,38 @@ function navItems(role, unreadCount) {
   return items
 }
 
+function notificationToastMessage(notification) {
+  const firstLine = String(notification?.message || '').split(/\r?\n/, 1)[0]?.trim()
+  return firstLine || 'New notification received.'
+}
+
+function notificationSenderLabel(notification) {
+  if (notification?.creator_user_id === 'system') {
+    return 'System'
+  }
+
+  const sender = notification?.sender
+  if (!sender) {
+    return notification?.creator_user_id || 'Unknown sender'
+  }
+
+  return `${sender.firstname || ''} ${sender.lastname || ''}`.trim() || sender.email || sender.id
+}
+
+function renderNotificationMessage(message) {
+  const [firstLine = '', ...restLines] = String(message || '').split(/\r?\n/)
+  const remainingText = restLines.join('\n')
+
+  return (
+    <Typography variant="body1" sx={{ whiteSpace: 'pre-line' }}>
+      <Box component="span" sx={{ fontWeight: 700 }}>
+        {firstLine}
+      </Box>
+      {remainingText ? `\n${remainingText}` : ''}
+    </Typography>
+  )
+}
+
 export default function AppShell() {
   const theme = useTheme()
   const mobile = useMediaQuery(theme.breakpoints.down('lg'))
@@ -110,6 +142,14 @@ export default function AppShell() {
   const [avatarVersion, setAvatarVersion] = useState(() => Date.now().toString())
   const [pendingAvatarFile, setPendingAvatarFile] = useState(null)
   const [pendingAvatarPreviewUrl, setPendingAvatarPreviewUrl] = useState('')
+  const [latestStreamedNotification, setLatestStreamedNotification] = useState(null)
+  const [detailNotification, setDetailNotification] = useState(null)
+  const [lastReadNotificationId, setLastReadNotificationId] = useState('')
+  const [notificationToast, setNotificationToast] = useState({
+    open: false,
+    notification: null,
+    message: '',
+  })
   const [passwordForm, setPasswordForm] = useState({
     current_password: '',
     new_password: '',
@@ -123,7 +163,7 @@ export default function AppShell() {
     async function loadNotifications() {
       if (!user) return
       try {
-        const items = await api.listNotifications({ token, user }, user.id)
+        const items = await api.listNotifications({ token, user })
         if (active) {
           setUnreadCount(items.filter((item) => !item.read).length)
         }
@@ -137,6 +177,32 @@ export default function AppShell() {
       active = false
     }
   }, [token, user, location.pathname])
+
+  useEffect(() => {
+    if (!token || !user?.id) {
+      setLatestStreamedNotification(null)
+      return undefined
+    }
+
+    return api.subscribeNotifications(
+      { token, user },
+      {
+        onMessage: (item) => {
+          if (!item) return
+
+          setLatestStreamedNotification(item)
+          if (!item.read) {
+            setUnreadCount((current) => current + 1)
+          }
+          setNotificationToast({
+            open: true,
+            notification: item,
+            message: notificationToastMessage(item),
+          })
+        },
+      },
+    )
+  }, [token, user])
 
   useEffect(() => {
     if (!pendingAvatarFile) {
@@ -155,7 +221,7 @@ export default function AppShell() {
   const items = useMemo(() => navItems(user?.role, unreadCount), [user?.role, unreadCount])
   const current = items.find((item) => item.path === location.pathname) || items[0]
   const accountMenuOpen = Boolean(accountAnchorEl)
-  const accountAvatarSrc = pendingAvatarPreviewUrl || avatarUrl(user?.id, avatarVersion)
+  const accountAvatarSrc = pendingAvatarPreviewUrl || ''
 
   function resetPasswordForm() {
     setPasswordForm({
@@ -172,6 +238,55 @@ export default function AppShell() {
     setPendingAvatarFile(null)
     resetPasswordForm()
     setAccountAnchorEl(null)
+  }
+
+  async function handleLogout() {
+    setAccountAnchorEl(null)
+    await logout()
+    navigate('/login')
+  }
+
+  function handleNotificationRead() {
+    setUnreadCount((current) => Math.max(current - 1, 0))
+  }
+
+  async function markNotificationAsRead(notification) {
+    if (!notification?.id || notification.read) {
+      return
+    }
+
+    await api.markNotificationRead({ token, user }, notification.id)
+    handleNotificationRead()
+    setLastReadNotificationId(notification.id)
+    setDetailNotification((current) =>
+      current?.id === notification.id ? { ...current, read: true } : current,
+    )
+    setLatestStreamedNotification((current) =>
+      current?.id === notification.id ? { ...current, read: true } : current,
+    )
+    setNotificationToast((current) =>
+      current.notification?.id === notification.id
+        ? {
+            ...current,
+            notification: { ...current.notification, read: true },
+          }
+        : current,
+    )
+  }
+
+  async function openNotificationDetail(notification) {
+    if (!notification) {
+      return
+    }
+
+    setNotificationToast((current) => ({ ...current, open: false }))
+    setDetailNotification(notification)
+
+    try {
+      await markNotificationAsRead(notification)
+    } catch {
+      // Keep the detail dialog open even if marking as read fails.
+    }
   }
 
   async function handlePasswordChange() {
@@ -391,10 +506,7 @@ export default function AppShell() {
           <Tooltip title="Sign out">
             <IconButton
               size="small"
-              onClick={async () => {
-                await logout()
-                navigate('/login')
-              }}
+              onClick={handleLogout}
             >
               <LogoutRoundedIcon fontSize="small" />
             </IconButton>
@@ -474,18 +586,18 @@ export default function AppShell() {
               </Tooltip>
               <Tooltip title="Account">
                 <IconButton onClick={(event) => setAccountAnchorEl(event.currentTarget)}>
-                  <Avatar
-                    src={avatarUrl(user?.id, avatarVersion)}
+                  <UserAvatar
+                    userId={user?.id}
+                    version={avatarVersion}
+                    size={34}
                     sx={{
-                      width: 34,
-                      height: 34,
                       bgcolor: 'rgba(214, 227, 255, 0.9)',
                       color: 'primary.main',
                       border: '2px solid rgba(214, 227, 255, 1)',
                     }}
                   >
                     {user?.firstname?.[0] || 'U'}
-                  </Avatar>
+                  </UserAvatar>
                 </IconButton>
               </Tooltip>
             </Stack>
@@ -494,7 +606,14 @@ export default function AppShell() {
 
         <Box component="main" sx={{ flex: 1, px: { xs: 2, md: 5 }, py: { xs: 3, md: 5 } }}>
           <Box sx={{ maxWidth: '1200px', mx: 'auto', width: '100%' }}>
-            <Outlet context={{ currentSection: current }} />
+            <Outlet
+              context={{
+                currentSection: current,
+                latestStreamedNotification,
+                lastReadNotificationId,
+                onNotificationRead: handleNotificationRead,
+              }}
+            />
           </Box>
         </Box>
       </Box>
@@ -513,11 +632,7 @@ export default function AppShell() {
           </Stack>
         </MenuItem>
         <MenuItem
-          onClick={async () => {
-            setAccountAnchorEl(null)
-            await logout()
-            navigate('/login')
-          }}
+          onClick={handleLogout}
         >
           <Stack direction="row" spacing={1.25} alignItems="center">
             <LogoutRoundedIcon fontSize="small" />
@@ -541,11 +656,12 @@ export default function AppShell() {
                     }}
                     sx={{ borderRadius: '50%' }}
                   >
-                    <Avatar
+                    <UserAvatar
+                      userId={user?.id}
+                      version={avatarVersion}
                       src={accountAvatarSrc}
+                      size={88}
                       sx={{
-                        width: 88,
-                        height: 88,
                         bgcolor: 'rgba(214, 227, 255, 0.9)',
                         color: 'primary.main',
                         cursor: savingAvatar ? 'progress' : 'pointer',
@@ -553,7 +669,7 @@ export default function AppShell() {
                       }}
                     >
                       {user?.firstname?.[0] || 'U'}
-                    </Avatar>
+                    </UserAvatar>
                   </ButtonBase>
                 </Box>
                 <Stack direction="row" spacing={1.25} flexWrap="wrap" useFlexGap>
@@ -659,6 +775,70 @@ export default function AppShell() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Dialog
+        open={Boolean(detailNotification)}
+        onClose={() => setDetailNotification(null)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle>Notification details</DialogTitle>
+        <DialogContent>
+          {detailNotification && (
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              <Stack
+                direction="row"
+                justifyContent="space-between"
+                alignItems="center"
+                spacing={1.5}
+                sx={{ minWidth: 0 }}
+              >
+                <Typography variant="body2" color="text.secondary" noWrap sx={{ minWidth: 0, flex: 1 }}>
+                  From{' '}
+                  <Box component="span" sx={{ fontWeight: 600, color: 'text.primary' }}>
+                    {notificationSenderLabel(detailNotification)}
+                  </Box>
+                </Typography>
+                {detailNotification.date && (
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}
+                  >
+                    {new Date(detailNotification.date).toLocaleString()}
+                  </Typography>
+                )}
+              </Stack>
+              {renderNotificationMessage(detailNotification.message)}
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDetailNotification(null)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar
+        open={notificationToast.open}
+        autoHideDuration={4000}
+        onClose={() => setNotificationToast((current) => ({ ...current, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert
+          severity="info"
+          variant="filled"
+          onClick={() => openNotificationDetail(notificationToast.notification)}
+          onClose={() => setNotificationToast((current) => ({ ...current, open: false }))}
+          sx={{ width: '100%', cursor: notificationToast.notification ? 'pointer' : 'default' }}
+        >
+          <Typography variant="body2" sx={{ opacity: 0.84 }}>
+            {notificationSenderLabel(notificationToast.notification)}
+          </Typography>
+          <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+            {notificationToast.message}
+          </Typography>
+        </Alert>
+      </Snackbar>
     </Box>
   )
 }
