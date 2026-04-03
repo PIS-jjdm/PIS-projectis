@@ -41,6 +41,7 @@ export default function AdminUsersPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
   const [form, setForm] = useState(initialForm)
@@ -89,7 +90,11 @@ export default function AdminUsersPage() {
     setDialogOpen(true)
   }
 
-  async function handleSubmitUser() {
+  function isSelfRoleChange() {
+    return editingUser?.id === user?.id && form.role !== user?.role
+  }
+
+  async function submitUser() {
     setError('')
     setSuccess('')
     setSubmitting(true)
@@ -118,6 +123,15 @@ export default function AdminUsersPage() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  function handleSubmitUser() {
+    if (isSelfRoleChange()) {
+      setConfirmDialogOpen(true)
+      return
+    }
+
+    submitUser()
   }
 
   if (loading) return <LoadingState />
@@ -160,22 +174,23 @@ export default function AdminUsersPage() {
           {users.map((item) => (
             <Card key={item.id}>
               <CardContent>
-                <Stack direction="row" spacing={2} alignItems="center">
-                  <Avatar sx={{ bgcolor: 'primary.main' }}>
-                    <ManageAccountsRoundedIcon />
-                  </Avatar>
-                  <Stack sx={{ minWidth: 0 }}>
-                    <Typography variant="subtitle1" noWrap>
-                      {item.firstname} {item.lastname}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" noWrap>
-                      {item.email}
-                    </Typography>
+                <Stack direction="row" spacing={2} justifyContent="space-between" alignItems="flex-start">
+                  <Stack direction="row" spacing={2} alignItems="center" sx={{ minWidth: 0, flex: 1 }}>
+                    <Avatar sx={{ bgcolor: 'primary.main' }}>
+                      <ManageAccountsRoundedIcon />
+                    </Avatar>
+                    <Stack sx={{ minWidth: 0 }}>
+                      <Typography variant="subtitle1" noWrap>
+                        {item.firstname} {item.lastname}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" noWrap>
+                        {item.email}
+                      </Typography>
+                    </Stack>
                   </Stack>
-                </Stack>
-                <Stack direction="row" spacing={1} sx={{ mt: 2 }} useFlexGap flexWrap="wrap">
-                  <Chip label={item.role} color="secondary" />
-                  <Chip label={item.id} variant="outlined" />
+                  <Stack alignItems="flex-end" sx={{ flexShrink: 0 }}>
+                    <Chip label={item.role} color="secondary" />
+                  </Stack>
                 </Stack>
                 <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
                   <Button
@@ -241,6 +256,34 @@ export default function AdminUsersPage() {
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
           <Button onClick={handleSubmitUser} variant="contained" disabled={submitting}>
             {submitting ? (editingUser ? 'Saving...' : 'Creating...') : (editingUser ? 'Save changes' : 'Create user')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={confirmDialogOpen}
+        onClose={() => setConfirmDialogOpen(false)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle>Confirm role change</DialogTitle>
+        <DialogContent>
+          <Typography color="text.secondary">
+            You are changing your own role from admin to {form.role}. After saving, you will lose
+            access to administration features.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmDialogOpen(false)}>Cancel</Button>
+          <Button
+            color="warning"
+            variant="contained"
+            onClick={() => {
+              setConfirmDialogOpen(false)
+              submitUser()
+            }}
+          >
+            Confirm
           </Button>
         </DialogActions>
       </Dialog>

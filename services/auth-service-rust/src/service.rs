@@ -208,6 +208,26 @@ impl AuthService for AuthGrpc {
         }
 
         let role = models::role_from_proto(req.role)?.to_owned();
+        let existing = self
+            .db
+            .find_user_by_id(&req.user_id)
+            .await
+            .map_err(internal)?
+            .ok_or_else(|| Status::not_found("user not found"))?;
+
+        if existing.role == "admin"
+            && role != "admin"
+            && !self
+                .db
+                .has_other_admin(&req.user_id)
+                .await
+                .map_err(internal)?
+        {
+            return Err(Status::failed_precondition(
+                "cannot remove the last remaining admin",
+            ));
+        }
+
         if self
             .db
             .email_belongs_to_other_user(&req.user_id, email)

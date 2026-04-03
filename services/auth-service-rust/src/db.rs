@@ -132,6 +132,16 @@ impl Db {
         Ok(serialize_user_id(&existing.id) != normalize_user_id(user_id))
     }
 
+    pub async fn has_other_admin(&self, user_id: &str) -> anyhow::Result<bool> {
+        let target_user_id = normalize_user_id(user_id);
+
+        Ok(self
+            .list_users()
+            .await?
+            .into_iter()
+            .any(|user| user.role == "admin" && serialize_user_id(&user.id) != target_user_id))
+    }
+
     pub async fn update_user_password(
         &self,
         user_id: &str,
