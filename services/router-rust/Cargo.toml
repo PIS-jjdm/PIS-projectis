@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1"
+axum = "0.8"
 dotenvy = "0.15"
 prost = "0.14"
 prost-types = "0.14"

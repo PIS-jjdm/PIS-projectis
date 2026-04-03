@@ -7,6 +7,7 @@ COPY proto ./proto
 COPY services/router-rust/Cargo.toml ./services/router/Cargo.toml
 COPY services/router-rust/Cargo.lock ./services/router/Cargo.lock
 COPY services/router-rust/build.rs ./services/router/build.rs
+COPY services/router-rust/default_avatar.png ./services/router/default_avatar.png
 
 WORKDIR /app/services/router
 

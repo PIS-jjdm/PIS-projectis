@@ -278,6 +278,13 @@ export const api = {
     )
   },
 
+  async setUserAvatar(session, payload) {
+    return tryLive(
+      async () => gatewayClient.setUserAvatar(accessToken(session), payload),
+      () => mockApi.setUserAvatar(session, payload),
+    )
+  },
+
   async logout(session) {
     return tryLive(
       async () => gatewayClient.logout(accessToken(session)),

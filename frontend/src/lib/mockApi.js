@@ -326,6 +326,14 @@ export const mockApi = {
     return delay({ success: true })
   },
 
+  async setUserAvatar(session, payload) {
+    const user = currentUserFromSession(session)
+    if (!user) throw new Error('Unauthorized')
+    if (!payload?.user_id) throw new Error('User ID is required')
+    if (user.id !== payload.user_id && user.role !== 'admin') throw new Error('Forbidden')
+    return delay({ success: true })
+  },
+
   async logout() {
     return delay({ success: true })
   },

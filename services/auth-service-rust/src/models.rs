@@ -30,6 +30,17 @@ pub struct RevokedTokenRecord {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UserAvatarRecord {
+    pub id: RecordId,
+    pub image_png: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NewUserAvatarRecord {
+    pub image_png: Vec<u8>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Claims {
     pub sub: String,
     pub exp: usize,

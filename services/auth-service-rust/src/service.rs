@@ -1,3 +1,4 @@
+use crate::avatar::normalize_avatar;
 use crate::db::Db;
 use crate::models;
 use crate::models::{Claims, JwtKeys, NewUserRecord};
@@ -23,8 +24,9 @@ pub mod notification {
 
 use auth::auth_service_server::AuthService;
 use auth::{
-    AuthResponse, ChangePasswordRequest, CreateUserRequest, GetUserRequest, ListUsersRequest,
-    ListUsersResponse, LoginRequest, LogoutRequest, RegisterRequest, UpdateUserRequest, User,
+    AuthResponse, ChangePasswordRequest, CreateUserRequest, GetUserAvatarRequest,
+    GetUserAvatarResponse, GetUserRequest, ListUsersRequest, ListUsersResponse, LoginRequest,
+    LogoutRequest, RegisterRequest, SetUserAvatarRequest, UpdateUserRequest, User,
     ValidateTokenRequest, ValidateTokenResponse,
 };
 use common::{Ack, UserRole};
@@ -245,6 +247,65 @@ impl AuthService for AuthGrpc {
             .ok_or_else(|| Status::not_found("user not found"))?;
 
         Ok(Response::new(updated.into()))
+    }
+
+    async fn get_user_avatar(
+        &self,
+        request: Request<GetUserAvatarRequest>,
+    ) -> Result<Response<GetUserAvatarResponse>, Status> {
+        let user_id = request.into_inner().user_id;
+        if user_id.trim().is_empty() {
+            return Err(Status::invalid_argument("user id is required"));
+        }
+
+        let image_png = self
+            .db
+            .get_user_avatar(&user_id)
+            .await
+            .map_err(internal)?
+            .map(|record| record.image_png)
+            .ok_or_else(|| Status::not_found("avatar not found"))?;
+
+        Ok(Response::new(GetUserAvatarResponse { image_png }))
+    }
+
+    async fn set_user_avatar(
+        &self,
+        request: Request<SetUserAvatarRequest>,
+    ) -> Result<Response<Ack>, Status> {
+        let req = request.into_inner();
+        if req.user_id.trim().is_empty() {
+            return Err(Status::invalid_argument("user id is required"));
+        }
+
+        self.db
+            .find_user_by_id(&req.user_id)
+            .await
+            .map_err(internal)?
+            .ok_or_else(|| Status::not_found("user not found"))?;
+
+        if req.image_data.is_empty() {
+            self.db
+                .delete_user_avatar(&req.user_id)
+                .await
+                .map_err(internal)?;
+
+            return Ok(Response::new(Ack {
+                success: true,
+                message: "avatar reset to default".into(),
+            }));
+        }
+
+        let image_png = normalize_avatar(&req.image_data)?;
+        self.db
+            .set_user_avatar(&req.user_id, image_png)
+            .await
+            .map_err(internal)?;
+
+        Ok(Response::new(Ack {
+            success: true,
+            message: "avatar updated".into(),
+        }))
     }
 
     async fn login(

@@ -1,5 +1,6 @@
 mod auth_context;
 mod config;
+mod file_http;
 mod gateway;
 mod grpc_auth;
 mod proto;
@@ -12,8 +13,8 @@ pub use state::AppState;
 use opentelemetry::trace::TracerProvider as _;
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::{trace::SdkTracerProvider, Resource};
+use tokio::net::TcpListener;
 use tokio::signal;
-use tonic::transport::Server;
 use tower::Layer as _;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
@@ -50,8 +51,6 @@ async fn main() -> anyhow::Result<()> {
     init_telemetry(&config.otel_service_name, &config.otel_endpoint)?;
 
     let state = AppState::from_config(&config).await;
-    let grpc_addr = config.grpc_addr.parse()?;
-
     let grpc_service =
         tonic_web::GrpcWebLayer::new().layer(GrpcAuthLayer::new(state.clone()).layer(
             proto::gateway::frontend_gateway_server::FrontendGatewayServer::new(
@@ -59,10 +58,11 @@ async fn main() -> anyhow::Result<()> {
             ),
         ));
 
-    Server::builder()
-        .accept_http1(true)
-        .add_service(grpc_service)
-        .serve_with_shutdown(grpc_addr, shutdown_signal())
+    let app = file_http::routes(state).fallback_service(grpc_service);
+    let listener = TcpListener::bind(&config.grpc_addr).await?;
+
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
         .await
         .map_err(anyhow::Error::from)
 }
