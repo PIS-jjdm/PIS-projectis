@@ -8,7 +8,8 @@ use surrealdb::{
 };
 
 use crate::models::{
-    normalize_user_id, serialize_user_id, NewUserRecord, RevokedTokenRecord, UserRecord,
+    normalize_user_id, serialize_user_id, NewUserAvatarRecord, NewUserRecord, RevokedTokenRecord,
+    UserAvatarRecord, UserRecord,
 };
 
 #[derive(Clone)]
@@ -155,6 +156,33 @@ impl Db {
             .await?
             .take(0)
             .map_err(|e| e.into())
+    }
+
+    pub async fn get_user_avatar(&self, user_id: &str) -> anyhow::Result<Option<UserAvatarRecord>> {
+        let normalized = normalize_user_id(user_id);
+        self.inner
+            .select(("user_avatar", normalized.as_str()))
+            .await
+            .map_err(|e| e.into())
+    }
+
+    pub async fn set_user_avatar(&self, user_id: &str, image_png: Vec<u8>) -> anyhow::Result<()> {
+        let normalized = normalize_user_id(user_id);
+        let record = NewUserAvatarRecord { image_png };
+
+        let _: Option<UserAvatarRecord> = self
+            .inner
+            .upsert(("user_avatar", normalized))
+            .content(record)
+            .await?;
+
+        Ok(())
+    }
+
+    pub async fn delete_user_avatar(&self, user_id: &str) -> anyhow::Result<()> {
+        let normalized = normalize_user_id(user_id);
+        let _: Option<UserAvatarRecord> = self.inner.delete(("user_avatar", normalized)).await?;
+        Ok(())
     }
 
     pub async fn revoke_token(&self, token: &str) -> anyhow::Result<()> {

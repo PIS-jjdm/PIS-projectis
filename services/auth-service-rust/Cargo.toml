@@ -8,6 +8,7 @@ anyhow = "1"
 bcrypt = "0.19"
 chrono = { version = "0.4", features = ["serde"] }
 dotenvy = "0.15"
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "bmp", "webp"] }
 jsonwebtoken = { version = "10", features = ["rust_crypto"] }
 prost = "0.14"
 prost-types = "0.14"

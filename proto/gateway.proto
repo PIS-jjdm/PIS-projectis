@@ -13,6 +13,7 @@ service FrontendGateway {
   rpc Register(auth.RegisterRequest) returns (auth.AuthResponse);
   rpc CreateUser(auth.CreateUserRequest) returns (auth.User);
   rpc UpdateUser(auth.UpdateUserRequest) returns (auth.User);
+  rpc SetUserAvatar(auth.SetUserAvatarRequest) returns (common.Ack);
   rpc Login(auth.LoginRequest) returns (auth.AuthResponse);
   rpc GetMe(common.Empty) returns (auth.User);
   rpc GetUser(auth.GetUserRequest) returns (auth.User);

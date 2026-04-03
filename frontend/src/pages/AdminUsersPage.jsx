@@ -24,6 +24,7 @@ import LoadingState from '../components/LoadingState'
 import PageHeader from '../components/PageHeader'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
+import { avatarUrl } from '../lib/avatar'
 
 const initialForm = {
   firstname: '',
@@ -176,7 +177,7 @@ export default function AdminUsersPage() {
               <CardContent>
                 <Stack direction="row" spacing={2} justifyContent="space-between" alignItems="flex-start">
                   <Stack direction="row" spacing={2} alignItems="center" sx={{ minWidth: 0, flex: 1 }}>
-                    <Avatar sx={{ bgcolor: 'primary.main' }}>
+                    <Avatar src={avatarUrl(item.id)} sx={{ bgcolor: 'primary.main' }}>
                       <ManageAccountsRoundedIcon />
                     </Avatar>
                     <Stack sx={{ minWidth: 0 }}>

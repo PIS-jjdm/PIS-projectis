@@ -5,6 +5,7 @@ import {
   Badge,
   Box,
   Button,
+  ButtonBase,
   Dialog,
   DialogActions,
   DialogContent,
@@ -37,11 +38,19 @@ import AccountCircleRoundedIcon from '@mui/icons-material/AccountCircleRounded'
 import KeyRoundedIcon from '@mui/icons-material/KeyRounded'
 import { useTheme } from '@mui/material/styles'
 import { Outlet, useLocation, useNavigate } from 'react-router'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
+import { avatarUrl } from '../lib/avatar'
 
 const drawerWidth = 256
+const SUPPORTED_AVATAR_TYPES = new Set([
+  'image/png',
+  'image/jpeg',
+  'image/webp',
+  'image/gif',
+  'image/bmp',
+])
 
 function navItems(role, unreadCount) {
   const items = [
@@ -97,11 +106,16 @@ export default function AppShell() {
   const [profileError, setProfileError] = useState('')
   const [profileSuccess, setProfileSuccess] = useState('')
   const [savingPassword, setSavingPassword] = useState(false)
+  const [savingAvatar, setSavingAvatar] = useState(false)
+  const [avatarVersion, setAvatarVersion] = useState(() => Date.now().toString())
+  const [pendingAvatarFile, setPendingAvatarFile] = useState(null)
+  const [pendingAvatarPreviewUrl, setPendingAvatarPreviewUrl] = useState('')
   const [passwordForm, setPasswordForm] = useState({
     current_password: '',
     new_password: '',
     confirm_password: '',
   })
+  const avatarInputRef = useRef(null)
 
   useEffect(() => {
     let active = true
@@ -124,9 +138,24 @@ export default function AppShell() {
     }
   }, [token, user, location.pathname])
 
+  useEffect(() => {
+    if (!pendingAvatarFile) {
+      setPendingAvatarPreviewUrl('')
+      return
+    }
+
+    const previewUrl = URL.createObjectURL(pendingAvatarFile)
+    setPendingAvatarPreviewUrl(previewUrl)
+
+    return () => {
+      URL.revokeObjectURL(previewUrl)
+    }
+  }, [pendingAvatarFile])
+
   const items = useMemo(() => navItems(user?.role, unreadCount), [user?.role, unreadCount])
   const current = items.find((item) => item.path === location.pathname) || items[0]
   const accountMenuOpen = Boolean(accountAnchorEl)
+  const accountAvatarSrc = pendingAvatarPreviewUrl || avatarUrl(user?.id, avatarVersion)
 
   function resetPasswordForm() {
     setPasswordForm({
@@ -140,6 +169,7 @@ export default function AppShell() {
     setProfileDialogOpen(true)
     setProfileError('')
     setProfileSuccess('')
+    setPendingAvatarFile(null)
     resetPasswordForm()
     setAccountAnchorEl(null)
   }
@@ -170,6 +200,87 @@ export default function AppShell() {
       setProfileError(error.message || 'Failed to update password')
     } finally {
       setSavingPassword(false)
+    }
+  }
+
+  async function handleAvatarSelected(event) {
+    const file = event.target.files?.[0]
+    if (!file) {
+      event.target.value = ''
+      return
+    }
+
+    setProfileError('')
+    setProfileSuccess('')
+
+    if (file.size <= 0) {
+      setProfileError('Selected file is empty.')
+      event.target.value = ''
+      return
+    }
+
+    if (file.type && !SUPPORTED_AVATAR_TYPES.has(file.type)) {
+      setProfileError('Unsupported image format. Use PNG, JPEG, WebP, GIF, or BMP.')
+      event.target.value = ''
+      return
+    }
+
+    setPendingAvatarFile(file)
+    setProfileSuccess(`Selected avatar: ${file.name}`)
+    event.target.value = ''
+  }
+
+  async function handleAvatarApply() {
+    if (!pendingAvatarFile || !user?.id || !token) {
+      return
+    }
+
+    setProfileError('')
+    setProfileSuccess('')
+    setSavingAvatar(true)
+
+    try {
+      await api.setUserAvatar(
+        { token, user },
+        {
+          user_id: user.id,
+          image_data: new Uint8Array(await pendingAvatarFile.arrayBuffer()),
+        },
+      )
+      setPendingAvatarFile(null)
+      setAvatarVersion(Date.now().toString())
+      setProfileSuccess('Avatar updated successfully.')
+    } catch (error) {
+      setProfileError(error.message || 'Failed to update avatar')
+    } finally {
+      setSavingAvatar(false)
+    }
+  }
+
+  async function handleAvatarReset() {
+    if (!user?.id || !token) {
+      return
+    }
+
+    setProfileError('')
+    setProfileSuccess('')
+    setPendingAvatarFile(null)
+    setSavingAvatar(true)
+
+    try {
+      await api.setUserAvatar(
+        { token, user },
+        {
+          user_id: user.id,
+          image_data: new Uint8Array(),
+        },
+      )
+      setAvatarVersion(Date.now().toString())
+      setProfileSuccess('Avatar reset to default.')
+    } catch (error) {
+      setProfileError(error.message || 'Failed to reset avatar')
+    } finally {
+      setSavingAvatar(false)
     }
   }
 
@@ -364,6 +475,7 @@ export default function AppShell() {
               <Tooltip title="Account">
                 <IconButton onClick={(event) => setAccountAnchorEl(event.currentTarget)}>
                   <Avatar
+                    src={avatarUrl(user?.id, avatarVersion)}
                     sx={{
                       width: 34,
                       height: 34,
@@ -419,6 +531,67 @@ export default function AppShell() {
         <DialogContent>
           <Stack spacing={2.5} sx={{ mt: 1 }}>
             <Box>
+              <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
+                <Box>
+                  <ButtonBase
+                    onClick={() => {
+                      if (!savingAvatar) {
+                        avatarInputRef.current?.click()
+                      }
+                    }}
+                    sx={{ borderRadius: '50%' }}
+                  >
+                    <Avatar
+                      src={accountAvatarSrc}
+                      sx={{
+                        width: 88,
+                        height: 88,
+                        bgcolor: 'rgba(214, 227, 255, 0.9)',
+                        color: 'primary.main',
+                        cursor: savingAvatar ? 'progress' : 'pointer',
+                        border: pendingAvatarFile ? '2px solid rgba(25, 118, 210, 0.45)' : 'none',
+                      }}
+                    >
+                      {user?.firstname?.[0] || 'U'}
+                    </Avatar>
+                  </ButtonBase>
+                </Box>
+                <Stack direction="row" spacing={1.25} flexWrap="wrap" useFlexGap>
+                  <Button
+                    variant="contained"
+                    disabled={savingAvatar || !pendingAvatarFile}
+                    onClick={handleAvatarApply}
+                    sx={{
+                      '&.Mui-disabled': {
+                        bgcolor: 'rgba(160, 174, 192, 0.45)',
+                        color: 'rgba(57, 70, 86, 0.82)',
+                      },
+                    }}
+                  >
+                    {savingAvatar ? 'Saving...' : 'Set avatar'}
+                  </Button>
+                  <Button
+                    variant="text"
+                    color="inherit"
+                    disabled={savingAvatar}
+                    onClick={handleAvatarReset}
+                  >
+                    Reset avatar
+                  </Button>
+                </Stack>
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif,image/bmp"
+                  hidden
+                  onChange={handleAvatarSelected}
+                />
+              </Stack>
+              {pendingAvatarFile && (
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                  Previewing: {pendingAvatarFile.name}
+                </Typography>
+              )}
               <Typography variant="subtitle2" color="text.secondary">
                 Signed-in user
               </Typography>

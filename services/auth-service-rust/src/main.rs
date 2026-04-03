@@ -1,3 +1,4 @@
+mod avatar;
 mod config;
 mod db;
 mod models;
@@ -57,7 +58,7 @@ async fn connect_with_retry(endpoint: String) -> anyhow::Result<Channel> {
 
     let mut last_err = None;
 
-    for attempt in 1..=RETRY_ATTEMPTS {
+    for attempt in 0..RETRY_ATTEMPTS {
         match endpoint.clone().connect().await {
             Ok(channel) => return Ok(channel),
             Err(err) => {

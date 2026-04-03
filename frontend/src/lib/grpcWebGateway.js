@@ -114,6 +114,11 @@ const methods = {
     authPb.UpdateUserRequest,
     authPb.User,
   ),
+  setUserAvatar: unaryDescriptor(
+    '/gateway.FrontendGateway/SetUserAvatar',
+    authPb.SetUserAvatarRequest,
+    commonPb.Ack,
+  ),
   login: unaryDescriptor(
     '/gateway.FrontendGateway/Login',
     authPb.LoginRequest,
@@ -272,6 +277,13 @@ export const gatewayClient = {
     request.setEmail(payload.email || '')
     request.setRole(parseRole(payload.role))
     return client.unary(methods.updateUser, request, accessToken)
+  },
+
+  setUserAvatar(accessToken, payload) {
+    const request = new authPb.SetUserAvatarRequest()
+    request.setUserId(payload.user_id || '')
+    request.setImageData(payload.image_data || new Uint8Array())
+    return client.unary(methods.setUserAvatar, request, accessToken)
   },
 
   login(credentials) {
