@@ -34,12 +34,14 @@ services:
       SURREAL_NAMESPACE: university_auth
       SURREAL_DATABASE: auth
       JWT_SECRET: super-secret-dev-key
+      NOTIFICATION_GRPC_ENDPOINT: http://notification-service:50052
       SEED_DEMO_USERS: "true"
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_SERVICE_NAME: auth-service
       RUST_LOG: info
     depends_on:
       - otel-collector
+      - notification-service
     volumes:
       - auth_data:/data
 

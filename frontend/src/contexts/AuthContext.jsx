@@ -21,6 +21,16 @@ export function AuthProvider({ children }) {
   }, [session])
 
   useEffect(() => {
+    api.setAuthFailureHandler(() => {
+      setSession({ token: '', user: null })
+    })
+
+    return () => {
+      api.setAuthFailureHandler(null)
+    }
+  }, [])
+
+  useEffect(() => {
     let active = true
 
     async function hydrate() {

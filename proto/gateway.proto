@@ -12,6 +12,7 @@ import "google/protobuf/timestamp.proto";
 service FrontendGateway {
   rpc Register(auth.RegisterRequest) returns (auth.AuthResponse);
   rpc CreateUser(auth.CreateUserRequest) returns (auth.User);
+  rpc UpdateUser(auth.UpdateUserRequest) returns (auth.User);
   rpc Login(auth.LoginRequest) returns (auth.AuthResponse);
   rpc GetMe(common.Empty) returns (auth.User);
   rpc GetUser(auth.GetUserRequest) returns (auth.User);
@@ -34,17 +35,17 @@ service FrontendGateway {
   rpc AddTeamMember(project.AddTeamMemberRequest) returns (project.Team);
   rpc RemoveTeamMember(project.RemoveTeamMemberRequest) returns (project.Team);
 
-  rpc ListNotifications(common.Empty) returns (notification.ListNotificationsResponse);
+  rpc ListNotifications(common.Empty) returns (ListNotificationsGatewayResponse);
   rpc ListScheduledNotifications(common.Empty)
       returns (notification.ListScheduledNotificationsResponse);
   rpc CreateNotification(CreateNotificationGatewayRequest)
-      returns (notification.CreateNotificationResponse);
+      returns (CreateNotificationGatewayResponse);
   rpc MarkNotificationRead(notification.MarkAsReadRequest) returns (common.Ack);
   rpc CancelScheduledNotification(CancelScheduledNotificationGatewayRequest)
       returns (common.Ack);
   rpc RescheduleScheduledNotification(RescheduleScheduledNotificationGatewayRequest)
       returns (common.Ack);
-  rpc StreamNotifications(common.Empty) returns (stream notification.Notification);
+  rpc StreamNotifications(common.Empty) returns (stream NotificationWithSender);
 }
 
 message RegisterSubjectGatewayRequest { string subject_id = 1; }
@@ -69,6 +70,19 @@ message CreateNotificationGatewayRequest {
   repeated string user_ids = 1;
   string message = 2;
   google.protobuf.Timestamp trigger_at = 3;
+}
+
+message NotificationWithSender {
+  notification.Notification notification = 1;
+  auth.User sender = 2;
+}
+
+message ListNotificationsGatewayResponse {
+  repeated NotificationWithSender notifications = 1;
+}
+
+message CreateNotificationGatewayResponse {
+  repeated NotificationWithSender notifications = 1;
 }
 
 message CancelScheduledNotificationGatewayRequest { string batch_id = 1; }

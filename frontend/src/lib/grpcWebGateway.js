@@ -109,6 +109,11 @@ const methods = {
     authPb.CreateUserRequest,
     authPb.User,
   ),
+  updateUser: unaryDescriptor(
+    '/gateway.FrontendGateway/UpdateUser',
+    authPb.UpdateUserRequest,
+    authPb.User,
+  ),
   login: unaryDescriptor(
     '/gateway.FrontendGateway/Login',
     authPb.LoginRequest,
@@ -202,7 +207,7 @@ const methods = {
   listNotifications: unaryDescriptor(
     '/gateway.FrontendGateway/ListNotifications',
     commonPb.Empty,
-    notificationPb.ListNotificationsResponse,
+    gatewayPb.ListNotificationsGatewayResponse,
   ),
   listScheduledNotifications: unaryDescriptor(
     '/gateway.FrontendGateway/ListScheduledNotifications',
@@ -212,7 +217,7 @@ const methods = {
   createNotification: unaryDescriptor(
     '/gateway.FrontendGateway/CreateNotification',
     gatewayPb.CreateNotificationGatewayRequest,
-    notificationPb.CreateNotificationResponse,
+    gatewayPb.CreateNotificationGatewayResponse,
   ),
   markNotificationRead: unaryDescriptor(
     '/gateway.FrontendGateway/MarkNotificationRead',
@@ -232,7 +237,7 @@ const methods = {
   streamNotifications: streamDescriptor(
     '/gateway.FrontendGateway/StreamNotifications',
     commonPb.Empty,
-    notificationPb.Notification,
+    gatewayPb.NotificationWithSender,
   ),
 }
 
@@ -257,6 +262,16 @@ export const gatewayClient = {
     request.setPassword(payload.password || '')
     request.setRole(parseRole(payload.role))
     return client.unary(methods.createUser, request, accessToken)
+  },
+
+  updateUser(accessToken, payload) {
+    const request = new authPb.UpdateUserRequest()
+    request.setUserId(payload.user_id || '')
+    request.setFirstname(payload.firstname || '')
+    request.setLastname(payload.lastname || '')
+    request.setEmail(payload.email || '')
+    request.setRole(parseRole(payload.role))
+    return client.unary(methods.updateUser, request, accessToken)
   },
 
   login(credentials) {

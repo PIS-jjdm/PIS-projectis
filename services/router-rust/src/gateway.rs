@@ -1,21 +1,24 @@
+use std::{collections::HashMap, pin::Pin};
+
+use tokio_stream::StreamExt;
 use tonic::{Request, Response, Status};
 
 use crate::auth_context::{AuthToken, CurrentUser};
 use crate::proto::{
     auth::{
-        AuthResponse, ChangePasswordRequest, CreateUserRequest, GetUserRequest,
-        ListUsersRequest, ListUsersResponse, LoginRequest, LogoutRequest, RegisterRequest, User,
+        AuthResponse, ChangePasswordRequest, CreateUserRequest, GetUserRequest, ListUsersRequest,
+        ListUsersResponse, LoginRequest, LogoutRequest, RegisterRequest, UpdateUserRequest, User,
     },
     common::{Ack, Empty, UserRole},
     gateway::{
         frontend_gateway_server::FrontendGateway, CancelScheduledNotificationGatewayRequest,
-        ChangePasswordGatewayRequest, CreateNotificationGatewayRequest, CreateProjectGatewayRequest,
-        RegisterSubjectGatewayRequest, RegisterTeamGatewayRequest,
-        RescheduleScheduledNotificationGatewayRequest,
+        ChangePasswordGatewayRequest, CreateNotificationGatewayRequest,
+        CreateNotificationGatewayResponse, CreateProjectGatewayRequest,
+        ListNotificationsGatewayResponse, NotificationWithSender, RegisterSubjectGatewayRequest,
+        RegisterTeamGatewayRequest, RescheduleScheduledNotificationGatewayRequest,
     },
     notification::{
-        CancelScheduledNotificationRequest, CreateNotificationRequest,
-        CreateNotificationResponse, ListNotificationsRequest, ListNotificationsResponse,
+        CancelScheduledNotificationRequest, CreateNotificationRequest, ListNotificationsRequest,
         ListScheduledNotificationsRequest, ListScheduledNotificationsResponse, MarkAsReadRequest,
         Notification, RescheduleScheduledNotificationRequest, StreamNotificationsRequest,
     },
@@ -74,6 +77,73 @@ impl FrontendGatewayService {
 
         Ok(())
     }
+
+    async fn sender_by_id(&self, user_id: &str) -> Option<User> {
+        let user_id = user_id.trim();
+        if user_id.is_empty() || user_id == "system" {
+            return None;
+        }
+
+        match self
+            .state
+            .auth_client()
+            .get_user(GetUserRequest {
+                user_id: user_id.to_string(),
+            })
+            .await
+        {
+            Ok(response) => Some(response.into_inner()),
+            Err(status) => {
+                tracing::warn!(
+                    sender_user_id = user_id,
+                    code = ?status.code(),
+                    message = status.message(),
+                    "failed to fetch notification sender details"
+                );
+                None
+            }
+        }
+    }
+
+    async fn sender_map(&self, notifications: &[Notification]) -> HashMap<String, User> {
+        let mut senders = HashMap::new();
+
+        for notification in notifications {
+            let sender_id = notification.creator_user_id.trim();
+            if sender_id.is_empty() || sender_id == "system" || senders.contains_key(sender_id) {
+                continue;
+            }
+
+            if let Some(sender) = self.sender_by_id(sender_id).await {
+                senders.insert(sender_id.to_string(), sender);
+            }
+        }
+
+        senders
+    }
+
+    async fn enrich_notification(&self, notification: Notification) -> NotificationWithSender {
+        let sender = self.sender_by_id(&notification.creator_user_id).await;
+        NotificationWithSender {
+            notification: Some(notification),
+            sender,
+        }
+    }
+
+    async fn enrich_notifications(
+        &self,
+        notifications: Vec<Notification>,
+    ) -> Vec<NotificationWithSender> {
+        let senders = self.sender_map(&notifications).await;
+
+        notifications
+            .into_iter()
+            .map(|notification| NotificationWithSender {
+                sender: senders.get(&notification.creator_user_id).cloned(),
+                notification: Some(notification),
+            })
+            .collect()
+    }
 }
 
 #[tonic::async_trait]
@@ -103,6 +173,26 @@ impl FrontendGateway for FrontendGatewayService {
             .state
             .auth_client()
             .create_user(request.into_inner())
+            .await?
+            .into_inner();
+
+        Ok(Response::new(response))
+    }
+
+    async fn update_user(
+        &self,
+        request: Request<UpdateUserRequest>,
+    ) -> Result<Response<User>, Status> {
+        let current_user = Self::current_user(&request)?;
+        Self::require_roles(&current_user, &[UserRole::Admin])?;
+
+        let body = request.into_inner();
+        Self::require_non_empty(&body.user_id, "user id")?;
+
+        let response = self
+            .state
+            .auth_client()
+            .update_user(body)
             .await?
             .into_inner();
 
@@ -141,12 +231,7 @@ impl FrontendGateway for FrontendGatewayService {
         let body = request.into_inner();
         Self::require_non_empty(&body.user_id, "user id")?;
 
-        let response = self
-            .state
-            .auth_client()
-            .get_user(body)
-            .await?
-            .into_inner();
+        let response = self.state.auth_client().get_user(body).await?.into_inner();
 
         Ok(Response::new(response))
     }
@@ -415,7 +500,7 @@ impl FrontendGateway for FrontendGatewayService {
     async fn list_notifications(
         &self,
         request: Request<Empty>,
-    ) -> Result<Response<ListNotificationsResponse>, Status> {
+    ) -> Result<Response<ListNotificationsGatewayResponse>, Status> {
         let current_user = Self::current_user(&request)?;
         let response = self
             .state
@@ -426,18 +511,26 @@ impl FrontendGateway for FrontendGatewayService {
             .await?
             .into_inner();
 
-        Ok(Response::new(response))
+        let notifications = self.enrich_notifications(response.notifications).await;
+
+        Ok(Response::new(ListNotificationsGatewayResponse {
+            notifications,
+        }))
     }
 
     async fn create_notification(
         &self,
         request: Request<CreateNotificationGatewayRequest>,
-    ) -> Result<Response<CreateNotificationResponse>, Status> {
+    ) -> Result<Response<CreateNotificationGatewayResponse>, Status> {
         let current_user = Self::current_user(&request)?;
         Self::require_roles(&current_user, &[UserRole::Teacher, UserRole::Admin])?;
 
         let body = request.into_inner();
-        if body.user_ids.iter().all(|user_id| user_id.trim().is_empty()) {
+        if body
+            .user_ids
+            .iter()
+            .all(|user_id| user_id.trim().is_empty())
+        {
             return Err(Status::invalid_argument(
                 "at least one recipient user id is required",
             ));
@@ -456,7 +549,11 @@ impl FrontendGateway for FrontendGatewayService {
             .await?
             .into_inner();
 
-        Ok(Response::new(response))
+        let notifications = self.enrich_notifications(response.notifications).await;
+
+        Ok(Response::new(CreateNotificationGatewayResponse {
+            notifications,
+        }))
     }
 
     async fn list_scheduled_notifications(
@@ -542,7 +639,8 @@ impl FrontendGateway for FrontendGatewayService {
         Ok(Response::new(response))
     }
 
-    type StreamNotificationsStream = tonic::Streaming<Notification>;
+    type StreamNotificationsStream =
+        Pin<Box<dyn tokio_stream::Stream<Item = Result<NotificationWithSender, Status>> + Send>>;
 
     async fn stream_notifications(
         &self,
@@ -557,6 +655,15 @@ impl FrontendGateway for FrontendGatewayService {
             })
             .await?;
 
-        Ok(Response::new(response.into_inner()))
+        let state = self.state.clone();
+        let stream = response.into_inner().then(move |item| {
+            let service = FrontendGatewayService::new(state.clone());
+            async move {
+                let notification = item?;
+                Ok(service.enrich_notification(notification).await)
+            }
+        });
+
+        Ok(Response::new(Box::pin(stream)))
     }
 }

@@ -150,16 +150,11 @@ export default function NotificationsPage() {
   }, [recipientSourceType, recipientSourceId, subjectOptions, projectOptions])
 
   useEffect(() => {
-    const knownIds = new Set([
-      user?.id,
-      ...Object.keys(usersById),
-      ...directoryUsers.map((item) => item.id),
-    ])
+    const knownIds = new Set([user?.id, ...Object.keys(usersById), ...directoryUsers.map((item) => item.id)])
     const missingUserIds = [...new Set(
-      [
-        ...notifications.map((item) => item.creator_user_id),
-        ...scheduledNotifications.flatMap((item) => item.user_ids || []),
-      ].filter((value) => value && value !== 'system' && !knownIds.has(value)),
+      scheduledNotifications
+        .flatMap((item) => item.user_ids || [])
+        .filter((value) => value && value !== 'system' && !knownIds.has(value)),
     )]
 
     if (!missingUserIds.length) {
@@ -205,7 +200,7 @@ export default function NotificationsPage() {
     return () => {
       active = false
     }
-  }, [notifications, scheduledNotifications, usersById, directoryUsers, session, user?.id])
+  }, [scheduledNotifications, usersById, directoryUsers, session, user?.id])
 
   async function loadNotifications() {
     const items = await api.listNotifications(session, user?.id)
@@ -493,7 +488,7 @@ export default function NotificationsPage() {
       return { label: 'System', sublabel: '' }
     }
 
-    const sender = resolveUser(notification.creator_user_id)
+    const sender = notification.sender || resolveUser(notification.creator_user_id)
     if (!sender) {
       return {
         label: notification.creator_user_id || 'Unknown sender',

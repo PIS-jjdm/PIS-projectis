@@ -7,6 +7,7 @@ pub struct Config {
     pub surreal_namespace: String,
     pub surreal_database: String,
     pub jwt_secret: String,
+    pub notification_grpc_endpoint: String,
     pub seed_demo_users: bool,
     pub otel_endpoint: String,
     pub otel_service_name: String,
@@ -21,6 +22,8 @@ impl Config {
                 .unwrap_or_else(|_| "university_auth".into()),
             surreal_database: env::var("SURREAL_DATABASE").unwrap_or_else(|_| "auth".into()),
             jwt_secret: env::var("JWT_SECRET").unwrap_or_else(|_| "change-me-in-production".into()),
+            notification_grpc_endpoint: env::var("NOTIFICATION_GRPC_ENDPOINT")
+                .unwrap_or_else(|_| "http://127.0.0.1:50052".into()),
             seed_demo_users: env::var("SEED_DEMO_USERS")
                 .map(|value| {
                     matches!(

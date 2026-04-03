@@ -154,6 +154,26 @@ function stripPassword(user) {
   return rest
 }
 
+function senderForNotification(notification) {
+  if (!notification?.creator_user_id || notification.creator_user_id === 'system') {
+    return null
+  }
+
+  const sender = users.find((user) => user.id === notification.creator_user_id)
+  return sender ? stripPassword(sender) : null
+}
+
+function attachNotificationSender(notification) {
+  return {
+    ...notification,
+    sender: senderForNotification(notification),
+  }
+}
+
+function attachNotificationSenders(items) {
+  return items.map(attachNotificationSender)
+}
+
 function authSession(user) {
   return {
     token: `mock-token-${user.id}`,
@@ -248,6 +268,30 @@ export const mockApi = {
 
     users = [user, ...users]
     return delay(stripPassword(user))
+  },
+
+  async updateUser(session, payload) {
+    if (session.user?.role !== 'admin') throw new Error('Forbidden')
+    if (!payload.user_id) throw new Error('User ID is required')
+
+    const existing = users.find((user) => user.id === payload.user_id)
+    if (!existing) throw new Error('User not found')
+
+    const emailTaken = users.some(
+      (user) => user.email === payload.email && user.id !== payload.user_id,
+    )
+    if (emailTaken) throw new Error('Email already registered')
+
+    const updatedUser = {
+      ...existing,
+      firstname: payload.firstname,
+      lastname: payload.lastname,
+      email: payload.email,
+      role: payload.role,
+    }
+
+    users = users.map((user) => (user.id === payload.user_id ? updatedUser : user))
+    return delay(stripPassword(updatedUser))
   },
 
   async getMe(session) {
@@ -393,8 +437,10 @@ export const mockApi = {
     materializeDueNotifications()
     const effectiveUserId = userId || session.user?.id
     return delay(
-      notifications.filter(
-        (item) => item.user_id === effectiveUserId && item.date && !item.cancelled_at,
+      attachNotificationSenders(
+        notifications.filter(
+          (item) => item.user_id === effectiveUserId && item.date && !item.cancelled_at,
+        ),
       ),
     )
   },
@@ -422,7 +468,7 @@ export const mockApi = {
     }))
 
     notifications = [...created, ...notifications]
-    return delay(created)
+    return delay(attachNotificationSenders(created))
   },
 
   async markNotificationRead(session, notificationId) {

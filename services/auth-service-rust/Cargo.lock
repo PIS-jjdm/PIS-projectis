@@ -355,6 +355,7 @@ dependencies = [
  "opentelemetry-otlp",
  "opentelemetry_sdk",
  "prost",
+ "prost-types",
  "protoc-bin-vendored",
  "serde",
  "surrealdb",

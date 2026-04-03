@@ -105,6 +105,7 @@ fn route_auth_policy(path: &str) -> RouteAuthPolicy {
         "/gateway.FrontendGateway/Login" => RouteAuthPolicy::Public,
         "/gateway.FrontendGateway/Register" => RouteAuthPolicy::Roles(&[UserRole::Admin]),
         "/gateway.FrontendGateway/CreateUser" => RouteAuthPolicy::Roles(&[UserRole::Admin]),
+        "/gateway.FrontendGateway/UpdateUser" => RouteAuthPolicy::Roles(&[UserRole::Admin]),
         "/gateway.FrontendGateway/ListUsers" => RouteAuthPolicy::Roles(TEACHER_OR_ADMIN),
         "/gateway.FrontendGateway/CreateSubject"
         | "/gateway.FrontendGateway/UpdateSubject"

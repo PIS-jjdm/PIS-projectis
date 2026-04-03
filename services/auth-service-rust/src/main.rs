@@ -13,8 +13,10 @@ use opentelemetry::trace::TracerProvider as _;
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::{trace::SdkTracerProvider, Resource};
 use tokio::signal;
-use tonic::transport::Server;
+use tonic::transport::{Channel, Endpoint, Server};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+
+const RETRY_ATTEMPTS: usize = 20;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -33,7 +35,11 @@ async fn main() -> anyhow::Result<()> {
         secret: config.jwt_secret.clone(),
     };
 
-    let grpc_service = AuthGrpc::new(db, jwt_keys);
+    let notification_grpc_client = connect_with_retry(config.notification_grpc_endpoint.clone())
+        .await
+        .expect("Failed to connect to notification-service after multiple attempts");
+
+    let grpc_service = AuthGrpc::new(db, jwt_keys, notification_grpc_client);
     let addr = config.grpc_addr.parse()?;
 
     Server::builder()
@@ -42,6 +48,27 @@ async fn main() -> anyhow::Result<()> {
         .await?;
 
     Ok(())
+}
+
+async fn connect_with_retry(endpoint: String) -> anyhow::Result<Channel> {
+    let endpoint = Endpoint::from_shared(endpoint)?
+        .connect_timeout(std::time::Duration::from_secs(3))
+        .timeout(std::time::Duration::from_secs(5));
+
+    let mut last_err = None;
+
+    for attempt in 1..=RETRY_ATTEMPTS {
+        match endpoint.clone().connect().await {
+            Ok(channel) => return Ok(channel),
+            Err(err) => {
+                tracing::warn!(attempt, error = %err, "failed to connect to notification-service");
+                last_err = Some(err);
+                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+            }
+        }
+    }
+
+    Err(last_err.unwrap().into())
 }
 
 // Samelessly taken from axum's graceful shutdown example:

@@ -7,7 +7,9 @@ use surrealdb::{
     Surreal,
 };
 
-use crate::models::{NewUserRecord, RevokedTokenRecord, UserRecord};
+use crate::models::{
+    normalize_user_id, serialize_user_id, NewUserRecord, RevokedTokenRecord, UserRecord,
+};
 
 #[derive(Clone)]
 pub struct Db {
@@ -15,14 +17,6 @@ pub struct Db {
 }
 
 impl Db {
-    fn normalize_user_id(user_id: &str) -> &str {
-        user_id
-            .trim()
-            .strip_prefix("user:")
-            .unwrap_or(user_id.trim())
-            .trim_matches('`')
-    }
-
     pub async fn connect(config: &Config) -> anyhow::Result<Self> {
         let db = Surreal::new::<SurrealKv>(config.db_path.clone()).await?;
         db.use_ns(&config.surreal_namespace)
@@ -78,9 +72,9 @@ impl Db {
     }
 
     pub async fn find_user_by_id(&self, user_id: &str) -> anyhow::Result<Option<UserRecord>> {
-        let normalized = Self::normalize_user_id(user_id);
+        let normalized = normalize_user_id(user_id);
         self.inner
-            .select(("user", normalized))
+            .select(("user", normalized.as_str()))
             .await
             .map_err(|e| e.into())
     }
@@ -103,14 +97,50 @@ impl Db {
             .ok_or_else(|| anyhow::anyhow!("failed to create user"))
     }
 
+    pub async fn update_user(
+        &self,
+        user_id: &str,
+        firstname: &str,
+        lastname: &str,
+        email: &str,
+        role: &str,
+    ) -> anyhow::Result<Option<UserRecord>> {
+        let normalized = normalize_user_id(user_id);
+        self.inner
+            .query(
+                "UPDATE type::thing('user', $user_id) MERGE { firstname: $firstname, lastname: $lastname, email: $email, role: $role };",
+            )
+            .bind(("user_id", normalized))
+            .bind(("firstname", firstname.to_string()))
+            .bind(("lastname", lastname.to_string()))
+            .bind(("email", email.to_string()))
+            .bind(("role", role.to_string()))
+            .await?
+            .take(0)
+            .map_err(|e| e.into())
+    }
+
+    pub async fn email_belongs_to_other_user(
+        &self,
+        user_id: &str,
+        email: &str,
+    ) -> anyhow::Result<bool> {
+        let Some(existing) = self.find_user_by_email(email).await? else {
+            return Ok(false);
+        };
+
+        Ok(serialize_user_id(&existing.id) != normalize_user_id(user_id))
+    }
+
     pub async fn update_user_password(
         &self,
         user_id: &str,
         password_hash: &str,
     ) -> anyhow::Result<Option<UserRecord>> {
+        let normalized = normalize_user_id(user_id);
         self.inner
             .query("UPDATE type::thing('user', $user_id) MERGE { password_hash: $password_hash };")
-            .bind(("user_id", user_id.to_string()))
+            .bind(("user_id", normalized))
             .bind(("password_hash", password_hash.to_string()))
             .await?
             .take(0)

@@ -41,10 +41,23 @@ pub struct JwtKeys {
     pub secret: String,
 }
 
+pub fn normalize_user_id(user_id: &str) -> String {
+    let trimmed = user_id.trim().trim_matches('`');
+    trimmed
+        .strip_prefix("user:")
+        .unwrap_or(trimmed)
+        .trim_matches('`')
+        .to_string()
+}
+
+pub fn serialize_user_id(record_id: &RecordId) -> String {
+    normalize_user_id(&record_id.to_string())
+}
+
 impl From<UserRecord> for User {
     fn from(user: UserRecord) -> Self {
         User {
-            id: user.id.to_string(),
+            id: serialize_user_id(&user.id),
             firstname: user.firstname,
             lastname: user.lastname,
             email: user.email,

@@ -9,11 +9,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         &[
             "../../proto/auth.proto",
             "../../proto/common.proto",
+            "../../proto/notification.proto",
         ],
-        &[
-            "../../proto",
-            protoc_include.to_str().unwrap(),
-        ],
+        &["../../proto", protoc_include.to_str().unwrap()],
     )?;
 
     Ok(())

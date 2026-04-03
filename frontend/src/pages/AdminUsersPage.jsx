@@ -17,6 +17,7 @@ import {
 } from '@mui/material'
 import ManageAccountsRoundedIcon from '@mui/icons-material/ManageAccountsRounded'
 import PersonAddAlt1RoundedIcon from '@mui/icons-material/PersonAddAlt1Rounded'
+import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import { useEffect, useMemo, useState } from 'react'
 import EmptyState from '../components/EmptyState'
 import LoadingState from '../components/LoadingState'
@@ -40,7 +41,8 @@ export default function AdminUsersPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [creating, setCreating] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [editingUser, setEditingUser] = useState(null)
   const [form, setForm] = useState(initialForm)
 
   async function loadUsers() {
@@ -69,21 +71,52 @@ export default function AdminUsersPage() {
     }
   }, [token, user])
 
-  async function handleCreateUser() {
+  function openCreateDialog() {
+    setEditingUser(null)
+    setForm(initialForm)
+    setDialogOpen(true)
+  }
+
+  function openEditDialog(targetUser) {
+    setEditingUser(targetUser)
+    setForm({
+      firstname: targetUser.firstname || '',
+      lastname: targetUser.lastname || '',
+      email: targetUser.email || '',
+      password: '',
+      role: targetUser.role || 'student',
+    })
+    setDialogOpen(true)
+  }
+
+  async function handleSubmitUser() {
     setError('')
     setSuccess('')
-    setCreating(true)
+    setSubmitting(true)
 
     try {
-      const created = await api.createUser(session, form)
+      const saved = editingUser
+        ? await api.updateUser(session, {
+            user_id: editingUser.id,
+            firstname: form.firstname,
+            lastname: form.lastname,
+            email: form.email,
+            role: form.role,
+          })
+        : await api.createUser(session, form)
       setDialogOpen(false)
+      setEditingUser(null)
       setForm(initialForm)
       await loadUsers()
-      setSuccess(`Created user ${created.firstname} ${created.lastname}.`)
+      setSuccess(
+        editingUser
+          ? `Updated user ${saved.firstname} ${saved.lastname}.`
+          : `Created user ${saved.firstname} ${saved.lastname}.`,
+      )
     } catch (err) {
-      setError(err.message || 'Failed to create user')
+      setError(err.message || (editingUser ? 'Failed to update user' : 'Failed to create user'))
     } finally {
-      setCreating(false)
+      setSubmitting(false)
     }
   }
 
@@ -99,10 +132,7 @@ export default function AdminUsersPage() {
           <Button
             variant="contained"
             startIcon={<PersonAddAlt1RoundedIcon />}
-            onClick={() => {
-              setForm(initialForm)
-              setDialogOpen(true)
-            }}
+            onClick={openCreateDialog}
           >
             Create user
           </Button>
@@ -117,10 +147,7 @@ export default function AdminUsersPage() {
           title="No users available"
           description="No user records were returned by the backend or mock layer."
           actionLabel="Create user"
-          onAction={() => {
-            setForm(initialForm)
-            setDialogOpen(true)
-          }}
+          onAction={openCreateDialog}
         />
       ) : (
         <Box
@@ -150,6 +177,15 @@ export default function AdminUsersPage() {
                   <Chip label={item.role} color="secondary" />
                   <Chip label={item.id} variant="outlined" />
                 </Stack>
+                <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+                  <Button
+                    variant="outlined"
+                    startIcon={<EditRoundedIcon />}
+                    onClick={() => openEditDialog(item)}
+                  >
+                    Edit
+                  </Button>
+                </Stack>
               </CardContent>
             </Card>
           ))}
@@ -157,7 +193,7 @@ export default function AdminUsersPage() {
       )}
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
-        <DialogTitle>Create user</DialogTitle>
+        <DialogTitle>{editingUser ? 'Edit user' : 'Create user'}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
@@ -179,13 +215,15 @@ export default function AdminUsersPage() {
               onChange={(event) => setForm((prev) => ({ ...prev, email: event.target.value }))}
               fullWidth
             />
-            <TextField
-              label="Password"
-              type="password"
-              value={form.password}
-              onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
-              fullWidth
-            />
+            {!editingUser && (
+              <TextField
+                label="Password"
+                type="password"
+                value={form.password}
+                onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
+                fullWidth
+              />
+            )}
             <TextField
               select
               label="Role"
@@ -201,8 +239,8 @@ export default function AdminUsersPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleCreateUser} variant="contained" disabled={creating}>
-            {creating ? 'Creating...' : 'Create user'}
+          <Button onClick={handleSubmitUser} variant="contained" disabled={submitting}>
+            {submitting ? (editingUser ? 'Saving...' : 'Creating...') : (editingUser ? 'Save changes' : 'Create user')}
           </Button>
         </DialogActions>
       </Dialog>

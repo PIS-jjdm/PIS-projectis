@@ -7,6 +7,7 @@ import "common.proto";
 service AuthService {
   rpc Register(RegisterRequest) returns (AuthResponse);
   rpc CreateUser(CreateUserRequest) returns (User);
+  rpc UpdateUser(UpdateUserRequest) returns (User);
   rpc Login(LoginRequest) returns (AuthResponse);
   rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
   rpc GetUser(GetUserRequest) returns (User);
@@ -37,6 +38,14 @@ message CreateUserRequest {
   string lastname = 2;
   string email = 3;
   string password = 4;
+  common.UserRole role = 5;
+}
+
+message UpdateUserRequest {
+  string user_id = 1;
+  string firstname = 2;
+  string lastname = 3;
+  string email = 4;
   common.UserRole role = 5;
 }
 

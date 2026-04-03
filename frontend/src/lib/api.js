@@ -1,6 +1,31 @@
+import * as grpcWeb from 'grpc-web'
 import { isHybridMode, isMockMode } from './config'
 import { gatewayClient } from './grpcWebGateway'
 import { mockApi } from './mockApi'
+
+let authFailureHandler = null
+
+function unauthenticatedCode(error) {
+  if (typeof error?.code === 'number') return error.code
+  if (typeof error?.code === 'string' && /^\d+$/.test(error.code)) {
+    return Number(error.code)
+  }
+  return null
+}
+
+function isAuthenticationFailure(error) {
+  const code = unauthenticatedCode(error)
+  return code === grpcWeb.StatusCode.UNAUTHENTICATED || code === 16
+}
+
+function handleAuthenticationFailure(error) {
+  if (!isAuthenticationFailure(error)) {
+    return false
+  }
+
+  authFailureHandler?.(error)
+  return true
+}
 
 async function tryLive(fn, fallback) {
   if (isMockMode()) {
@@ -10,6 +35,10 @@ async function tryLive(fn, fallback) {
   try {
     return await fn()
   } catch (error) {
+    if (handleAuthenticationFailure(error)) {
+      throw error
+    }
+
     if (isHybridMode()) {
       return fallback(error)
     }
@@ -126,19 +155,32 @@ function uniqueIds(values) {
 
 function normalizeNotification(notification) {
   if (!notification) return null
-  if (typeof notification.getId === 'function') {
+  const source =
+    typeof notification.getNotification === 'function'
+      ? notification.getNotification()
+      : notification.notification || notification
+  const sender =
+    typeof notification.getSender === 'function'
+      ? normalizeUser(notification.getSender())
+      : normalizeUser(notification.sender)
+
+  if (typeof source?.getId === 'function') {
     return {
-      id: notification.getId(),
-      batch_id: notification.getBatchId?.() || '',
-      user_id: notification.getUserId(),
-      creator_user_id: notification.getCreatorUserId?.() || '',
-      message: notification.getMessage(),
-      date: timestampToIso(notification.getDate()),
-      trigger_at: timestampToIso(notification.getTriggerAt?.()),
-      read: notification.getRead(),
+      id: source.getId(),
+      batch_id: source.getBatchId?.() || '',
+      user_id: source.getUserId(),
+      creator_user_id: source.getCreatorUserId?.() || '',
+      message: source.getMessage(),
+      date: timestampToIso(source.getDate()),
+      trigger_at: timestampToIso(source.getTriggerAt?.()),
+      read: source.getRead(),
+      sender,
     }
   }
-  return notification
+  return {
+    ...source,
+    sender,
+  }
 }
 
 function normalizeScheduledNotificationBatch(batch) {
@@ -178,6 +220,10 @@ async function buildDashboardSummary(session) {
 }
 
 export const api = {
+  setAuthFailureHandler(handler) {
+    authFailureHandler = typeof handler === 'function' ? handler : null
+  },
+
   async login(credentials) {
     return tryLive(
       async () => normalizeAuthResponse(await gatewayClient.login(credentials)),
@@ -196,6 +242,13 @@ export const api = {
     return tryLive(
       async () => normalizeUser(await gatewayClient.createUser(accessToken(session), payload)),
       () => mockApi.createUser(session, payload),
+    )
+  },
+
+  async updateUser(session, payload) {
+    return tryLive(
+      async () => normalizeUser(await gatewayClient.updateUser(accessToken(session), payload)),
+      () => mockApi.updateUser(session, payload),
     )
   },
 
@@ -372,7 +425,10 @@ export const api = {
 
     return gatewayClient.streamNotifications(accessToken(session), {
       onMessage: (message) => handlers.onMessage?.(normalizeNotification(message)),
-      onError: handlers.onError,
+      onError: (error) => {
+        handleAuthenticationFailure(error)
+        handlers.onError?.(error)
+      },
       onEnd: handlers.onEnd,
     })
   },
