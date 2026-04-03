@@ -4,13 +4,31 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROTO_DIR="$ROOT_DIR/proto"
 OUT_DIR="$ROOT_DIR/frontend/src/lib/grpc/generated"
+PROTOC_INCLUDE="${PROTOC_INCLUDE:-}"
 
 mkdir -p "$OUT_DIR"
 
 PROTOC_GEN_JS="$ROOT_DIR/frontend/node_modules/.bin/protoc-gen-js"
 
+if [[ -z "$PROTOC_INCLUDE" ]]; then
+  for candidate in /usr/include /usr/local/include; do
+    if [[ -f "$candidate/google/protobuf/timestamp.proto" ]]; then
+      PROTOC_INCLUDE="$candidate"
+      break
+    fi
+  done
+fi
+
+PROTOC_ARGS=(
+  -I="$PROTO_DIR"
+)
+
+if [[ -n "$PROTOC_INCLUDE" ]]; then
+  PROTOC_ARGS+=(-I="$PROTOC_INCLUDE")
+fi
+
 protoc \
-  -I="$PROTO_DIR" \
+  "${PROTOC_ARGS[@]}" \
   --plugin=protoc-gen-js="$PROTOC_GEN_JS" \
   --js_out=import_style=commonjs,binary:"$OUT_DIR" \
   "$PROTO_DIR/common.proto" \

@@ -11,10 +11,34 @@ let users = [
     role: 'student',
   },
   {
+    id: 'user-student-2',
+    firstname: 'Petra',
+    lastname: 'Dvorakova',
+    email: 'petra.dvorakova@example.com',
+    password: 'student123',
+    role: 'student',
+  },
+  {
+    id: 'user-student-3',
+    firstname: 'Jakub',
+    lastname: 'Havel',
+    email: 'jakub.havel@example.com',
+    password: 'student123',
+    role: 'student',
+  },
+  {
     id: 'user-teacher-1',
     firstname: 'Marek',
     lastname: 'Novak',
     email: 'teacher@example.com',
+    password: 'teacher123',
+    role: 'teacher',
+  },
+  {
+    id: 'user-teacher-2',
+    firstname: 'Lenka',
+    lastname: 'Kralova',
+    email: 'lenka.kralova@example.com',
     password: 'teacher123',
     role: 'teacher',
   },
@@ -34,15 +58,15 @@ let subjects = [
     name: 'Secure Software Systems',
     description: 'Focuses on secure coding, threat modeling, and software assurance.',
     abbreviation: 'SSS',
-    user_ids: [],
-    teacher_ids: ['user-teacher-1'],
+    user_ids: ['user-student-2'],
+    teacher_ids: ['user-teacher-2'],
   },
   {
     id: 'subject-2',
     name: 'Distributed Applications',
     description: 'Covers service design, microservices, messaging, and observability.',
     abbreviation: 'DIA',
-    user_ids: ['user-student-1'],
+    user_ids: ['user-student-1', 'user-student-2'],
     teacher_ids: ['user-teacher-1'],
   },
   {
@@ -50,8 +74,16 @@ let subjects = [
     name: 'Applied Cryptography',
     description: 'Practical symmetric and asymmetric cryptography used in real systems.',
     abbreviation: 'ACR',
-    user_ids: [],
+    user_ids: ['user-student-3'],
     teacher_ids: ['user-teacher-1'],
+  },
+  {
+    id: 'subject-4',
+    name: 'Human Computer Interaction',
+    description: 'Explores interaction design, interface evaluation, and collaborative prototyping.',
+    abbreviation: 'HCI',
+    user_ids: ['user-student-1', 'user-student-3'],
+    teacher_ids: ['user-teacher-2'],
   },
 ]
 
@@ -86,6 +118,26 @@ let projects = [
     end_date: iso(new Date(now.getTime() + 70 * day)),
     subject_id: 'subject-1',
   },
+  {
+    id: 'project-4',
+    title: 'Collaborative Whiteboard for Seminar Feedback',
+    description: 'Design a browser-based feedback wall with live updates, moderation, and archival export.',
+    teacher_id: 'user-teacher-2',
+    max_students_per_team: 5,
+    start_date: iso(new Date(now.getTime() - 4 * day)),
+    end_date: iso(new Date(now.getTime() + 45 * day)),
+    subject_id: 'subject-4',
+  },
+  {
+    id: 'project-5',
+    title: 'Static Analysis Rules for Student CI Pipelines',
+    description: 'Create reusable checks for dependency drift, secrets scanning, and unsafe configuration defaults.',
+    teacher_id: 'user-teacher-2',
+    max_students_per_team: 3,
+    start_date: iso(new Date(now.getTime() + 7 * day)),
+    end_date: iso(new Date(now.getTime() + 95 * day)),
+    subject_id: 'subject-1',
+  },
 ]
 
 let teams = [
@@ -95,6 +147,13 @@ let teams = [
     name: 'Tracefinders',
     leader_student_id: 'user-student-1',
     student_ids: ['user-student-1'],
+  },
+  {
+    id: 'team-2',
+    project_id: 'project-4',
+    name: 'Interface Guild',
+    leader_student_id: 'user-student-2',
+    student_ids: ['user-student-2', 'user-student-3'],
   },
 ]
 
@@ -133,6 +192,8 @@ let notifications = [
 
 let subjectRegistrations = {
   'user-student-1': ['subject-2'],
+  'user-student-2': ['subject-1', 'subject-2'],
+  'user-student-3': ['subject-3', 'subject-4'],
 }
 
 function iso(value) {

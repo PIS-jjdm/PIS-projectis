@@ -110,7 +110,7 @@ services:
       context: .
       dockerfile: frontend/Dockerfile
       args:
-        VITE_API_MODE: live
+        VITE_API_MODE: hybrid
         VITE_GRPC_BASE_URL: /grpc
     depends_on:
       - router

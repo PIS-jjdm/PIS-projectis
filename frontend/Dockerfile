@@ -1,7 +1,9 @@
-FROM node:22-alpine AS build
+FROM node:22-bookworm-slim AS build
 WORKDIR /app/frontend
 
-RUN apk add --no-cache bash protobuf
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends bash protobuf-compiler libprotobuf-dev \
+  && rm -rf /var/lib/apt/lists/*
 
 COPY frontend/package*.json ./
 RUN npm install
