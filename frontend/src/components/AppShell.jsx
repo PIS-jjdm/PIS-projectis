@@ -68,7 +68,7 @@ function navItems(role, unreadCount) {
     },
     {
       label: 'Projects',
-      subtitle: 'Submission',
+      subtitle: 'My work',
       path: '/projects',
       icon: <UploadFileRoundedIcon />,
     },
@@ -219,7 +219,10 @@ export default function AppShell() {
   }, [pendingAvatarFile])
 
   const items = useMemo(() => navItems(user?.role, unreadCount), [user?.role, unreadCount])
-  const current = items.find((item) => item.path === location.pathname) || items[0]
+  const current =
+    items.find(
+      (item) => location.pathname === item.path || location.pathname.startsWith(`${item.path}/`),
+    ) || items[0]
   const accountMenuOpen = Boolean(accountAnchorEl)
   const accountAvatarSrc = pendingAvatarPreviewUrl || ''
 
@@ -439,7 +442,8 @@ export default function AppShell() {
 
       <List sx={{ px: 0, py: 0 }}>
         {items.map((item) => {
-          const active = location.pathname === item.path
+          const active =
+            location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)
           return (
             <ListItemButton
               key={item.path}
@@ -552,7 +556,9 @@ export default function AppShell() {
                 sx={{ display: { xs: 'none', md: 'flex' }, fontFamily: 'Manrope, sans-serif' }}
               >
                 {items.slice(0, 4).map((item) => {
-                  const active = location.pathname === item.path
+                  const active =
+                    location.pathname === item.path ||
+                    location.pathname.startsWith(`${item.path}/`)
                   return (
                     <Box
                       key={item.path}

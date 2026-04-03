@@ -394,6 +394,15 @@ export const api = {
     )
   },
 
+  async removeTeamMember(session, teamId, studentId) {
+    return tryLive(
+      async () => normalizeTeam(
+        await gatewayClient.removeTeamMember(accessToken(session), teamId, studentId),
+      ),
+      () => mockApi.removeTeamMember(session, teamId, studentId),
+    )
+  },
+
   async listTeamsByProject(session, projectId) {
     return tryLive(
       async () => {
@@ -402,6 +411,68 @@ export const api = {
       },
       () => mockApi.listTeamsByProject(projectId),
     )
+  },
+
+  async listParticipantProjects(session) {
+    const [projects, subjects, knownUsers] = await Promise.all([
+      api.listProjects(session),
+      api.listSubjects(session),
+      api.listKnownUsers(session),
+    ])
+
+    const teamLists = await Promise.all(
+      projects.map(async (project) => ({
+        projectId: project.id,
+        teams: await api.listTeamsByProject(session, project.id),
+      })),
+    )
+
+    const teamsByProjectId = new Map(teamLists.map((item) => [item.projectId, item.teams]))
+    const subjectById = new Map(subjects.map((subject) => [subject.id, subject]))
+    const role = String(session?.user?.role || '').trim().toLowerCase()
+    const userEmail = String(session?.user?.email || '').trim().toLowerCase()
+    const effectiveUser =
+      knownUsers.find((user) => user.id === session?.user?.id) ||
+      knownUsers.find((user) => user.email.toLowerCase() === userEmail) ||
+      knownUsers.find((user) => user.role === role) ||
+      null
+    const userId = String(effectiveUser?.id || session?.user?.id || '').trim()
+
+    if (role === 'admin') {
+      return projects.map((project) => ({
+        ...project,
+        subject: subjectById.get(project.subject_id) || null,
+        teams: teamsByProjectId.get(project.id) || [],
+      }))
+    }
+
+    return projects
+      .filter((project) => {
+        const subject = subjectById.get(project.subject_id)
+        const projectTeams = teamsByProjectId.get(project.id) || []
+
+        if (role === 'teacher') {
+          return (
+            String(project.teacher_id || '').trim() === userId ||
+            (subject?.teacher_ids || []).some((teacherId) => teacherId === userId)
+          )
+        }
+
+        return projectTeams.some((team) => (team.student_ids || []).includes(userId))
+      })
+      .map((project) => ({
+        ...project,
+        subject: subjectById.get(project.subject_id) || null,
+        teams: teamsByProjectId.get(project.id) || [],
+      }))
+  },
+
+  async listKnownUsers(session) {
+    return mockApi.listKnownUsers(session)
+  },
+
+  async listSubmissionFiles(session, projectId) {
+    return mockApi.listSubmissionFiles(session, projectId)
   },
 
   async listNotifications(session) {

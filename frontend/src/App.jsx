@@ -5,6 +5,7 @@ import LoginPage from './pages/auth/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import SubjectsPage from './pages/SubjectsPage'
 import ProjectsPage from './pages/ProjectsPage'
+import ProjectDetailPage from './pages/ProjectDetailPage'
 import NotificationsPage from './pages/NotificationsPage'
 import AdminUsersPage from './pages/AdminUsersPage'
 import NotFoundPage from './pages/NotFoundPage'
@@ -25,6 +26,7 @@ export default function App() {
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="subjects" element={<SubjectsPage />} />
         <Route path="projects" element={<ProjectsPage />} />
+        <Route path="projects/:projectId" element={<ProjectDetailPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route
           path="admin/users"
