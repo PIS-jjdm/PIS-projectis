@@ -5,3 +5,4 @@
 **/.env
 **/node_modules/
 **/dist/
+frontend/src/lib/grpc/generated/

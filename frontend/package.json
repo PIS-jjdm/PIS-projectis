@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "generate:grpc": "bash ../grpc-web-generate.sh",
+    "prebuild": "npm run generate:grpc",
+    "predev": "npm run generate:grpc",
     "build": "vite build",
     "preview": "vite preview"
   },

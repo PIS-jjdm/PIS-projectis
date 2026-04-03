@@ -1,9 +1,13 @@
 FROM node:22-alpine AS build
 WORKDIR /app/frontend
 
+RUN apk add --no-cache bash protobuf
+
 COPY frontend/package*.json ./
 RUN npm install
 
+COPY grpc-web-generate.sh /app/grpc-web-generate.sh
+COPY proto /app/proto
 COPY frontend/ ./
 
 ARG VITE_API_MODE=hybrid

@@ -170,6 +170,8 @@ Frontend protobuf files are generated into:
 
 - [frontend/src/lib/grpc/generated](/home/tmokenc/workspace/vut/pis/projekt/frontend/src/lib/grpc/generated)
 
+That directory is a local build artifact and is ignored by git. The frontend regenerates it automatically during `npm run build` and `npm run dev`.
+
 Generation command:
 
 ```bash
