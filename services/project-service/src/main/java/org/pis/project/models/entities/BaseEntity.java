@@ -3,6 +3,7 @@ package org.pis.project.models.entities;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 
 @MappedSuperclass
 @Getter
@@ -17,4 +18,11 @@ public abstract class BaseEntity {
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAtUtc;
+
+    @PrePersist
+    protected void onCreate() {
+        if (this.createdAtUtc == null) {
+            this.createdAtUtc = LocalDateTime.now(ZoneOffset.UTC);
+        }
+    }
 }
