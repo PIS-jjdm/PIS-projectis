@@ -1,4 +1,4 @@
-package org.pis.project_service.models.entities;
+package org.pis.project.models.entities;
 
 import java.time.LocalDateTime;
 

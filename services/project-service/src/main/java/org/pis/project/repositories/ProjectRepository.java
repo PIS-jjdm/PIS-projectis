@@ -1,8 +1,8 @@
-package org.pis.project_service.repositories;
+package org.pis.project.repositories;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import org.pis.project_service.models.entities.Project;
+import org.pis.project.models.entities.Project;
 
 public interface ProjectRepository extends JpaRepository<Project, Integer> {
 

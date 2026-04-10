@@ -1,9 +1,9 @@
-package org.pis.project_service.services;
+package org.pis.project.services;
 
 import java.util.List;
 
-import org.pis.project_service.models.entities.Team;
-import org.pis.project_service.repositories.TeamRepository;
+import org.pis.project.models.entities.Team;
+import org.pis.project.repositories.TeamRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 

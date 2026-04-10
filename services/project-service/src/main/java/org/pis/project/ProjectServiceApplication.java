@@ -1,4 +1,4 @@
-package org.pis.project_service;
+package org.pis.project;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
