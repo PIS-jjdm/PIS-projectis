@@ -1,4 +1,4 @@
-package org.pis.project.models.entities;
+package org.pis.project.entities;
 
 import jakarta.persistence.*;
 import lombok.*;
@@ -12,7 +12,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Project extends BaseEntity {
+public class ProjectEntity extends BaseEntity {
 
     @Column(nullable = false)
     private String title;
@@ -35,5 +35,5 @@ public class Project extends BaseEntity {
     private String subjectId;
 
     @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<Team> teams;
+    private List<TeamEntity> teams;
 }

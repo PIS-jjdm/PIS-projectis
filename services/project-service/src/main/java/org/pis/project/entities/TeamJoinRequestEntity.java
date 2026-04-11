@@ -1,4 +1,6 @@
-package org.pis.project.models.entities;
+package org.pis.project.entities;
+
+import java.time.LocalDateTime;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -13,20 +15,28 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "team_member")
+@Table(name = "team_join_request")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class TeamMember extends BaseEntity {
+public class TeamJoinRequestEntity extends BaseEntity {
 
     @Column(nullable = false)
     private String studentId;
+
+    @Column(nullable = false)
+    private String status;
+
+    @Column(nullable = false)
+    private String requestedBy;
+
+    private LocalDateTime resolvedAtUtc;
 
     @ManyToOne(fetch = jakarta.persistence.FetchType.LAZY)
     @JoinColumns({
             @JoinColumn(name = "team_id", referencedColumnName = "id")
     })
-    private Team team;
+    private TeamEntity team;
 }

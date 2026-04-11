@@ -1,4 +1,4 @@
-package org.pis.project.models.entities;
+package org.pis.project.entities;
 
 import jakarta.persistence.*;
 import lombok.*;

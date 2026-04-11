@@ -2,7 +2,7 @@ package org.pis.project.services;
 
 import java.util.List;
 
-import org.pis.project.models.entities.Team;
+import org.pis.project.entities.TeamEntity;
 import org.pis.project.repositories.TeamRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -12,15 +12,15 @@ public class TeamService {
     @Autowired
     private TeamRepository teamRepository;
 
-    public List<Team> Teams() {
+    public List<TeamEntity> Teams() {
         return teamRepository.findAll();
     }
 
-    public Team TeamById(Integer id) {
+    public TeamEntity TeamById(Integer id) {
         return teamRepository.findById(id).orElse(null);
     }
 
-    public Team Team(Team Team) {
+    public TeamEntity Team(TeamEntity Team) {
         return teamRepository.save(Team);
     }
 

@@ -1,4 +1,4 @@
-package org.pis.project.models.entities;
+package org.pis.project.entities;
 
 import java.util.List;
 
@@ -22,7 +22,7 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class Team extends BaseEntity {
+public class TeamEntity extends BaseEntity {
     @Column(nullable = false)
     private String name;
 
@@ -31,13 +31,11 @@ public class Team extends BaseEntity {
 
     @ManyToOne(fetch = jakarta.persistence.FetchType.LAZY)
     @JoinColumn(name = "project_id")
-    private Project project;
+    private ProjectEntity project;
 
-    @OneToMany(mappedBy = "team", cascade = CascadeType.ALL, orphanRemoval =
-    true)
-    private List<TeamMember> members;
+    @OneToMany(mappedBy = "team", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<TeamMemberEntity> members;
 
-    @OneToMany(mappedBy = "team", cascade = CascadeType.ALL, orphanRemoval =
-    true)
-    private List<TeamJoinRequest> joinRequests;
+    @OneToMany(mappedBy = "team", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<TeamJoinRequestEntity> joinRequests;
 }

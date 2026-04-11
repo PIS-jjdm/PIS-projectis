@@ -2,7 +2,7 @@ package org.pis.project.services;
 
 import java.util.List;
 
-import org.pis.project.models.entities.TeamJoinRequest;
+import org.pis.project.entities.TeamJoinRequestEntity;
 import org.pis.project.repositories.TeamJoinRequestRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -12,15 +12,15 @@ public class TeamJoinRequestService {
     @Autowired
     private TeamJoinRequestRepository teamJoinRequestRepository;
 
-    public List<TeamJoinRequest> TeamJoinRequests() {
+    public List<TeamJoinRequestEntity> TeamJoinRequests() {
         return teamJoinRequestRepository.findAll();
     }
 
-    public TeamJoinRequest TeamJoinRequestById(Integer id) {
+    public TeamJoinRequestEntity TeamJoinRequestById(Integer id) {
         return teamJoinRequestRepository.findById(id).orElse(null);
     }
 
-    public TeamJoinRequest TeamJoinRequest(TeamJoinRequest TeamJoinRequest) {
+    public TeamJoinRequestEntity TeamJoinRequest(TeamJoinRequestEntity TeamJoinRequest) {
         return teamJoinRequestRepository.save(TeamJoinRequest);
     }
 

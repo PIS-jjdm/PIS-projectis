@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 
+import org.pis.project.entities.ProjectEntity;
 import org.pis.project.proto.CreateProjectRequest;
 import org.pis.project.proto.Project;
 import org.pis.project.proto.ProjectServiceGrpc;
@@ -27,13 +28,12 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
   private final TeamMemberService teamMemberService;
   private final TeamJoinRequestService teamJoinRequestService;
 
-
   @Override
   public void createProject(CreateProjectRequest request, StreamObserver<Project> responseObserver) {
     try {
       // 1. Call your domain service to save to the database
       // I'm assuming your service returns an Entity with an ID and CreatedAt date
-      org.pis.project.models.entities.Project newProjectEntity = org.pis.project.models.entities.Project.builder()
+      ProjectEntity newProjectEntity = ProjectEntity.builder()
           .title(request.getTitle())
           .description(request.getDescription())
           .teacherId(request.getTeacherId())

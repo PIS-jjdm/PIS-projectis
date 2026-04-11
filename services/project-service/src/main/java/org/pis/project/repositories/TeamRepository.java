@@ -2,8 +2,8 @@ package org.pis.project.repositories;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import org.pis.project.models.entities.Team;
+import org.pis.project.entities.TeamEntity;
 
-public interface TeamRepository extends JpaRepository<Team, Integer> {
+public interface TeamRepository extends JpaRepository<TeamEntity, Integer> {
 
 }
