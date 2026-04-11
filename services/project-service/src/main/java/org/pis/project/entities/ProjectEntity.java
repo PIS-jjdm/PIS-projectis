@@ -2,6 +2,8 @@ package org.pis.project.entities;
 
 import jakarta.persistence.*;
 import lombok.*;
+import lombok.experimental.SuperBuilder;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -11,7 +13,7 @@ import java.util.List;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+@SuperBuilder
 public class ProjectEntity extends BaseEntity {
 
     @Column(nullable = false)
