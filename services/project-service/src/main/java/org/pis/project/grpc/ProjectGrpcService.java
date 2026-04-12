@@ -45,6 +45,17 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
       responseObserver.onNext(response);
       responseObserver.onCompleted();
   }
+
+  @Override
+  public void listProjects(ListProjectsRequest request, StreamObserver<ListProjectsResponse> responseObserver) {
+    List<ProjectEntity> projectEntities = projectService.listProjects(request.getSubjectId());
+
+    ListProjectsResponse response = ListProjectsResponse.newBuilder()
+        .addAllProjects(projectEntities.stream().map(projectMapper::toProto).collect(Collectors.toList()))
+        .build();
+
+    responseObserver.onNext(response);
+    responseObserver.onCompleted();
   }
 
   @Override
