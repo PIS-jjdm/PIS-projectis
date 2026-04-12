@@ -1,5 +1,7 @@
 package org.pis.project.mappers;
 
+import java.util.List;
+
 import org.mapstruct.BeanMapping;
 import org.mapstruct.CollectionMappingStrategy;
 import org.mapstruct.Mapper;
@@ -16,6 +18,8 @@ public interface ProjectMapper {
 
     @Mapping(target = "projectId", source = "id")
     Project toProto(ProjectEntity entity);
+
+    List<Project> toProtoList(List<ProjectEntity> entities);
 
     @Mapping(target = "id", ignore = true)
     ProjectEntity toEntity(CreateProjectRequest proto);

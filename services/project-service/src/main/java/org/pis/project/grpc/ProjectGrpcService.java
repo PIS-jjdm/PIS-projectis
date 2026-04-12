@@ -2,7 +2,6 @@ package org.pis.project.grpc;
 
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 import org.pis.project.entities.ProjectEntity;
 import org.pis.project.entities.TeamEntity;
@@ -60,7 +59,7 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
     List<ProjectEntity> projectEntities = projectService.listProjects(request.getSubjectId());
 
     ListProjectsResponse response = ListProjectsResponse.newBuilder()
-        .addAllProjects(projectEntities.stream().map(projectMapper::toProto).collect(Collectors.toList()))
+        .addAllProjects(projectMapper.toProtoList(projectEntities))
         .build();
 
     responseObserver.onNext(response);
