@@ -6,6 +6,7 @@ import lombok.experimental.SuperBuilder;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.UUID;
 
 @MappedSuperclass
 @Getter
@@ -15,9 +16,9 @@ import java.time.ZoneOffset;
 @SuperBuilder
 public abstract class BaseEntity {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(nullable = false, updatable = false)
-    private Long id;
+    private UUID id;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAtUtc;

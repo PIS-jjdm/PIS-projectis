@@ -1,6 +1,7 @@
 package org.pis.project.services;
 
 import java.util.List;
+import java.util.UUID;
 
 import org.pis.project.entities.ProjectEntity;
 import org.pis.project.exceptions.ResourceNotFoundException;
@@ -21,7 +22,7 @@ public class ProjectService {
         return projectRepository.findBySubjectId(subjectId);
     }
 
-    public ProjectEntity getProject(Long id) {
+    public ProjectEntity getProject(UUID id) {
         return projectRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Project not found with id: " + id));
     }
@@ -37,8 +38,8 @@ public class ProjectService {
         return projectRepository.save(existingProject);
     }
 
-    public ProjectEntity deleteProject(Long id) {
-        ProjectEntity project = getProject(id);
+    public ProjectEntity deleteProject(UUID project_id) {
+        ProjectEntity project = getProject(project_id);
         projectRepository.delete(project);
         return project;
     }

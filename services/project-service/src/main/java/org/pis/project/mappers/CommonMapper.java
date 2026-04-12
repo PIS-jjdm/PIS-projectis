@@ -8,14 +8,6 @@ import java.time.ZoneOffset;
 @Component
 public class CommonMapper {
 
-    public String longToString(Long id) {
-        return id != null ? id.toString() : null;
-    }
-
-    public Long stringToLong(String id) {
-        return (id != null && !id.isEmpty()) ? Long.valueOf(id) : null;
-    }
-
     public Timestamp toTimestamp(LocalDateTime dateTime) {
         if (dateTime == null)
             return null;

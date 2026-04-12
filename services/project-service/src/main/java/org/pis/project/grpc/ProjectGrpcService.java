@@ -1,6 +1,7 @@
 package org.pis.project.grpc;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.pis.project.entities.ProjectEntity;
@@ -39,7 +40,9 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
 
   @Override
   public void getProject(GetProjectRequest request, StreamObserver<Project> responseObserver) {
-      ProjectEntity projectEntity = projectService.getProject(Long.parseLong(request.getProjectId()));
+    UUID projectId = UUID.fromString(request.getProjectId());
+    ProjectEntity projectEntity = projectService.getProject(projectId);
+
       Project response = projectMapper.toProto(projectEntity);
 
       responseObserver.onNext(response);
@@ -82,7 +85,8 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
 
   @Override
   public void deleteProject(DeleteProjectRequest request, StreamObserver<Project> responseObserver) {
-      ProjectEntity deletedProject = projectService.deleteProject(Long.parseLong(request.getProjectId()));
+    UUID projectId = UUID.fromString(request.getProjectId());
+    ProjectEntity deletedProject = projectService.deleteProject(projectId);
 
       Project response = projectMapper.toProto(deletedProject);
 

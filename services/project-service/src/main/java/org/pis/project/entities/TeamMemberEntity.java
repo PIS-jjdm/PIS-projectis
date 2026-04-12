@@ -1,5 +1,7 @@
 package org.pis.project.entities;
 
+import java.util.UUID;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.JoinColumn;
@@ -23,6 +25,9 @@ public class TeamMemberEntity extends BaseEntity {
 
     @Column(nullable = false)
     private String studentId;
+
+  @Column(nullable = false)
+  private UUID projectId;
 
     @ManyToOne(fetch = jakarta.persistence.FetchType.LAZY)
     @JoinColumns({

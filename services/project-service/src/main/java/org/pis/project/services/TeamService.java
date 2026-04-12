@@ -1,6 +1,7 @@
 package org.pis.project.services;
 
 import java.util.List;
+import java.util.UUID;
 
 import org.pis.project.entities.TeamEntity;
 import org.pis.project.repositories.TeamRepository;
@@ -9,11 +10,8 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class TeamService {
-    @Autowired
-    private TeamRepository teamRepository;
-
-    public List<TeamEntity> Teams() {
-        return teamRepository.findAll();
+  public List<TeamEntity> listTeams(UUID projectId) {
+    return teamRepository.findByProjectId(projectId);
     }
 
     public TeamEntity TeamById(Integer id) {

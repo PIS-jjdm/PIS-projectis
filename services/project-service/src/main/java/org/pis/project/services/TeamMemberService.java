@@ -1,6 +1,7 @@
 package org.pis.project.services;
 
 import java.util.List;
+import java.util.UUID;
 
 import org.pis.project.entities.TeamMemberEntity;
 import org.pis.project.repositories.TeamMemberRepository;
@@ -16,7 +17,7 @@ public class TeamMemberService {
         return teamMemberRepository.findAll();
     }
 
-    public TeamMemberEntity TeamMemberById(Integer id) {
+    public TeamMemberEntity TeamMemberById(UUID id) {
         return teamMemberRepository.findById(id).orElse(null);
     }
 
@@ -24,7 +25,7 @@ public class TeamMemberService {
         return teamMemberRepository.save(TeamMember);
     }
 
-    public void TeamMember(Integer id) {
+    public void TeamMember(UUID id) {
         teamMemberRepository.deleteById(id);
     }
 }
