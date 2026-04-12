@@ -18,6 +18,7 @@ service ProjectService {
   rpc RegisterTeam(RegisterTeamRequest) returns (Team);
   rpc ListTeamsByProject(ListTeamsByProjectRequest) returns (ListTeamsByProjectResponse);
   rpc LeaveTeam(LeaveTeamRequest) returns (Team);
+  rpc ChangeTeamLeader(ChangeTeamLeaderRequest) returns (Team);
 
   rpc AddTeamMember(AddTeamMemberRequest) returns (Team);
   rpc RemoveTeamMember(RemoveTeamMemberRequest) returns (Team);
@@ -82,6 +83,7 @@ message Team {
 message RegisterTeamRequest {
   string project_id         = 1;
   string creator_student_id = 2;
+  string team_name          = 3;
 }
 
 message ListTeamsByProjectRequest { string project_id = 1; }
@@ -93,11 +95,17 @@ message LeaveTeamRequest  {
   string student_id = 2;
 }
 
+message ChangeTeamLeaderRequest {
+  string team_id               = 1;
+  string old_leader_student_id = 2;
+  string new_leader_student_id = 3;
+}
+
 // JOIN REQUEST /////////////////////////////////////////////////////////////////////
 message JoinRequest {
-  string join_request_id         = 1;
-  string team_id    = 2;
-  string student_id = 3;
+  string join_request_id = 1;
+  string team_id         = 2;
+  string student_id      = 3;
 }
 
 message CreateJoinRequestRequest {

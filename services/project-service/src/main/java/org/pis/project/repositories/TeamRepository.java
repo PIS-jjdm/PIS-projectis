@@ -9,4 +9,7 @@ import org.pis.project.entities.TeamEntity;
 
 public interface TeamRepository extends JpaRepository<TeamEntity, UUID> {
 
+    List<TeamEntity> findByProjectId(UUID projectId);
+
+
 }
