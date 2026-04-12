@@ -3,6 +3,7 @@ package org.pis.project.services;
 import java.util.List;
 
 import org.pis.project.entities.ProjectEntity;
+import org.pis.project.exceptions.ResourceNotFoundException;
 import org.pis.project.mappers.ProjectMapper;
 import org.pis.project.repositories.ProjectRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,7 +23,7 @@ public class ProjectService {
 
     public ProjectEntity getProject(Long id) {
         return projectRepository.findById(id)
-                .orElseThrow();
+                .orElseThrow(() -> new ResourceNotFoundException("Project not found with id: " + id));
     }
 
     public ProjectEntity createProject(ProjectEntity project) {
