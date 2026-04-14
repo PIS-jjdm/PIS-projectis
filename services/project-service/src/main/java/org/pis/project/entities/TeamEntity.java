@@ -38,4 +38,14 @@ public class TeamEntity extends BaseEntity {
 
     @OneToMany(mappedBy = "team", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<TeamJoinRequestEntity> joinRequests;
+
+    public void addMember(TeamMemberEntity teamMember) {
+        members.add(teamMember);
+        teamMember.setTeam(this);
+    }
+
+    public void removeMember(TeamMemberEntity teamMember) {
+        members.remove(teamMember);
+        teamMember.setTeam(null);
+    }
 }
