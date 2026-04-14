@@ -1,9 +1,14 @@
 package org.pis.project.entities;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
+
+import org.pis.project.entities.enums.JoinRequestStatus;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinColumns;
 import jakarta.persistence.ManyToOne;
@@ -23,16 +28,16 @@ import lombok.experimental.SuperBuilder;
 @SuperBuilder
 public class TeamJoinRequestEntity extends BaseEntity {
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String studentId;
+    private JoinRequestStatus status;
 
     @Column(nullable = false)
-    private String status;
-
-    @Column(nullable = false)
-    private String requestedBy;
+    private String requestorStudentId;
 
     private LocalDateTime resolvedAtUtc;
+
+    private UUID projectId;
 
     @ManyToOne(fetch = jakarta.persistence.FetchType.LAZY)
     @JoinColumns({

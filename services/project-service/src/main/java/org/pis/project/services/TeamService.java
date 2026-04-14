@@ -7,11 +7,13 @@ import java.util.UUID;
 import org.pis.project.entities.ProjectEntity;
 import org.pis.project.entities.TeamEntity;
 import org.pis.project.entities.TeamMemberEntity;
+import org.pis.project.events.StudentJoinedTeamEvent;
 import org.pis.project.exceptions.BusinessRuleViolationException;
 import org.pis.project.exceptions.ResourceNotFoundException;
 import org.pis.project.repositories.ProjectRepository;
 import org.pis.project.repositories.TeamMemberRepository;
 import org.pis.project.repositories.TeamRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +25,7 @@ public class TeamService {
   private final TeamRepository teamRepository;
   private final TeamMemberRepository teamMemberRepository;
   private final ProjectRepository projectRepository;
+  private final ApplicationEventPublisher eventPublisher;
 
   @Transactional(readOnly = true)
   public List<TeamEntity> listTeams(UUID projectId) {
@@ -46,7 +49,7 @@ public class TeamService {
         .orElseThrow(() -> new ResourceNotFoundException("Project not found with id: " + projectId));
     newTeam.setProject(project);
 
-    // Create the Leader Member
+    // Create a team leader
     TeamMemberEntity leaderMember = new TeamMemberEntity();
     leaderMember.setStudentId(newTeam.getLeaderStudentId());
     leaderMember.setProjectId(projectId);
@@ -54,6 +57,9 @@ public class TeamService {
 
     newTeam.setMembers(new ArrayList<>(List.of(leaderMember)));
     newTeam.setJoinRequests(new ArrayList<>());
+
+    // Cancel any pending join requests for the leader in the same project
+    eventPublisher.publishEvent(new StudentJoinedTeamEvent(newTeam.getLeaderStudentId(), projectId));
 
     return teamRepository.save(newTeam);
   }

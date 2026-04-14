@@ -25,9 +25,8 @@ service ProjectService {
 
   rpc CreateJoinRequest(CreateJoinRequestRequest) returns (JoinRequest);
   rpc DeleteJoinRequest(DeleteJoinRequestRequest) returns (JoinRequest);
-  rpc ResolveJoinRequest(ResolveJoinRequestRequest) returns (Team);
-  rpc ListJoinRequestsByTeam(ListJoinRequestsByTeamRequest) returns (ListJoinRequestsResponse);
-  rpc ListJoinRequestsByStudent(ListJoinRequestsByStudentRequest) returns (ListJoinRequestsResponse);
+  rpc ResolveJoinRequest(ResolveJoinRequestRequest) returns (JoinRequest);
+  rpc ListJoinRequests(ListJoinRequestsRequest) returns (ListJoinRequestsResponse);
 }
 
 // PROJECT /////////////////////////////////////////////////////////////////////
@@ -103,28 +102,33 @@ message ChangeTeamLeaderRequest {
 
 // JOIN REQUEST /////////////////////////////////////////////////////////////////////
 message JoinRequest {
-  string join_request_id = 1;
-  string team_id         = 2;
-  string student_id      = 3;
+  string join_request_id      = 1;
+  string team_id              = 2;
+  string requestor_student_id = 3;
 }
 
 message CreateJoinRequestRequest {
-  string team_id    = 1;
-  string student_id = 2;
+  string team_id              = 1;
+  string requestor_student_id = 2;
 }
 
 message DeleteJoinRequestRequest { string join_request_id = 1; }
 
 message ResolveJoinRequestRequest {
-  string join_request_id = 1;
-  bool   accept          = 2;
+  string join_request_id     = 1;
+  bool   accept              = 2;
+  string resolver_student_id = 3;
 }
 
-message ListJoinRequestsByTeamRequest { string team_id = 1; }
+message ListJoinRequestsRequest {
+  oneof context_filter {
+    string requestor_student_id = 1;
+    string team_id              = 2;
+    string status               = 3;
+  }
+}
 
 message ListJoinRequestsResponse { repeated JoinRequest join_requests = 1; }
-
-message ListJoinRequestsByStudentRequest { string student_id = 1; }
 
 // TEAM MEMBER /////////////////////////////////////////////////////////////////////
 message AddTeamMemberRequest {
