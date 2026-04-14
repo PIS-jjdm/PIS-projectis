@@ -11,21 +11,21 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface TeamJoinRequestRepository extends JpaRepository<TeamJoinRequestEntity, UUID> {
-  List<TeamJoinRequestEntity> findByTeamId(UUID teamId);
+    List<TeamJoinRequestEntity> findByTeamId(UUID teamId);
 
-  List<TeamJoinRequestEntity> findByRequestorStudentId(String studentId);
+    List<TeamJoinRequestEntity> findByRequestorStudentId(String studentId);
 
-  List<TeamJoinRequestEntity> findByStatus(JoinRequestStatus status);
+    List<TeamJoinRequestEntity> findByStatus(JoinRequestStatus status);
 
-  @Modifying
-  @Query("""
-          UPDATE TeamJoinRequestEntity r
-          SET r.status = JoinRequestStatus.CANCELED
-          WHERE r.requestorStudentId = :requestorStudentId
-            AND r.projectId = :projectId
-            AND r.status = JoinRequestStatus.PENDING
-      """)
-  void cancelPendingRequestsForStudentInProject(
-      @Param("requestorStudentId") String requestorStudentId,
-      @Param("projectId") UUID projectId);
+    @Modifying
+    @Query("""
+                UPDATE TeamJoinRequestEntity r
+                SET r.status = JoinRequestStatus.CANCELED
+                WHERE r.requestorStudentId = :requestorStudentId
+                  AND r.projectId = :projectId
+                  AND r.status = JoinRequestStatus.PENDING
+            """)
+    void cancelPendingRequestsForStudentInProject(
+            @Param("requestorStudentId") String requestorStudentId,
+            @Param("projectId") UUID projectId);
 }

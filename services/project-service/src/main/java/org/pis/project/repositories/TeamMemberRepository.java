@@ -15,4 +15,5 @@ public interface TeamMemberRepository extends JpaRepository<TeamMemberEntity, UU
     Optional<TeamMemberEntity> findByStudentIdAndTeamId(String studentId, UUID teamId);
 
     Integer countByTeamId(UUID teamId);
+
 }

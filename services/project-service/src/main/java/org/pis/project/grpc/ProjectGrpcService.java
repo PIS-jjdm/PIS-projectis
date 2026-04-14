@@ -44,206 +44,206 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBase {
 
-  private final ProjectService projectService;
-  private final ProjectMapper projectMapper;
+    private final ProjectService projectService;
+    private final ProjectMapper projectMapper;
 
-  private final TeamService teamService;
-  private final TeamMapper teamMapper;
+    private final TeamService teamService;
+    private final TeamMapper teamMapper;
 
-  private final TeamJoinRequestService teamJoinRequestService;
-  private final TeamJoinRequestMapper teamJoinRequestMapper;
+    private final TeamJoinRequestService teamJoinRequestService;
+    private final TeamJoinRequestMapper teamJoinRequestMapper;
 
-  @Override
-  public void getProject(GetProjectRequest request, StreamObserver<Project> responseObserver) {
-    UUID projectId = UUID.fromString(request.getProjectId());
-    ProjectEntity projectEntity = projectService.getProject(projectId);
+    @Override
+    public void getProject(GetProjectRequest request, StreamObserver<Project> responseObserver) {
+        UUID projectId = UUID.fromString(request.getProjectId());
+        ProjectEntity projectEntity = projectService.getProject(projectId);
 
-    Project response = projectMapper.toProto(projectEntity);
+        Project response = projectMapper.toProto(projectEntity);
 
-    responseObserver.onNext(response);
-    responseObserver.onCompleted();
-  }
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
 
-  @Override
-  public void listProjects(ListProjectsRequest request, StreamObserver<ListProjectsResponse> responseObserver) {
-    List<ProjectEntity> projectEntities = projectService.listProjects(request.getSubjectId());
+    @Override
+    public void listProjects(ListProjectsRequest request, StreamObserver<ListProjectsResponse> responseObserver) {
+        List<ProjectEntity> projectEntities = projectService.listProjects(request.getSubjectId());
 
-    ListProjectsResponse response = ListProjectsResponse.newBuilder()
-        .addAllProjects(projectMapper.toProtoList(projectEntities))
-        .build();
+        ListProjectsResponse response = ListProjectsResponse.newBuilder()
+                .addAllProjects(projectMapper.toProtoList(projectEntities))
+                .build();
 
-    responseObserver.onNext(response);
-    responseObserver.onCompleted();
-  }
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
 
-  @Override
-  public void createProject(CreateProjectRequest request, StreamObserver<Project> responseObserver) {
-    ProjectEntity newProjectEntity = projectMapper.toEntity(request);
-    ProjectEntity savedEntity = projectService.createProject(newProjectEntity);
+    @Override
+    public void createProject(CreateProjectRequest request, StreamObserver<Project> responseObserver) {
+        ProjectEntity newProjectEntity = projectMapper.toEntity(request);
+        ProjectEntity savedEntity = projectService.createProject(newProjectEntity);
 
-    Project response = projectMapper.toProto(savedEntity);
+        Project response = projectMapper.toProto(savedEntity);
 
-    responseObserver.onNext(response);
-    responseObserver.onCompleted();
-  }
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
 
-  @Override
-  public void updateProject(UpdateProjectRequest request, StreamObserver<Project> responseObserver) {
-    ProjectEntity newProjectEntity = projectMapper.toEntity(request);
-    ProjectEntity savedEntity = projectService.updateProject(newProjectEntity);
+    @Override
+    public void updateProject(UpdateProjectRequest request, StreamObserver<Project> responseObserver) {
+        ProjectEntity newProjectEntity = projectMapper.toEntity(request);
+        ProjectEntity savedEntity = projectService.updateProject(newProjectEntity);
 
-    Project response = projectMapper.toProto(savedEntity);
+        Project response = projectMapper.toProto(savedEntity);
 
-    responseObserver.onNext(response);
-    responseObserver.onCompleted();
-  }
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
 
-  @Override
-  public void deleteProject(DeleteProjectRequest request, StreamObserver<Project> responseObserver) {
-    UUID projectId = UUID.fromString(request.getProjectId());
-    ProjectEntity deletedProject = projectService.deleteProject(projectId);
+    @Override
+    public void deleteProject(DeleteProjectRequest request, StreamObserver<Project> responseObserver) {
+        UUID projectId = UUID.fromString(request.getProjectId());
+        ProjectEntity deletedProject = projectService.deleteProject(projectId);
 
-    Project response = projectMapper.toProto(deletedProject);
+        Project response = projectMapper.toProto(deletedProject);
 
-    responseObserver.onNext(response);
-    responseObserver.onCompleted();
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
 
-  }
+    }
 
-  @Override
-  public void registerTeam(RegisterTeamRequest request, StreamObserver<Team> responseObserver) {
-    TeamEntity newTeam = teamMapper.toEntity(request);
-    UUID projectId = UUID.fromString(request.getProjectId());
-    TeamEntity savedTeam = teamService.createTeam(newTeam, projectId);
+    @Override
+    public void registerTeam(RegisterTeamRequest request, StreamObserver<Team> responseObserver) {
+        TeamEntity newTeam = teamMapper.toEntity(request);
+        UUID projectId = UUID.fromString(request.getProjectId());
+        TeamEntity savedTeam = teamService.createTeam(newTeam, projectId);
 
-    Team response = teamMapper.toProto(savedTeam);
+        Team response = teamMapper.toProto(savedTeam);
 
-    responseObserver.onNext(response);
-    responseObserver.onCompleted();
-  }
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
 
-  @Override
-  public void listTeamsByProject(ListTeamsByProjectRequest request,
-      StreamObserver<ListTeamsByProjectResponse> responseObserver) {
+    @Override
+    public void listTeamsByProject(ListTeamsByProjectRequest request,
+            StreamObserver<ListTeamsByProjectResponse> responseObserver) {
 
-    UUID projectId = UUID.fromString(request.getProjectId());
-    List<TeamEntity> retrievedTeams = teamService.listTeams(projectId);
+        UUID projectId = UUID.fromString(request.getProjectId());
+        List<TeamEntity> retrievedTeams = teamService.listTeams(projectId);
 
-    System.err.println("Retrieved " + retrievedTeams.size() + " teams for project ID: " + projectId);
-    ListTeamsByProjectResponse response = ListTeamsByProjectResponse.newBuilder()
-        .addAllTeams(teamMapper.toProtoList(retrievedTeams))
-        .build();
+        System.err.println("Retrieved " + retrievedTeams.size() + " teams for project ID: " + projectId);
+        ListTeamsByProjectResponse response = ListTeamsByProjectResponse.newBuilder()
+                .addAllTeams(teamMapper.toProtoList(retrievedTeams))
+                .build();
 
-    responseObserver.onNext(response);
-    responseObserver.onCompleted();
-  }
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
 
-  @Override
-  public void leaveTeam(LeaveTeamRequest request, StreamObserver<Team> responseObserver) {
+    @Override
+    public void leaveTeam(LeaveTeamRequest request, StreamObserver<Team> responseObserver) {
 
-    UUID teamId = UUID.fromString(request.getTeamId());
-    TeamEntity abandonedTeam = teamService.leaveTeam(teamId, request.getStudentId());
+        UUID teamId = UUID.fromString(request.getTeamId());
+        TeamEntity abandonedTeam = teamService.leaveTeam(teamId, request.getStudentId());
 
-    Team response = teamMapper.toProto(abandonedTeam);
+        Team response = teamMapper.toProto(abandonedTeam);
 
-    responseObserver.onNext(response);
-    responseObserver.onCompleted();
-  }
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
 
-  @Override
-  public void changeTeamLeader(ChangeTeamLeaderRequest request, StreamObserver<Team> responseObserver) {
+    @Override
+    public void changeTeamLeader(ChangeTeamLeaderRequest request, StreamObserver<Team> responseObserver) {
 
-    UUID teamId = UUID.fromString(request.getTeamId());
-    String oldLeaderStudentId = request.getOldLeaderStudentId();
-    String newLeaderStudentId = request.getNewLeaderStudentId();
+        UUID teamId = UUID.fromString(request.getTeamId());
+        String oldLeaderStudentId = request.getOldLeaderStudentId();
+        String newLeaderStudentId = request.getNewLeaderStudentId();
 
-    TeamEntity abandonedTeam = teamService.changeLeader(teamId, oldLeaderStudentId, newLeaderStudentId);
+        TeamEntity abandonedTeam = teamService.changeLeader(teamId, oldLeaderStudentId, newLeaderStudentId);
 
-    Team response = teamMapper.toProto(abandonedTeam);
+        Team response = teamMapper.toProto(abandonedTeam);
 
-    responseObserver.onNext(response);
-    responseObserver.onCompleted();
-  }
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
 
-  @Override
-  public void addTeamMember(AddTeamMemberRequest request, StreamObserver<Team> responseObserver) {
+    @Override
+    public void addTeamMember(AddTeamMemberRequest request, StreamObserver<Team> responseObserver) {
 
-    UUID teamId = UUID.fromString(request.getTeamId());
-    String studentId = request.getStudentId();
+        UUID teamId = UUID.fromString(request.getTeamId());
+        String studentId = request.getStudentId();
 
-    TeamEntity joinedTeam = teamService.addMember(teamId, studentId);
+        TeamEntity joinedTeam = teamService.addMember(teamId, studentId);
 
-    Team response = teamMapper.toProto(joinedTeam);
+        Team response = teamMapper.toProto(joinedTeam);
 
-    responseObserver.onNext(response);
-    responseObserver.onCompleted();
-  }
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
 
-  @Override
-  public void removeTeamMember(RemoveTeamMemberRequest request, StreamObserver<Team> responseObserver) {
+    @Override
+    public void removeTeamMember(RemoveTeamMemberRequest request, StreamObserver<Team> responseObserver) {
 
-    UUID teamId = UUID.fromString(request.getTeamId());
-    String studentId = request.getStudentId();
+        UUID teamId = UUID.fromString(request.getTeamId());
+        String studentId = request.getStudentId();
 
-    TeamEntity leftTeam = teamService.deleteMember(teamId, studentId);
+        TeamEntity leftTeam = teamService.deleteMember(teamId, studentId);
 
-    Team response = teamMapper.toProto(leftTeam);
+        Team response = teamMapper.toProto(leftTeam);
 
-    responseObserver.onNext(response);
-    responseObserver.onCompleted();
-  }
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
 
-  @Override
-  public void createJoinRequest(CreateJoinRequestRequest request, StreamObserver<JoinRequest> responseObserver) {
-    UUID teamId = UUID.fromString(request.getTeamId());
+    @Override
+    public void createJoinRequest(CreateJoinRequestRequest request, StreamObserver<JoinRequest> responseObserver) {
+        UUID teamId = UUID.fromString(request.getTeamId());
 
-    TeamJoinRequestEntity newJoinRequest = teamJoinRequestMapper.toEntity(request);
+        TeamJoinRequestEntity newJoinRequest = teamJoinRequestMapper.toEntity(request);
 
-    TeamJoinRequestEntity savedRequest = teamJoinRequestService.createJoinRequest(newJoinRequest, teamId);
-    JoinRequest response = teamJoinRequestMapper.toProto(savedRequest);
+        TeamJoinRequestEntity savedRequest = teamJoinRequestService.createJoinRequest(newJoinRequest, teamId);
+        JoinRequest response = teamJoinRequestMapper.toProto(savedRequest);
 
-    responseObserver.onNext(response);
-    responseObserver.onCompleted();
-  }
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
 
-  @Override
-  public void deleteJoinRequest(DeleteJoinRequestRequest request, StreamObserver<JoinRequest> responseObserver) {
-    UUID joinRequestId = UUID.fromString(request.getJoinRequestId());
+    @Override
+    public void deleteJoinRequest(DeleteJoinRequestRequest request, StreamObserver<JoinRequest> responseObserver) {
+        UUID joinRequestId = UUID.fromString(request.getJoinRequestId());
 
-    TeamJoinRequestEntity deletedRequest = teamJoinRequestService.deleteJoinRequest(joinRequestId);
-    JoinRequest response = teamJoinRequestMapper.toProto(deletedRequest);
+        TeamJoinRequestEntity deletedRequest = teamJoinRequestService.deleteJoinRequest(joinRequestId);
+        JoinRequest response = teamJoinRequestMapper.toProto(deletedRequest);
 
-    responseObserver.onNext(response);
-    responseObserver.onCompleted();
-  }
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
 
-  @Override
-  public void resolveJoinRequest(ResolveJoinRequestRequest request, StreamObserver<JoinRequest> responseObserver) {
-    UUID joinRequestId = UUID.fromString(request.getJoinRequestId());
-    boolean accept = request.getAccept();
-    String resolverStudentId = request.getResolverStudentId();
+    @Override
+    public void resolveJoinRequest(ResolveJoinRequestRequest request, StreamObserver<JoinRequest> responseObserver) {
+        UUID joinRequestId = UUID.fromString(request.getJoinRequestId());
+        boolean accept = request.getAccept();
+        String resolverStudentId = request.getResolverStudentId();
 
-    TeamJoinRequestEntity resolvedRequest = teamJoinRequestService.resolveToJoinRequest(joinRequestId, accept,
-        resolverStudentId);
+        TeamJoinRequestEntity resolvedRequest = teamJoinRequestService.resolveToJoinRequest(joinRequestId, accept,
+                resolverStudentId);
 
-    JoinRequest response = teamJoinRequestMapper.toProto(resolvedRequest);
+        JoinRequest response = teamJoinRequestMapper.toProto(resolvedRequest);
 
-    responseObserver.onNext(response);
-    responseObserver.onCompleted();
-  }
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
 
-  @Override
-  public void listJoinRequests(ListJoinRequestsRequest request,
-      StreamObserver<ListJoinRequestsResponse> responseObserver) {
+    @Override
+    public void listJoinRequests(ListJoinRequestsRequest request,
+            StreamObserver<ListJoinRequestsResponse> responseObserver) {
 
-    JoinRequestFilter filter = teamJoinRequestMapper.toFilter(request);
-    List<TeamJoinRequestEntity> retrievedRequests = teamJoinRequestService.listJoinRequest(filter);
+        JoinRequestFilter filter = teamJoinRequestMapper.toFilter(request);
+        List<TeamJoinRequestEntity> retrievedRequests = teamJoinRequestService.listJoinRequest(filter);
 
-    ListJoinRequestsResponse response = ListJoinRequestsResponse.newBuilder()
-        .addAllJoinRequests(teamJoinRequestMapper.toProtoList(retrievedRequests))
-        .build();
+        ListJoinRequestsResponse response = ListJoinRequestsResponse.newBuilder()
+                .addAllJoinRequests(teamJoinRequestMapper.toProtoList(retrievedRequests))
+                .build();
 
-    responseObserver.onNext(response);
-    responseObserver.onCompleted();
-  }
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
 }

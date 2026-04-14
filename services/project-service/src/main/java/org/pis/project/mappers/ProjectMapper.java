@@ -27,7 +27,7 @@ public interface ProjectMapper {
     @Mapping(target = "id", source = "projectId")
     ProjectEntity toEntity(UpdateProjectRequest proto);
 
-    @Mapping(target = "id", ignore = true) // Usually ignore ID during merge
+    @Mapping(target = "id", ignore = true)
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
     void updateEntityFromRequest(ProjectEntity source, @MappingTarget ProjectEntity target);
 }

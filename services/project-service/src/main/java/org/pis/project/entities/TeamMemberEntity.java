@@ -17,7 +17,7 @@ import lombok.experimental.SuperBuilder;
 
 @Entity
 @Table(name = "team_member", uniqueConstraints = {
-    @UniqueConstraint(columnNames = { "student_id", "project_id" })
+        @UniqueConstraint(columnNames = { "student_id", "project_id" })
 })
 @Getter
 @Setter
@@ -26,15 +26,15 @@ import lombok.experimental.SuperBuilder;
 @SuperBuilder
 public class TeamMemberEntity extends BaseEntity {
 
-  @Column(nullable = false)
-  private String studentId;
+    @Column(nullable = false)
+    private String studentId;
 
-  @Column(nullable = false)
-  private UUID projectId;
+    @Column(nullable = false)
+    private UUID projectId;
 
-  @ManyToOne(fetch = jakarta.persistence.FetchType.LAZY)
-  @JoinColumns({
-      @JoinColumn(name = "team_id", referencedColumnName = "id")
-  })
-  private TeamEntity team;
+    @ManyToOne(fetch = jakarta.persistence.FetchType.LAZY)
+    @JoinColumns({
+            @JoinColumn(name = "team_id", referencedColumnName = "id")
+    })
+    private TeamEntity team;
 }

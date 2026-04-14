@@ -1,0 +1,20 @@
+# EditorConfig helps maintain consistent coding styles
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Indentation
+indent_style = space
+indent_size = 4
+
+# Line length
+max_line_length = 100
+
+# Optional: apply to specific file types differently if needed
+[*.md]
+max_line_length = off
+trim_trailing_whitespace = false
