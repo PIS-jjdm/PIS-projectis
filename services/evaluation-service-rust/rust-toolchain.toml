@@ -1,0 +1,5 @@
+[toolchain]
+channel = "1.94.1"
+components = [ "rustc", "cargo", "rustfmt", "rust-src", "rust-analyzer", "clippy" ]
+targets = [ "x86_64-unknown-linux-gnu" ]
+profile = "default"
