@@ -164,7 +164,7 @@ public class TeamService {
     }
 
     @Transactional
-    public TeamEntity deleteMember(UUID teamId, String studentId) {
+    public TeamEntity removeMember(UUID teamId, String studentId) {
         TeamMemberEntity teamMember = teamMemberRepository.findByStudentIdAndTeamId(studentId, teamId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Team member not found for studentId: " + studentId + " and teamId: " + teamId));

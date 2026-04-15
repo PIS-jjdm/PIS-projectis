@@ -184,7 +184,7 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
         UUID teamId = UUID.fromString(request.getTeamId());
         String studentId = request.getStudentId();
 
-        TeamEntity leftTeam = teamService.deleteMember(teamId, studentId);
+        TeamEntity leftTeam = teamService.removeMember(teamId, studentId);
 
         Team response = teamMapper.toProto(leftTeam);
 
