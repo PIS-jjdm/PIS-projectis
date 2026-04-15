@@ -129,9 +129,8 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
         UUID projectId = UUID.fromString(request.getProjectId());
         List<TeamEntity> retrievedTeams = teamService.listTeams(projectId);
 
-        System.err.println("Retrieved " + retrievedTeams.size() + " teams for project ID: " + projectId);
         ListTeamsByProjectResponse response = ListTeamsByProjectResponse.newBuilder()
-                .addAllTeams(teamMapper.toProtoList(retrievedTeams))
+                .addAllTeams(teamMapper.toListProtoList(retrievedTeams))
                 .build();
 
         responseObserver.onNext(response);

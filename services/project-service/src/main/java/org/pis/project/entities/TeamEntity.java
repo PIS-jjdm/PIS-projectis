@@ -9,6 +9,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -38,6 +39,9 @@ public class TeamEntity extends BaseEntity {
 
     @OneToMany(mappedBy = "team", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<TeamJoinRequestEntity> joinRequests;
+
+    @Transient // JPA: not persisted
+    private Integer memberCount;
 
     public void addMember(TeamMemberEntity teamMember) {
         members.add(teamMember);

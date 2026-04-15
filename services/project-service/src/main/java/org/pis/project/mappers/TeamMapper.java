@@ -7,6 +7,7 @@ import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.pis.project.entities.TeamEntity;
 import org.pis.project.entities.TeamMemberEntity;
+import org.pis.project.proto.ListTeam;
 import org.pis.project.proto.RegisterTeamRequest;
 import org.pis.project.proto.Team;
 
@@ -18,7 +19,13 @@ public interface TeamMapper {
     @Mapping(target = "studentIdsList", source = "members") // Protobuf 'repeated' fields map to '...List'
     Team toProto(TeamEntity entity);
 
+    @Mapping(target = "teamId", source = "id")
+    @Mapping(target = "projectId", source = "project.id")
+    ListTeam toProtoList(TeamEntity entity);
+
     List<Team> toProtoList(List<TeamEntity> entities);
+
+    List<ListTeam> toListProtoList(List<TeamEntity> entities);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "name", source = "teamName")

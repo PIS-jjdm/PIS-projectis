@@ -79,6 +79,14 @@ message Team {
   repeated string student_ids       = 5;
 }
 
+message ListTeam {
+  string team_id           = 1;
+  string project_id        = 2;
+  string name              = 3;
+  string leader_student_id = 4;
+  int32  member_count      = 5;
+}
+
 message RegisterTeamRequest {
   string project_id         = 1;
   string creator_student_id = 2;
@@ -87,7 +95,7 @@ message RegisterTeamRequest {
 
 message ListTeamsByProjectRequest { string project_id = 1; }
 
-message ListTeamsByProjectResponse { repeated Team teams = 1; }
+message ListTeamsByProjectResponse { repeated ListTeam teams = 1; }
 
 message LeaveTeamRequest  {
   string team_id    = 1;

@@ -3,6 +3,7 @@ package org.pis.project.services;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import org.hibernate.Hibernate;
 
 import org.pis.project.entities.ProjectEntity;
 import org.pis.project.entities.TeamEntity;
@@ -29,7 +30,15 @@ public class TeamService {
 
     @Transactional(readOnly = true)
     public List<TeamEntity> listTeams(UUID projectId) {
-        return teamRepository.findByProjectId(projectId);
+        return teamRepository.findTeamsWithMemberCount(projectId)
+                .stream()
+                .map(row -> {
+                    TeamEntity team = (TeamEntity) row[0];
+                    Long count = (Long) row[1];
+                    team.setMemberCount(count.intValue());
+                    return team;
+                })
+                .toList();
     }
 
     @Transactional(readOnly = true)
