@@ -100,10 +100,11 @@ public class TeamService {
                             () -> new ResourceNotFoundException("No other team members found to assign as leader."));
 
             team.setLeaderStudentId(newLeader.getStudentId());
-            teamRepository.save(team);
+            team = teamRepository.save(team);
         }
+        team.removeMember(member);
+        Hibernate.initialize(team.getMembers());
 
-        teamMemberRepository.delete(member);
         return team;
     }
 
@@ -120,7 +121,9 @@ public class TeamService {
             throw new BusinessRuleViolationException("Former leader must be the current leader of the team.");
         } else {
             team.setLeaderStudentId(newLeaderStudentId);
-            return teamRepository.save(team);
+            TeamEntity updatedEntity = teamRepository.save(team);
+            Hibernate.initialize(updatedEntity.getMembers());
+            return updatedEntity;
         }
     }
 
@@ -152,6 +155,7 @@ public class TeamService {
         TeamMemberEntity teamMember = TeamMemberEntity.builder()
                 .team(team)
                 .studentId(studentId)
+                .projectId(projectId)
                 .build();
 
         // cancel any pending join requests for the student in the same project
@@ -159,6 +163,8 @@ public class TeamService {
 
         team.addMember(teamMember);
         teamMemberRepository.save(teamMember);
+
+        Hibernate.initialize(team.getMembers());
 
         return team;
     }
@@ -171,8 +177,8 @@ public class TeamService {
 
         TeamEntity team = teamMember.getTeam();
         team.removeMember(teamMember);
-        teamMemberRepository.delete(teamMember);
 
+        Hibernate.initialize(team.getMembers());
         return team;
     }
 }
