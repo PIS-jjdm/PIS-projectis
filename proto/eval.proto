@@ -6,46 +6,96 @@ import "common.proto";
 import "google/protobuf/timestamp.proto";
 
 service EvaluationService {
-  rpc CreateEvaluation(CreateEvaluationRequest) returns (Evaluation);
-  rpc GetEvaluation(GetEvaluationRequest) returns (Evaluation);
-  rpc ListEvaluations(ListEvaluationsRequest) returns (ListEvaluationsResponse);
-  rpc UpdateEvaluation(UpdateEvaluationRequest) returns (Evaluation);
-  rpc DeleteEvaluation(DeleteEvaluationRequest) returns (common.Ack);
+  rpc GetSubjectEvaluation(GetSubjectEvaluationRequest) returns (SubjectEvaluation);
+  rpc GetProjectEvaluation(GetProjectEvaluationRequest) returns (ProjectEvaluation);
+
+  rpc ListSubjectEvaluations(ListSubjectEvaluationsRequest) returns (ListSubjectEvaluationsResponse);
+  rpc ListProjectEvaluations(ListProjectEvaluationsRequest) returns (ListProjectEvaluationsResponse);
+
+  rpc CreateSubjectEvaluation(CreateSubjectEvaluationRequest) returns (SubjectEvaluation);
+  rpc CreateProjectEvaluation(CreateProjectEvaluationRequest) returns (ProjectEvaluation);
+
+  rpc UpdateSubjectEvaluation(UpdateSubjectEvaluationRequest) returns (SubjectEvaluation);
+  rpc UpdateProjectEvaluation(UpdateProjectEvaluationRequest) returns (ProjectEvaluation);
+
+  rpc DeleteSubjectEvaluation(DeleteEvaluationRequest) returns (common.Ack);
+  rpc DeleteProjectEvaluation(DeleteEvaluationRequest) returns (common.Ack);
 }
 
-message Evaluation {
+message SubjectEvaluation {
+  string id = 1;
+  string subject_id = 2;
+  string student_id = 3;
+  string grade = 4;
+  google.protobuf.Timestamp timestamp = 7;
+}
+
+message ProjectEvaluation {
   string id = 1;
   string project_id = 2;
   string team_id = 3;
   string evaluator_teacher_id = 4;
-  double total_score = 5;
+  float total_score = 5;
   string feedback = 6;
   google.protobuf.Timestamp timestamp = 7;
 }
 
-message CreateEvaluationRequest {
+message GetSubjectEvaluationRequest {
+  string evaluation_id = 1;
+}
+
+message GetProjectEvaluationRequest {
   string project_id = 1;
   string team_id = 2;
-  string evaluator_teacher_id = 3;
-  string grade = 4;
+  string evaluator_teacher_id = 4;
+}
+
+message CreateSubjectEvaluationRequest {
+  string subject_id = 1;
+  string student_id = 2;
+  string grade = 3;
+}
+
+message CreateProjectEvaluationRequest {
+  string subject_id = 1;
+  string project_id = 2;
+  string team_id = 3;
+  float total_score = 4;
   string feedback = 5;
 }
 
-message GetEvaluationRequest { string evaluation_id = 1; }
+message ListSubjectEvaluationsRequest {
+  string subject_id = 1;
+}
 
-message ListEvaluationsRequest {
+message ListSubjectEvaluationsResponse {
+  repeated SubjectEvaluation evaluations = 1;
+}
+
+message ListProjectEvaluationsRequest {
   string project_id = 1;
   string student_id = 2;
   string evaluator_teacher_id = 3;
 }
 
-message ListEvaluationsResponse { repeated Evaluation evaluations = 1; }
-
-message UpdateEvaluationRequest {
-  string evaluation_id = 1;
-  double score = 3;
-  string feedback = 4;
+message ListProjectEvaluationsResponse {
+  repeated ProjectEvaluation evaluations = 2;
 }
 
-message DeleteEvaluationRequest { string evaluation_id = 1; }
+message UpdateSubjectEvaluationRequest {
+  string subject_id = 2;
+  string student_id = 3;
+  string grade = 4;
+}
+
+message UpdateProjectEvaluationRequest {
+  string project_id = 2;
+  string team_id = 3;
+  float total_score = 5;
+  string feedback = 6;
+}
+
+message DeleteEvaluationRequest {
+  string evaluation_id = 1;
+}
 
