@@ -1,0 +1,87 @@
+name: reusable-service-check
+
+on:
+  workflow_call:
+    inputs:
+      service-name:
+        description: Service name shown in the job title
+        required: true
+        type: string
+      working-directory:
+        description: Directory where build and test commands run
+        required: true
+        type: string
+      language:
+        description: Built-in runtime setup to use
+        required: true
+        type: string
+      build-command:
+        description: Command used to build the service
+        required: true
+        type: string
+      test-command:
+        description: Command used to run the service test suite
+        required: true
+        type: string
+      dotnet-version:
+        description: .NET SDK version when language=dotnet
+        required: false
+        default: 10.0.x
+        type: string
+      rust-toolchain:
+        description: Rust toolchain version when language=rust
+        required: false
+        default: stable
+        type: string
+      setup-command:
+        description: Optional extra setup command for service-specific prerequisites
+        required: false
+        default: ""
+        type: string
+
+jobs:
+  build-and-test:
+    name: ${{ inputs.service-name }}
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        shell: bash
+        working-directory: ${{ inputs.working-directory }}
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - name: Validate language input
+        run: |
+          case "${{ inputs.language }}" in
+            dotnet|rust|custom) ;;
+            *)
+              echo "Unsupported language '${{ inputs.language }}'."
+              echo "Supported values: dotnet, rust, custom."
+              exit 1
+              ;;
+          esac
+
+      - name: Set up .NET
+        if: ${{ inputs.language == 'dotnet' }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ inputs.dotnet-version }}
+
+      - name: Set up Rust
+        if: ${{ inputs.language == 'rust' }}
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ inputs.rust-toolchain }}
+
+      - name: Extra setup
+        if: ${{ inputs.setup-command != '' }}
+        run: ${{ inputs.setup-command }}
+
+      - name: Build
+        run: ${{ inputs.build-command }}
+
+      - name: Test
+        run: ${{ inputs.test-command }}
