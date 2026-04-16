@@ -17,6 +17,7 @@ import org.pis.project.proto.CreateProjectRequest;
 import org.pis.project.proto.DeleteJoinRequestRequest;
 import org.pis.project.proto.DeleteProjectRequest;
 import org.pis.project.proto.GetProjectRequest;
+import org.pis.project.proto.GetTeamRequest;
 import org.pis.project.proto.JoinRequest;
 import org.pis.project.proto.LeaveTeamRequest;
 import org.pis.project.proto.ListJoinRequestsRequest;
@@ -36,6 +37,8 @@ import org.pis.project.services.ProjectService;
 import org.pis.project.services.TeamJoinRequestService;
 import org.pis.project.services.TeamService;
 import org.springframework.stereotype.Service;
+
+import com.google.protobuf.Empty;
 
 import io.grpc.stub.StreamObserver;
 import lombok.RequiredArgsConstructor;
@@ -99,15 +102,24 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
     }
 
     @Override
-    public void deleteProject(DeleteProjectRequest request, StreamObserver<Project> responseObserver) {
+    public void deleteProject(DeleteProjectRequest request, StreamObserver<Empty> responseObserver) {
         UUID projectId = UUID.fromString(request.getProjectId());
-        ProjectEntity deletedProject = projectService.deleteProject(projectId);
+        projectService.deleteProject(projectId);
 
-        Project response = projectMapper.toProto(deletedProject);
+        responseObserver.onNext(Empty.getDefaultInstance());
+        responseObserver.onCompleted();
+
+    }
+
+    @Override
+    public void getTeam(GetTeamRequest request, StreamObserver<Team> responseObserver) {
+        UUID teamId = UUID.fromString(request.getTeamId());
+        TeamEntity retievedTeam = teamService.getTeam(teamId);
+
+        Team response = teamMapper.toProto(retievedTeam);
 
         responseObserver.onNext(response);
         responseObserver.onCompleted();
-
     }
 
     @Override
@@ -138,14 +150,12 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
     }
 
     @Override
-    public void leaveTeam(LeaveTeamRequest request, StreamObserver<Team> responseObserver) {
+    public void leaveTeam(LeaveTeamRequest request, StreamObserver<Empty> responseObserver) {
 
         UUID teamId = UUID.fromString(request.getTeamId());
-        TeamEntity abandonedTeam = teamService.leaveTeam(teamId, request.getStudentId());
+        teamService.leaveTeam(teamId, request.getStudentId());
 
-        Team response = teamMapper.toProto(abandonedTeam);
-
-        responseObserver.onNext(response);
+        responseObserver.onNext(Empty.getDefaultInstance());
         responseObserver.onCompleted();
     }
 
@@ -206,13 +216,12 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
     }
 
     @Override
-    public void deleteJoinRequest(DeleteJoinRequestRequest request, StreamObserver<JoinRequest> responseObserver) {
+    public void deleteJoinRequest(DeleteJoinRequestRequest request, StreamObserver<Empty> responseObserver) {
         UUID joinRequestId = UUID.fromString(request.getJoinRequestId());
 
-        TeamJoinRequestEntity deletedRequest = teamJoinRequestService.deleteJoinRequest(joinRequestId);
-        JoinRequest response = teamJoinRequestMapper.toProto(deletedRequest);
+        teamJoinRequestService.deleteJoinRequest(joinRequestId);
 
-        responseObserver.onNext(response);
+        responseObserver.onNext(Empty.getDefaultInstance());
         responseObserver.onCompleted();
     }
 

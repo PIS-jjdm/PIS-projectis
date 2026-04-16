@@ -3,15 +3,22 @@ package org.pis.project.e2e;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.empty;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.pis.project.entities.ProjectEntity;
+import org.pis.project.entities.TeamEntity;
+import org.pis.project.entities.TeamJoinRequestEntity;
+import org.pis.project.entities.TeamMemberEntity;
+import org.pis.project.entities.enums.JoinRequestStatus;
+import org.pis.project.proto.CreateProjectRequest;
 import org.pis.project.proto.DeleteProjectRequest;
 import org.pis.project.proto.GetProjectRequest;
 import org.pis.project.proto.ListProjectsRequest;
@@ -19,9 +26,15 @@ import org.pis.project.proto.ListProjectsResponse;
 import org.pis.project.proto.Project;
 import org.pis.project.proto.UpdateProjectRequest;
 import org.pis.project.repositories.ProjectRepository;
+import org.pis.project.repositories.TeamJoinRequestRepository;
+import org.pis.project.repositories.TeamMemberRepository;
+import org.pis.project.repositories.TeamRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 
 @ActiveProfiles("test")
 @SpringBootTest
@@ -29,6 +42,15 @@ public class ProjectGrpcE2ETests extends BaseGrpcE2ETests {
 
     @Autowired
     private ProjectRepository projectRepository;
+
+    @Autowired
+    private TeamRepository teamRepository;
+
+    @Autowired
+    private TeamMemberRepository teamMemberRepository;
+
+    @Autowired
+    private TeamJoinRequestRepository teamJoinRequestRepository;
 
     @BeforeEach
     public void setup() {
@@ -140,16 +162,17 @@ public class ProjectGrpcE2ETests extends BaseGrpcE2ETests {
         DeleteProjectRequest delReq = DeleteProjectRequest.newBuilder()
                 .setProjectId(createdProject.getProjectId())
                 .build();
-        Project deletedProject = blockingStub.deleteProject(delReq);
 
-        // Assert: Ensure the response contains the deleted project info
-        assertNotNull(deletedProject);
-        assertEquals(createdProject.getProjectId(), deletedProject.getProjectId());
+        blockingStub.deleteProject(delReq);
 
-        // Verify it was actually removed by trying to list it
-        ListProjectsResponse listRes = blockingStub.listProjects(ListProjectsRequest.newBuilder()
-                .setSubjectId("SUB-DEL")
-                .build());
-        assertThat(listRes.getProjectsList(), empty());
+        StatusRuntimeException ex = assertThrows(StatusRuntimeException.class, () -> {
+            blockingStub.getProject(
+                    GetProjectRequest.newBuilder()
+                            .setProjectId(createdProject.getProjectId())
+                            .build());
+        });
+
+        assertEquals(Status.Code.NOT_FOUND, ex.getStatus().getCode());
+    }
     }
 }

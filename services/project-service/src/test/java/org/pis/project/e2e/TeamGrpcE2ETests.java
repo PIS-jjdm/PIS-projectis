@@ -1,10 +1,13 @@
 package org.pis.project.e2e;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -14,6 +17,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.pis.project.proto.AddTeamMemberRequest;
 import org.pis.project.proto.ChangeTeamLeaderRequest;
+import org.pis.project.proto.GetTeamRequest;
 import org.pis.project.proto.LeaveTeamRequest;
 import org.pis.project.proto.ListTeam;
 import org.pis.project.proto.ListTeamsByProjectRequest;
@@ -27,6 +31,9 @@ import org.pis.project.repositories.TeamRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 
 @ActiveProfiles("test")
 @SpringBootTest

@@ -3,6 +3,7 @@ syntax = "proto3";
 package project;
 
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
 
 option java_multiple_files = true;
 option java_package = "org.pis.project.proto";
@@ -13,18 +14,19 @@ service ProjectService {
   rpc GetProject(GetProjectRequest) returns (Project);
   rpc CreateProject(CreateProjectRequest) returns (Project);
   rpc UpdateProject(UpdateProjectRequest) returns (Project);
-  rpc DeleteProject(DeleteProjectRequest) returns (Project);
+  rpc DeleteProject(DeleteProjectRequest) returns (google.protobuf.Empty);
 
   rpc RegisterTeam(RegisterTeamRequest) returns (Team);
+  rpc GetTeam(GetTeamRequest) returns (Team);
   rpc ListTeamsByProject(ListTeamsByProjectRequest) returns (ListTeamsByProjectResponse);
-  rpc LeaveTeam(LeaveTeamRequest) returns (Team);
+  rpc LeaveTeam(LeaveTeamRequest) returns (google.protobuf.Empty);
   rpc ChangeTeamLeader(ChangeTeamLeaderRequest) returns (Team);
 
   rpc AddTeamMember(AddTeamMemberRequest) returns (Team);
   rpc RemoveTeamMember(RemoveTeamMemberRequest) returns (Team);
 
   rpc CreateJoinRequest(CreateJoinRequestRequest) returns (JoinRequest);
-  rpc DeleteJoinRequest(DeleteJoinRequestRequest) returns (JoinRequest);
+  rpc DeleteJoinRequest(DeleteJoinRequestRequest) returns (google.protobuf.Empty);
   rpc ResolveJoinRequest(ResolveJoinRequestRequest) returns (JoinRequest);
   rpc ListJoinRequests(ListJoinRequestsRequest) returns (ListJoinRequestsResponse);
 }
