@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="VcsDirectoryMappings">
+    <mapping directory="$PROJECT_DIR$/../../../../../Netsearch/crynemon" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../../../../../Netsearch/nixos-images" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../../../../FLP/haskell-mooc" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../.." vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../../../../../Trezor/bbctl" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../../../../../Trezor/blockbook" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../../../../../Trezor/trezor-suite" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../../../../../../Faktury/Areas/Netsearch/crynemon" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../../../../../../Faktury/Areas/Netsearch/nixos-images" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../../../../../../flp26-haskell-project" vcs="Git" />
+  </component>
+</project>
