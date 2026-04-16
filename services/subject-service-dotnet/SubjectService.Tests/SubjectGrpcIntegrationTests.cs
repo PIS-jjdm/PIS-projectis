@@ -174,7 +174,7 @@ internal sealed class SubjectGrpcTestHost : IAsyncDisposable
     {
         if (_channel is not null)
         {
-            await _channel.ShutdownAsync();
+            _channel.Dispose();
         }
 
         if (_app is not null)
