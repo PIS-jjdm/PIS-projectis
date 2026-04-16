@@ -99,6 +99,73 @@ public sealed class SubjectManagerTests
     }
 
     [Fact]
+    public async Task RemoveUserFromSubjectAsync_RemovesExistingMembershipAndReturnsAck()
+    {
+        await using var db = CreateDbContext();
+        await SeedSubjectAsync(db, "subject-1");
+        db.SubjectStudents.AddRange(
+            new SubjectStudentEntity
+            {
+                SubjectId = "subject-1",
+                UserId = "student-1",
+                CreatedAt = DateTimeOffset.UtcNow,
+            },
+            new SubjectStudentEntity
+            {
+                SubjectId = "subject-1",
+                UserId = "student-2",
+                CreatedAt = DateTimeOffset.UtcNow,
+            });
+        await db.SaveChangesAsync();
+
+        var manager = CreateSubjectManager(db);
+
+        var ack = await manager.RemoveUserFromSubjectAsync(
+            new SubjectProto.UserSubjectRequest
+            {
+                SubjectId = "subject-1",
+                UserId = "student-1",
+            },
+            CancellationToken.None);
+
+        Assert.True(ack.Success);
+        Assert.Equal("user removed from subject", ack.Message);
+        Assert.Equal(1, await db.SubjectStudents.CountAsync());
+        var remainingMembership = await db.SubjectStudents.SingleAsync();
+        Assert.Equal("student-2", remainingMembership.UserId);
+    }
+
+    [Fact]
+    public async Task RemoveUserFromSubjectAsync_IsIdempotentWhenMembershipDoesNotExist()
+    {
+        await using var db = CreateDbContext();
+        await SeedSubjectAsync(db, "subject-1");
+        var manager = CreateSubjectManager(db);
+
+        var firstAck = await manager.RemoveUserFromSubjectAsync(
+            new SubjectProto.UserSubjectRequest
+            {
+                SubjectId = "subject-1",
+                UserId = "student-1",
+            },
+            CancellationToken.None);
+
+        var secondAck = await manager.RemoveUserFromSubjectAsync(
+            new SubjectProto.UserSubjectRequest
+            {
+                SubjectId = "subject-1",
+                UserId = "student-1",
+            },
+            CancellationToken.None);
+
+        Assert.True(firstAck.Success);
+        Assert.True(secondAck.Success);
+        Assert.Equal("user removed from subject", firstAck.Message);
+        Assert.Equal("user removed from subject", secondAck.Message);
+        Assert.Equal(0, await db.SubjectStudents.CountAsync());
+    }
+
+    [Fact]
     public async Task AssignTeacherToSubjectAsync_AddsTeacherAndReturnsUpdatedSubject()
     {
         await using var db = CreateDbContext();
