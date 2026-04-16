@@ -28,7 +28,7 @@ use crate::proto::{
     },
     subject::{
         CreateSubjectRequest, DeleteSubjectRequest, ListSubjectsResponse, Subject,
-        UpdateSubjectRequest,
+        TeacherSubjectRequest, UpdateSubjectRequest,
     },
 };
 use crate::AppState;
@@ -244,6 +244,20 @@ impl FrontendGateway for FrontendGatewayService {
         request: Request<RegisterSubjectGatewayRequest>,
     ) -> Result<Response<Ack>, Status> {
         subjects::register_subject(self, request).await
+    }
+
+    async fn assign_teacher_to_subject(
+        &self,
+        request: Request<TeacherSubjectRequest>,
+    ) -> Result<Response<Subject>, Status> {
+        subjects::assign_teacher_to_subject(self, request).await
+    }
+
+    async fn remove_teacher_from_subject(
+        &self,
+        request: Request<TeacherSubjectRequest>,
+    ) -> Result<Response<Subject>, Status> {
+        subjects::remove_teacher_from_subject(self, request).await
     }
 
     async fn list_projects(

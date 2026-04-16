@@ -15,6 +15,7 @@ use crate::{
     AppState,
 };
 
+const ADMIN_ONLY: &[UserRole] = &[UserRole::Admin];
 const TEACHER_OR_ADMIN: &[UserRole] = &[UserRole::Teacher, UserRole::Admin];
 const STUDENT_ONLY: &[UserRole] = &[UserRole::Student];
 
@@ -110,7 +111,11 @@ fn route_auth_policy(path: &str) -> RouteAuthPolicy {
         "/gateway.FrontendGateway/CreateSubject"
         | "/gateway.FrontendGateway/UpdateSubject"
         | "/gateway.FrontendGateway/DeleteSubject"
-        | "/gateway.FrontendGateway/CreateProject"
+        | "/gateway.FrontendGateway/AssignTeacherToSubject"
+        | "/gateway.FrontendGateway/RemoveTeacherFromSubject" => {
+            RouteAuthPolicy::Roles(ADMIN_ONLY)
+        }
+        "/gateway.FrontendGateway/CreateProject"
         | "/gateway.FrontendGateway/CreateNotification"
         | "/gateway.FrontendGateway/ListScheduledNotifications"
         | "/gateway.FrontendGateway/CancelScheduledNotification"

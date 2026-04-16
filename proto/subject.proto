@@ -12,6 +12,8 @@ service SubjectService {
   rpc DeleteSubject(DeleteSubjectRequest) returns (common.Ack);
   rpc RegisterUserToSubject(UserSubjectRequest) returns (common.Ack);
   rpc RemoveUserFromSubject(UserSubjectRequest) returns (common.Ack);
+  rpc AssignTeacherToSubject(TeacherSubjectRequest) returns (Subject);
+  rpc RemoveTeacherFromSubject(TeacherSubjectRequest) returns (Subject);
 }
 
 message Subject {
@@ -32,6 +34,11 @@ message GetSubjectRequest { string subject_id = 1; }
 message UserSubjectRequest {
   string subject_id = 1;
   string user_id = 2;
+}
+
+message TeacherSubjectRequest {
+  string subject_id = 1;
+  string teacher_user_id = 2;
 }
 
 message CreateSubjectRequest {
