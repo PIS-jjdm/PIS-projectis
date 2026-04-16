@@ -190,5 +190,58 @@ public class ProjectGrpcE2ETests extends BaseGrpcE2ETests {
 
         assertEquals(Status.Code.NOT_FOUND, ex.getStatus().getCode());
     }
+
+    @Test
+    public void testDeleteProject_CascadesToTeamsMembersAndJoinRequests() {
+        // Arrange: 1. Create the Project via gRPC
+        Project createdProjectProto = blockingStub.createProject(createProjectRequest);
+        UUID projectId = UUID.fromString(createdProjectProto.getProjectId());
+
+        // Fetch the created ProjectEntity to establish JPA relationships
+        ProjectEntity projectEntity = projectRepository.findById(projectId).orElseThrow(
+                () -> new RuntimeException("Project not found in DB after creation"));
+
+        // Arrange: 2. Insert Team using Repository
+        TeamEntity team = TeamEntity.builder()
+                .name("Cascade Test Team")
+                .leaderStudentId("leader1")
+                .project(projectEntity)
+                .build();
+        team = teamRepository.save(team);
+
+        // Arrange: 3. Insert TeamMember using Repository
+        TeamMemberEntity member = TeamMemberEntity.builder()
+                .studentId("student1")
+                .projectId(projectId)
+                .team(team)
+                .build();
+        teamMemberRepository.save(member);
+
+        // Arrange: 4. Insert TeamJoinRequest using Repository
+        TeamJoinRequestEntity joinRequest = TeamJoinRequestEntity.builder()
+                .status(JoinRequestStatus.PENDING) // Adjust based on your actual enum
+                .requestorStudentId("hopeful1")
+                .projectId(projectId)
+                .team(team)
+                .build();
+        teamJoinRequestRepository.save(joinRequest);
+
+        // Pre-Assert: Verify database is populated correctly before deletion
+        assertEquals(1, projectRepository.count());
+        assertEquals(1, teamRepository.count());
+        assertEquals(1, teamMemberRepository.count());
+        assertEquals(1, teamJoinRequestRepository.count());
+
+        // Act: Delete the Project via gRPC
+        DeleteProjectRequest delReq = DeleteProjectRequest.newBuilder()
+                .setProjectId(createdProjectProto.getProjectId())
+                .build();
+        blockingStub.deleteProject(delReq);
+
+        // Assert: Verify cascading deletes using Repositories
+        assertEquals(0, projectRepository.count(), "Project should be deleted");
+        assertEquals(0, teamRepository.count(), "Teams should be cascade deleted");
+        assertEquals(0, teamMemberRepository.count(), "Team members should be cascade deleted");
+        assertEquals(0, teamJoinRequestRepository.count(), "Team join requests should be cascade deleted");
     }
 }

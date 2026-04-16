@@ -11,6 +11,7 @@ import org.pis.project.events.StudentJoinedTeamEvent;
 import org.pis.project.exceptions.BusinessRuleViolationException;
 import org.pis.project.exceptions.ResourceNotFoundException;
 import org.pis.project.repositories.TeamJoinRequestRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +23,7 @@ import lombok.RequiredArgsConstructor;
 public class TeamJoinRequestService {
     private final TeamJoinRequestRepository teamJoinRequestRepository;
     private final TeamService teamService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public TeamJoinRequestEntity createJoinRequest(TeamJoinRequestEntity joinRequest, UUID teamId) {
@@ -58,6 +60,9 @@ public class TeamJoinRequestService {
         }
 
         joinRequest.setStatus(accept ? JoinRequestStatus.ACCEPTED : JoinRequestStatus.REJECTED);
+
+        eventPublisher.publishEvent(
+                new StudentJoinedTeamEvent(joinRequest.getRequestorStudentId(), joinRequest.getProjectId()));
 
         TeamJoinRequestEntity resolvedRequest = teamJoinRequestRepository.save(joinRequest);
         return resolvedRequest;

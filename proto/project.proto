@@ -118,6 +118,7 @@ message JoinRequest {
   string   join_request_id      = 1;
   ListTeam team                 = 2;
   string   requestor_student_id = 3;
+  string   status               = 4;
 }
 
 message CreateJoinRequestRequest {
