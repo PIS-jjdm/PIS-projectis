@@ -43,8 +43,10 @@ public class TeamService {
 
     @Transactional(readOnly = true)
     public TeamEntity getTeam(UUID teamId) {
-        return teamRepository.findById(teamId)
+        TeamEntity retrievedTeam = teamRepository.findById(teamId)
                 .orElseThrow(() -> new ResourceNotFoundException("Team not found with id: " + teamId));
+        Hibernate.initialize(retrievedTeam.getMembers());
+        return retrievedTeam;
     }
 
     @Transactional
@@ -94,7 +96,7 @@ public class TeamService {
 
         // If the leader is leaving, assign a new leader
         if (team.getLeaderStudentId().equals(studentId)) {
-            TeamMemberEntity newLeader = teamMemberRepository.findById(teamId).stream()
+            TeamMemberEntity newLeader = teamMemberRepository.findByTeamId(teamId).stream()
                     .filter(m -> !m.getStudentId().equals(studentId))
                     .findFirst().orElseThrow(
                             () -> new ResourceNotFoundException("No other team members found to assign as leader."));

@@ -39,7 +39,7 @@ public class TeamJoinRequestEntity extends BaseEntity {
 
     private UUID projectId;
 
-    @ManyToOne(fetch = jakarta.persistence.FetchType.LAZY)
+    @ManyToOne(fetch = jakarta.persistence.FetchType.EAGER)
     @JoinColumns({
             @JoinColumn(name = "team_id", referencedColumnName = "id")
     })

@@ -32,7 +32,10 @@ public class TeamJoinRequestService {
         newJoinRequest.setRequestorStudentId(joinRequest.getRequestorStudentId());
         newJoinRequest.setStatus(JoinRequestStatus.PENDING);
 
-        return teamJoinRequestRepository.save(newJoinRequest);
+        newJoinRequest.setProjectId(team.getProject().getId());
+
+        TeamJoinRequestEntity save = teamJoinRequestRepository.save(newJoinRequest);
+        return save;
     }
 
     @Transactional
@@ -56,7 +59,9 @@ public class TeamJoinRequestService {
 
         joinRequest.setStatus(accept ? JoinRequestStatus.ACCEPTED : JoinRequestStatus.REJECTED);
 
-        return teamJoinRequestRepository.save(joinRequest);
+        TeamJoinRequestEntity resolvedRequest = teamJoinRequestRepository.save(joinRequest);
+        return resolvedRequest;
+
     }
 
     @Transactional(readOnly = true)
