@@ -9,11 +9,10 @@ import org.pis.project.proto.CreateJoinRequestRequest;
 import org.pis.project.proto.JoinRequest;
 import org.pis.project.proto.ListJoinRequestsRequest;
 
-@Mapper(componentModel = "spring", uses = CommonMapper.class)
+@Mapper(componentModel = "spring", uses = {CommonMapper.class, TeamMapper.class})
 public interface TeamJoinRequestMapper {
 
     @Mapping(target = "joinRequestId", source = "id")
-    @Mapping(target = "teamId", source = "team.id")
     JoinRequest toProto(TeamJoinRequestEntity entity);
 
     Iterable<JoinRequest> toProtoList(Iterable<TeamJoinRequestEntity> entities);
@@ -31,5 +30,4 @@ public interface TeamJoinRequestMapper {
 
         return new JoinRequestFilter(studentId, teamId, status);
     }
-
 }

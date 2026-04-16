@@ -41,6 +41,7 @@ message Project {
   google.protobuf.Timestamp start_date            = 6;
   google.protobuf.Timestamp end_date              = 7;
   string                    subject_id            = 8;
+  repeated ListTeam         teams                 = 9;
 }
 
 message ListProjectsRequest {
@@ -89,6 +90,8 @@ message ListTeam {
   int32  member_count      = 5;
 }
 
+message GetTeamRequest { string team_id = 1; }
+
 message RegisterTeamRequest {
   string project_id         = 1;
   string creator_student_id = 2;
@@ -112,9 +115,9 @@ message ChangeTeamLeaderRequest {
 
 // JOIN REQUEST /////////////////////////////////////////////////////////////////////
 message JoinRequest {
-  string join_request_id      = 1;
-  string team_id              = 2;
-  string requestor_student_id = 3;
+  string   join_request_id      = 1;
+  ListTeam team                 = 2;
+  string   requestor_student_id = 3;
 }
 
 message CreateJoinRequestRequest {

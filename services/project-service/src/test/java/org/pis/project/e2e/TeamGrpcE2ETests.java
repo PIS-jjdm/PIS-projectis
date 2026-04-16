@@ -107,9 +107,7 @@ public class TeamGrpcE2ETests extends BaseGrpcE2ETests {
         assertThat(teamNames, containsInAnyOrder("Team Alpha", "Team Beta"));
 
         // Assert each team has exactly 1 member
-        listRes.getTeamsList().forEach(team ->
-        assertEquals(1, team.getMemberCount())
-);
+        listRes.getTeamsList().forEach(team -> assertEquals(1, team.getMemberCount()));
     }
 
     @Test
@@ -187,7 +185,36 @@ public class TeamGrpcE2ETests extends BaseGrpcE2ETests {
     }
 
     @Test
-    public void testLeaveTeam_Success() {
+    public void testLeaveTeamAsLeader_LastMember_Success() {
+        // Arrange
+        Team team = blockingStub.registerTeam(RegisterTeamRequest.newBuilder()
+                .setProjectId(activeProject.getProjectId())
+                .setCreatorStudentId("memberLeaving")
+                .setTeamName("Team Alpha")
+                .build());
+
+        // Act
+        LeaveTeamRequest leaveReq = LeaveTeamRequest.newBuilder()
+                .setTeamId(team.getTeamId())
+                .setStudentId("memberLeaving")
+                .build();
+        blockingStub.leaveTeam(leaveReq);
+
+        // Assert: team should no longer exist
+        StatusRuntimeException ex = assertThrows(StatusRuntimeException.class, () -> {
+            blockingStub.getTeam(GetTeamRequest.newBuilder()
+                    .setTeamId(team.getTeamId())
+                    .build());
+        });
+
+        System.err.println(ex.getMessage());
+
+        // safer: verify NOT_FOUND only if you expect hard deletion
+        assertEquals(Status.Code.NOT_FOUND, ex.getStatus().getCode());
+    }
+
+    @Test
+    public void testLeaveTeam_NotLastMember_Success() {
         // Arrange
         Team team = blockingStub.registerTeam(RegisterTeamRequest.newBuilder()
                 .setProjectId(activeProject.getProjectId())
@@ -205,10 +232,44 @@ public class TeamGrpcE2ETests extends BaseGrpcE2ETests {
                 .setTeamId(team.getTeamId())
                 .setStudentId("memberLeaving")
                 .build();
-        Team updatedTeam = blockingStub.leaveTeam(leaveReq);
+        blockingStub.leaveTeam(leaveReq);
 
         // Assert
-        assertNotNull(updatedTeam);
-        assertFalse(updatedTeam.getStudentIdsList().contains("memberLeaving"));
+        Team updatedTeam = blockingStub.getTeam(GetTeamRequest.newBuilder()
+                .setTeamId(team.getTeamId())
+                .build());
+
+        assertThat(updatedTeam.getStudentIdsList(), not(contains("memberLeaving")));
+    }
+
+    @Test
+    public void testLeaveTeamAsLeader_NotLastMember_Success() {
+        // Arrange
+        Team team = blockingStub.registerTeam(RegisterTeamRequest.newBuilder()
+                .setProjectId(activeProject.getProjectId())
+                .setCreatorStudentId("leader")
+                .setTeamName("Team Alpha")
+                .build());
+
+        blockingStub.addTeamMember(AddTeamMemberRequest.newBuilder()
+                .setTeamId(team.getTeamId())
+                .setStudentId("memberStaying")
+                .build());
+
+        // Act
+        LeaveTeamRequest leaveReq = LeaveTeamRequest.newBuilder()
+                .setTeamId(team.getTeamId())
+                .setStudentId("leader")
+                .build();
+        blockingStub.leaveTeam(leaveReq);
+
+        // Assert
+        Team updatedTeam = blockingStub.getTeam(GetTeamRequest.newBuilder()
+                .setTeamId(team.getTeamId())
+                .build());
+
+        assertEquals(updatedTeam.getLeaderStudentId(), "memberStaying");
+        assertThat(updatedTeam.getStudentIdsList(), not(contains("leader")));
+        assertThat(updatedTeam.getStudentIdsList(), contains("memberStaying"));
     }
 }
