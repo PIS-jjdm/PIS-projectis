@@ -7,6 +7,8 @@ import lombok.experimental.SuperBuilder;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.pis.project.exceptions.BusinessRuleViolationException;
+
 @Entity
 @Table(name = "project")
 @Getter
@@ -38,4 +40,11 @@ public class ProjectEntity extends BaseEntity {
 
     @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<TeamEntity> teams;
+
+    public void validateDates() {
+        if (startDate.isAfter(endDate)) {
+            throw new BusinessRuleViolationException(
+                    "Project start date must be before end date");
+        }
+    }
 }

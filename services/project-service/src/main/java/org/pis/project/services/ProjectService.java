@@ -32,6 +32,7 @@ public class ProjectService {
     @Transactional
     public ProjectEntity createProject(ProjectEntity project) {
         project.setId(null);
+        project.validateDates();
         return projectRepository.save(project);
     }
 
@@ -39,6 +40,9 @@ public class ProjectService {
     public ProjectEntity updateProject(ProjectEntity projectUpdated) {
         ProjectEntity existingProject = getProject(projectUpdated.getId());
         projectMapper.updateEntityFromRequest(projectUpdated, existingProject);
+
+        existingProject.validateDates();
+
         return projectRepository.save(existingProject);
     }
 

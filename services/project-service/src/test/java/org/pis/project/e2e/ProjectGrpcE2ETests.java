@@ -90,6 +90,22 @@ public class ProjectGrpcE2ETests extends BaseGrpcE2ETests {
     }
 
     @Test
+    public void testCreateProject_InvalidDateRange_ThrowsBusinessRuleViolationException() {
+        // Arrange
+        CreateProjectRequest invalidReq = createProjectRequest.toBuilder()
+                .setEndDate(createTimestamp(-1))
+                .build();
+
+        // Act & Assert: Catch the StatusRuntimeException
+        StatusRuntimeException exception = assertThrows(StatusRuntimeException.class, () -> {
+            blockingStub.createProject(invalidReq);
+        });
+
+        // Assert
+        assertEquals(Status.Code.FAILED_PRECONDITION, exception.getStatus().getCode());
+    }
+
+    @Test
     public void testUpdateProject_Success() {
         // Arrange
         Project createdProject = blockingStub.createProject(createProjectRequest);
