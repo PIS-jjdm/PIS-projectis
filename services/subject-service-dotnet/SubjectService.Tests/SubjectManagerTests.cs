@@ -308,6 +308,106 @@ public sealed class SubjectManagerTests
     }
 
     [Fact]
+    public async Task RemoveTeacherFromSubjectAsync_RemovesExistingTeacherAndUpdatesTimestamp()
+    {
+        await using var db = CreateDbContext();
+        var originalUpdatedAt = new DateTimeOffset(2026, 1, 10, 8, 30, 0, TimeSpan.Zero);
+        db.Subjects.Add(new SubjectEntity
+        {
+            Id = "subject-1",
+            Name = "Distributed Applications",
+            Description = "Existing subject",
+            Abbreviation = "DIA",
+            CreatedAt = originalUpdatedAt.AddDays(-7),
+            UpdatedAt = originalUpdatedAt,
+            Teachers =
+            [
+                new SubjectTeacherEntity
+                {
+                    SubjectId = "subject-1",
+                    TeacherUserId = "teacher-1",
+                    CreatedAt = originalUpdatedAt.AddDays(-1),
+                },
+                new SubjectTeacherEntity
+                {
+                    SubjectId = "subject-1",
+                    TeacherUserId = "teacher-2",
+                    CreatedAt = originalUpdatedAt.AddHours(-12),
+                },
+            ],
+        });
+        await db.SaveChangesAsync();
+
+        var manager = CreateSubjectManager(db);
+
+        var updated = await manager.RemoveTeacherFromSubjectAsync(
+            new SubjectProto.TeacherSubjectRequest
+            {
+                SubjectId = "subject-1",
+                TeacherUserId = "teacher-1",
+            },
+            CancellationToken.None);
+
+        Assert.Equal(new[] { "teacher-2" }, updated.TeacherIds);
+        Assert.Equal(1, await db.SubjectTeachers.CountAsync());
+        Assert.DoesNotContain(await db.SubjectTeachers.Select(entity => entity.TeacherUserId).ToListAsync(), id => id == "teacher-1");
+
+        var persisted = await db.Subjects.SingleAsync(subject => subject.Id == "subject-1");
+        Assert.True(persisted.UpdatedAt > originalUpdatedAt);
+    }
+
+    [Fact]
+    public async Task RemoveTeacherFromSubjectAsync_IsIdempotentWhenTeacherIsMissing()
+    {
+        await using var db = CreateDbContext();
+        var originalUpdatedAt = new DateTimeOffset(2026, 1, 10, 8, 30, 0, TimeSpan.Zero);
+        db.Subjects.Add(new SubjectEntity
+        {
+            Id = "subject-1",
+            Name = "Distributed Applications",
+            Description = "Existing subject",
+            Abbreviation = "DIA",
+            CreatedAt = originalUpdatedAt.AddDays(-7),
+            UpdatedAt = originalUpdatedAt,
+            Teachers =
+            [
+                new SubjectTeacherEntity
+                {
+                    SubjectId = "subject-1",
+                    TeacherUserId = "teacher-2",
+                    CreatedAt = originalUpdatedAt.AddDays(-1),
+                },
+            ],
+        });
+        await db.SaveChangesAsync();
+
+        var manager = CreateSubjectManager(db);
+
+        var firstResult = await manager.RemoveTeacherFromSubjectAsync(
+            new SubjectProto.TeacherSubjectRequest
+            {
+                SubjectId = "subject-1",
+                TeacherUserId = "teacher-1",
+            },
+            CancellationToken.None);
+
+        var secondResult = await manager.RemoveTeacherFromSubjectAsync(
+            new SubjectProto.TeacherSubjectRequest
+            {
+                SubjectId = "subject-1",
+                TeacherUserId = "teacher-1",
+            },
+            CancellationToken.None);
+
+        Assert.Equal(new[] { "teacher-2" }, firstResult.TeacherIds);
+        Assert.Equal(new[] { "teacher-2" }, secondResult.TeacherIds);
+        Assert.Equal(1, await db.SubjectTeachers.CountAsync());
+
+        var persisted = await db.Subjects.SingleAsync(subject => subject.Id == "subject-1");
+        Assert.Equal(originalUpdatedAt, persisted.UpdatedAt);
+    }
+
+    [Fact]
     public async Task DeleteSubjectAsync_RejectsWhenProjectReferencesSubject()
     {
         await using var db = CreateDbContext();
