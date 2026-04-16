@@ -70,6 +70,69 @@ public sealed class SubjectManagerTests
     }
 
     [Fact]
+    public async Task UpdateSubjectAsync_NormalizesAndPersistsUpdatedValues()
+    {
+        await using var db = CreateDbContext();
+        await SeedSubjectAsync(db, "subject-1");
+        var manager = CreateSubjectManager(db);
+
+        var updated = await manager.UpdateSubjectAsync(
+            new SubjectProto.UpdateSubjectRequest
+            {
+                SubjectId = "subject-1",
+                Name = "  Service Architecture  ",
+                Description = "  Updated contract boundaries.  ",
+                Abbreviation = "  sar  ",
+            },
+            CancellationToken.None);
+
+        Assert.Equal("subject-1", updated.Id);
+        Assert.Equal("Service Architecture", updated.Name);
+        Assert.Equal("Updated contract boundaries.", updated.Description);
+        Assert.Equal("SAR", updated.Abbreviation);
+
+        var persisted = await db.Subjects.SingleAsync(subject => subject.Id == "subject-1");
+        Assert.Equal("Service Architecture", persisted.Name);
+        Assert.Equal("Updated contract boundaries.", persisted.Description);
+        Assert.Equal("SAR", persisted.Abbreviation);
+    }
+
+    [Fact]
+    public async Task UpdateSubjectAsync_RejectsDuplicateAbbreviation()
+    {
+        await using var db = CreateDbContext();
+        await SeedSubjectAsync(db, "subject-1");
+        db.Subjects.Add(new SubjectEntity
+        {
+            Id = "subject-2",
+            Name = "API Design",
+            Description = "Second subject",
+            Abbreviation = "API",
+            CreatedAt = DateTimeOffset.UtcNow,
+            UpdatedAt = DateTimeOffset.UtcNow,
+        });
+        await db.SaveChangesAsync();
+
+        var manager = CreateSubjectManager(db);
+
+        var exception = await Assert.ThrowsAsync<RpcException>(() => manager.UpdateSubjectAsync(
+            new SubjectProto.UpdateSubjectRequest
+            {
+                SubjectId = "subject-1",
+                Name = "Distributed Applications",
+                Description = "Existing subject",
+                Abbreviation = " api ",
+            },
+            CancellationToken.None));
+
+        Assert.Equal(StatusCode.AlreadyExists, exception.StatusCode);
+        Assert.Equal("subject abbreviation already exists", exception.Status.Detail);
+
+        var persisted = await db.Subjects.SingleAsync(subject => subject.Id == "subject-1");
+        Assert.Equal("DIA", persisted.Abbreviation);
+    }
+
+    [Fact]
     public async Task RegisterUserToSubjectAsync_IsIdempotent()
     {
         await using var db = CreateDbContext();

@@ -55,6 +55,57 @@ public sealed class SubjectGrpcIntegrationTests
     }
 
     [Fact]
+    public async Task UpdateSubject_PersistsNormalizedValuesThroughGrpcBoundary()
+    {
+        await using var host = await SubjectGrpcTestHost.StartAsync();
+        await host.SeedSubjectAsync("subject-1", "Distributed Applications", "DIA");
+        var client = host.CreateClient();
+
+        var updated = await client.UpdateSubjectAsync(new SubjectProto.UpdateSubjectRequest
+        {
+            SubjectId = "subject-1",
+            Name = "  Service Architecture  ",
+            Description = "  Updated through gRPC  ",
+            Abbreviation = "  sar  ",
+        });
+
+        Assert.Equal("subject-1", updated.Id);
+        Assert.Equal("Service Architecture", updated.Name);
+        Assert.Equal("Updated through gRPC", updated.Description);
+        Assert.Equal("SAR", updated.Abbreviation);
+
+        var loaded = await client.GetSubjectAsync(new SubjectProto.GetSubjectRequest
+        {
+            SubjectId = "subject-1",
+        });
+
+        Assert.Equal("Service Architecture", loaded.Name);
+        Assert.Equal("Updated through gRPC", loaded.Description);
+        Assert.Equal("SAR", loaded.Abbreviation);
+    }
+
+    [Fact]
+    public async Task UpdateSubject_ReturnsAlreadyExists_WhenAbbreviationConflicts()
+    {
+        await using var host = await SubjectGrpcTestHost.StartAsync();
+        await host.SeedSubjectAsync("subject-1", "Distributed Applications", "DIA");
+        await host.SeedSubjectAsync("subject-2", "API Design", "API");
+        var client = host.CreateClient();
+
+        var exception = await Assert.ThrowsAsync<RpcException>(() => client.UpdateSubjectAsync(
+            new SubjectProto.UpdateSubjectRequest
+            {
+                SubjectId = "subject-1",
+                Name = "Distributed Applications",
+                Description = "Existing subject",
+                Abbreviation = " api ",
+            }).ResponseAsync);
+
+        Assert.Equal(StatusCode.AlreadyExists, exception.StatusCode);
+        Assert.Equal("subject abbreviation already exists", exception.Status.Detail);
+    }
+
+    [Fact]
     public async Task AssignTeacherToSubject_ReturnsInvalidArgument_ForNonTeacherRole()
     {
         await using var host = await SubjectGrpcTestHost.StartAsync(authInvoker =>
