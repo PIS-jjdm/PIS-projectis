@@ -163,8 +163,7 @@ public sealed class SubjectManager(
         var teacherUserId = NormalizeRequired(request.TeacherUserId, "teacher user id");
         var user = await FetchUserAsync(teacherUserId, cancellationToken);
 
-        var userRole = (int)user.Role;
-        if (userRole is not 2 and not 3)
+        if (user.Role is not CommonProto.UserRole.Teacher and not CommonProto.UserRole.Admin)
         {
             throw InvalidArgument("teacher user must have teacher or admin role");
         }
