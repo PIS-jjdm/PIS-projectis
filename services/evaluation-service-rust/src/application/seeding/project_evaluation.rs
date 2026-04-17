@@ -31,7 +31,7 @@ impl<'a, R: Repo> Seeder<'a, R> {
         log::debug!("Seeding {} rows", data.evaluations.len());
 
         if self.repo.len().await? > 0 {
-            return Ok(());
+            return Err(SeedError::DataPresent);
         }
 
         for seed in data.evaluations {

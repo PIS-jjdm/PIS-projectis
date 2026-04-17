@@ -84,4 +84,22 @@ where
 
         self.presenter.present(res)
     }
+
+    pub async fn update_project_evaluation(
+        &self,
+        evaluation_id: &str,
+        total_score: Option<f32>,
+        feedback: &Option<String>,
+    ) -> <P as Present<peuc::UpdateResult>>::ViewModel {
+        let req = uc::project_evaluation::update::Request {
+            evaluation_id: evaluation_id.to_owned(),
+            total_score,
+            feedback: feedback.clone(),
+        };
+
+        let interceptor = uc::project_evaluation::Update::new(&*self.db);
+        let res = interceptor.exec(req).await;
+
+        self.presenter.present(res)
+    }
 }

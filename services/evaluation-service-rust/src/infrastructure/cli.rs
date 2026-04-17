@@ -1,12 +1,10 @@
-use std::{path::PathBuf, sync::Arc};
-
-use clap::{Parser, Subcommand};
-
 use crate::{
     adapter::{self, Db, presenter::cli},
     application,
     infrastructure::{db::InMemory, seeding::load_toml_seedings},
 };
+use clap::{Parser, Subcommand};
+use std::{path::PathBuf, sync::Arc};
 
 #[derive(Subcommand)]
 pub enum Command {
@@ -24,15 +22,18 @@ pub enum Command {
     GetAll,
     #[clap(about = "Update project evaluation")]
     Update {
+        /// Id of the evaluation record to update
         evaluation_id: String,
-        total_score: f32,
-        feedback: String,
+        #[arg(short, long)]
+        total_score: Option<f32>,
+        #[arg(short, long)]
+        feedback: Option<String>,
     },
     #[clap(about = "Delete project evaluation by ID")]
     Delete { evaluation_id: String },
 }
 
-/// Simple CLI to interact with the evaluation service
+/// Simple CLI for interaction with the evaluation service
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct Args {
@@ -105,7 +106,12 @@ pub async fn run_command(db: Arc<impl Db>, cmd: Command) {
             evaluation_id,
             total_score,
             feedback,
-        } => todo!(),
+        } => {
+            let res = app_api
+                .update_project_evaluation(&evaluation_id, total_score, &feedback)
+                .await;
+            println!("{res}");
+        }
         Command::Delete { evaluation_id } => {
             let res = app_api.delete_project_evaluation(&evaluation_id).await;
             println!("{res}");
