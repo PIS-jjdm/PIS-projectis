@@ -40,3 +40,14 @@ impl Present<uc::FindByIdResult> for Presenter {
         }
     }
 }
+
+impl Present<uc::DeleteResult> for Presenter {
+    type ViewModel = String;
+
+    fn present(&self, t: uc::DeleteResult) -> Self::ViewModel {
+        match t {
+            Ok(proj_eval) => format!("Deleted: {proj_eval:#?}"),
+            Err(err) => format!("Failed to delete project evaluation: {err}"),
+        }
+    }
+}
