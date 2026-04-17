@@ -31,6 +31,7 @@
           env = {
             # For editors
             RUST_SRC_PATH = "${rustToolchain}/lib/rustlib/src/rust/library";
+            RUST_LOG = "debug";
           };
         };
 

@@ -1,0 +1,67 @@
+use std::sync::Arc;
+
+use crate::adapter::{
+    Db,
+    presenter::{self, Present},
+};
+use crate::application::usecase::{self as uc, project_evaluation as peuc};
+
+#[derive(Debug)]
+pub struct Api<D, P> {
+    db: Arc<D>,
+    presenter: P,
+}
+
+impl<D, P> Clone for Api<D, P>
+where
+    D: Db,
+    P: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            db: Arc::clone(&self.db),
+            presenter: self.presenter.clone(),
+        }
+    }
+}
+
+impl<D, P> Api<D, P>
+where
+    D: Db,
+    P: presenter::ProjectEvaluationPresenter,
+{
+    pub fn new(db: Arc<D>, presenter: P) -> Self {
+        Self { db, presenter }
+    }
+
+    pub async fn create_project_evaluation(
+        &self,
+        project_id: &str,
+        team_id: &str,
+        evaluator_teacher_id: &str,
+        total_score: f32,
+        feedback: &str,
+    ) -> <P as Present<peuc::CreateResult>>::ViewModel {
+        let req = peuc::create::Request {
+            project_id: project_id.to_owned(),
+            team_id: team_id.to_owned(),
+            evaluator_teacher_id: evaluator_teacher_id.to_owned(),
+            total_score,
+            feedback: feedback.to_owned(),
+        };
+
+        let interceptor = uc::project_evaluation::Create::new(&*self.db);
+        let res = interceptor.exec(req).await;
+
+        self.presenter.present(res)
+    }
+
+    pub async fn getall_project_evaluations(
+        &self,
+    ) -> <P as Present<peuc::GetAllResult>>::ViewModel {
+        let interceptor = uc::project_evaluation::GetAll::new(&*self.db);
+        let res = interceptor.exec().await;
+
+        self.presenter.present(res)
+    }
+}
