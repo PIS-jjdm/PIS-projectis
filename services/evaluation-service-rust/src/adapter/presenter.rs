@@ -3,7 +3,7 @@ pub mod cli;
 use crate::application::usecase::project_evaluation as peuc;
 
 pub trait ProjectEvaluationPresenter:
-    Present<peuc::CreateResult> + Present<peuc::GetAllResult>
+    Present<peuc::CreateResult> + Present<peuc::GetAllResult> + Present<peuc::FindByIdResult>
 {
 }
 

@@ -29,3 +29,14 @@ impl Present<uc::GetAllResult> for Presenter {
         }
     }
 }
+
+impl Present<uc::FindByIdResult> for Presenter {
+    type ViewModel = String;
+
+    fn present(&self, t: uc::FindByIdResult) -> Self::ViewModel {
+        match t {
+            Ok(proj_eval) => format!("{proj_eval:#?}"),
+            Err(err) => format!("Failed to get project evaluation: {err}"),
+        }
+    }
+}

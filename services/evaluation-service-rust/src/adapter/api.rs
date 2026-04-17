@@ -64,4 +64,14 @@ where
 
         self.presenter.present(res)
     }
+
+    pub async fn get_project_evaluation(
+        &self,
+        evaluation_id: &str,
+    ) -> <P as Present<peuc::FindByIdResult>>::ViewModel {
+        let interceptor = uc::project_evaluation::FindById::new(&*self.db);
+        let res = interceptor.exec(evaluation_id.to_owned()).await;
+
+        self.presenter.present(res)
+    }
 }
