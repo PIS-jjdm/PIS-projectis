@@ -1,7 +1,6 @@
 use std::{path::PathBuf, sync::Arc};
 
 use clap::{Parser, Subcommand};
-use log::error;
 
 use crate::{
     adapter::{self, Db, presenter::cli},
@@ -107,6 +106,9 @@ pub async fn run_command(db: Arc<impl Db>, cmd: Command) {
             total_score,
             feedback,
         } => todo!(),
-        Command::Delete { evaluation_id } => todo!(),
+        Command::Delete { evaluation_id } => {
+            let res = app_api.delete_project_evaluation(&evaluation_id).await;
+            println!("{res}");
+        }
     }
 }

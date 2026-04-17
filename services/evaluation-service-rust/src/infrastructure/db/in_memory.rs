@@ -51,8 +51,15 @@ impl proj_repo::Repo for InMemory {
         Ok(all)
     }
 
-    async fn delete(&self, _id: Id) -> Result<ProjectEvaluation, proj_repo::DeleteError> {
-        todo!()
+    async fn delete(&self, id: Id) -> Result<ProjectEvaluation, proj_repo::DeleteError> {
+        let eval = self
+            .project_evaluations
+            .write()
+            .map_err(|_| proj_repo::ConnectionError)?
+            .remove(id.as_str())
+            .ok_or(proj_repo::DeleteError::NotFound)?;
+
+        Ok(eval)
     }
 
     async fn len(&self) -> Result<usize, proj_repo::CountError> {

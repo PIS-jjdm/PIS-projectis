@@ -1,7 +1,6 @@
 use crate::{
     application::{
-        repository::project_evaluation as proj_eval,
-        usecase::project_evaluation::{CreateResult, FindByIdResult},
+        repository::project_evaluation as proj_eval, usecase::project_evaluation::FindByIdResult,
     },
     domain::{Id, ProjectEvaluation},
 };

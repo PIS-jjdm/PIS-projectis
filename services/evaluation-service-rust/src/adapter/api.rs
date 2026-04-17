@@ -74,4 +74,14 @@ where
 
         self.presenter.present(res)
     }
+
+    pub async fn delete_project_evaluation(
+        &self,
+        evaluation_id: &str,
+    ) -> <P as Present<peuc::DeleteResult>>::ViewModel {
+        let interceptor = uc::project_evaluation::Delete::new(&*self.db);
+        let res = interceptor.exec(evaluation_id.to_owned()).await;
+
+        self.presenter.present(res)
+    }
 }
