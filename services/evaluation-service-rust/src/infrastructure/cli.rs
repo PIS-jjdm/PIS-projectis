@@ -1,7 +1,10 @@
 use crate::{
     adapter::{self, Db, presenter::cli},
     application,
-    infrastructure::{db::InMemory, seeding::load_toml_seedings},
+    infrastructure::{
+        db::{InMemory, KeyValue},
+        seeding::load_toml_seedings,
+    },
 };
 use clap::{Parser, Subcommand};
 use std::{path::PathBuf, sync::Arc};
@@ -42,15 +45,21 @@ struct Args {
 
     /// Path to the seeds TOML file
     #[arg(short, long)]
-    seeds: PathBuf,
+    seeds: Option<PathBuf>,
+
+    /// Database directory path
+    #[arg(short, long)]
+    db_path: PathBuf,
 }
 
 pub fn run() {
     let args = Args::parse();
-    let db = Arc::new(InMemory::default());
+    let db = Arc::new(KeyValue::try_from(&args.db_path).unwrap());
     let rt = tokio::runtime::Runtime::new().unwrap();
 
-    if let Err(e) = rt.block_on(load_seeds(db.clone(), &args.seeds)) {
+    if let Some(seeds) = args.seeds
+        && let Err(e) = rt.block_on(load_seeds(db.clone(), &seeds))
+    {
         log::error!("{e}");
         return;
     }

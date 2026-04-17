@@ -2,9 +2,9 @@ use crate::domain::{
     Id,
     value_object::{Feedback, Score, UtcTimestamp},
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectEvaluation {
     pub id: Id,
     pub project_id: Id,
