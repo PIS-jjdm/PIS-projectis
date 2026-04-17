@@ -23,6 +23,12 @@ pub enum Command {
     Get { evaluation_id: String },
     #[clap(about = "Get all project evaluations")]
     GetAll,
+    #[clap(about = "Update project evaluation")]
+    Update {
+        evaluation_id: String,
+        total_score: f32,
+        feedback: String,
+    },
     #[clap(about = "Delete project evaluation by ID")]
     Delete { evaluation_id: String },
 }
@@ -88,11 +94,19 @@ pub async fn run_command(db: Arc<impl Db>, cmd: Command) {
                 .await;
             println!("{res}");
         }
-        Command::Get { evaluation_id } => todo!(),
+        Command::Get { evaluation_id } => {
+            let res = app_api.get_project_evaluation(&evaluation_id).await;
+            println!("{res}");
+        }
         Command::GetAll => match app_api.getall_project_evaluations().await {
             Ok(vals) => vals.iter().for_each(|e| println!("{e}")),
             Err(e) => log::error!("{e}"),
         },
+        Command::Update {
+            evaluation_id,
+            total_score,
+            feedback,
+        } => todo!(),
         Command::Delete { evaluation_id } => todo!(),
     }
 }

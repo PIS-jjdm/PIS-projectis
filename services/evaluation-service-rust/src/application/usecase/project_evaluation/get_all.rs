@@ -13,8 +13,6 @@ pub type Response = Vec<ProjectEvaluation>;
 pub enum Error {
     #[error("{0}")]
     Repo(#[from] proj_eval::GetAllError),
-    #[error("Project evaluation create request has invalid fields")]
-    Invalid,
 }
 
 #[derive(Debug)]
