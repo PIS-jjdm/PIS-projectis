@@ -7,6 +7,7 @@ pub trait ProjectEvaluationPresenter:
     + Present<peuc::GetAllResult>
     + Present<peuc::FindByIdResult>
     + Present<peuc::DeleteResult>
+    + Present<peuc::UpdateResult>
 {
 }
 

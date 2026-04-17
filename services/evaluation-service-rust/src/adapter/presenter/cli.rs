@@ -51,3 +51,14 @@ impl Present<uc::DeleteResult> for Presenter {
         }
     }
 }
+
+impl Present<uc::UpdateResult> for Presenter {
+    type ViewModel = String;
+
+    fn present(&self, t: uc::UpdateResult) -> Self::ViewModel {
+        match t {
+            Ok(proj_eval) => format!("Updated: {proj_eval:#?}"),
+            Err(err) => format!("Failed to update project evaluation: {err}"),
+        }
+    }
+}
