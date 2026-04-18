@@ -1,7 +1,10 @@
 use thiserror::Error;
 
 use crate::{
-    application::repository::project_evaluation::{self as proj_eval, GetError, SaveError},
+    application::{
+        repository::project_evaluation::{self as proj_eval, GetError, SaveError},
+        usecase::project_evaluation::UpdateResult,
+    },
     domain::{Id, ProjectEvaluation},
 };
 
@@ -52,7 +55,7 @@ where
         Self { repo }
     }
 
-    pub async fn exec(&self, req: Request) -> Result<Response, Error> {
+    pub async fn exec(&self, req: Request) -> UpdateResult {
         log::debug!("Update project evaluation: {:?}", req);
 
         let mut eval = self.repo.get(req.evaluation_id.clone()).await?;

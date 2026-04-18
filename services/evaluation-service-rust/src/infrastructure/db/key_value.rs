@@ -1,6 +1,5 @@
 use async_trait::async_trait;
 use fjall::{Database, Keyspace, KeyspaceCreateOptions, Slice};
-use nid::Nanoid;
 use std::path::PathBuf;
 
 use crate::adapter::Db;
@@ -84,9 +83,12 @@ impl proj::Repo for KeyValue {
     async fn delete(&self, id: Id) -> Result<ProjectEvaluation, proj::DeleteError> {
         let eval = self.get(id.clone()).await?;
         let items = self.project_evaluations.clone();
+        let db = self.db.clone();
 
         tokio::task::spawn_blocking(move || {
             items.remove(id).map_err(|_| proj::ConnectionError)?;
+            db.persist(fjall::PersistMode::SyncAll)
+                .map_err(|_| proj::ConnectionError)?;
             Ok(eval)
         })
         .await
@@ -105,9 +107,31 @@ impl proj::Repo for KeyValue {
         .map_err(|_| proj::ConnectionError)?
     }
 
-    async fn new_id(&self, project_id: &Id, team_id: &Id) -> Id {
-        let id = Nanoid::<4, nid::alphabet::Base64UrlAlphabet>::new();
-        format!("{}{}{}", project_id, team_id, id)
+    async fn make_id(&self, project_id: &Id, team_id: &Id) -> Id {
+        format!("proj:{}team:{}", project_id, team_id)
+    }
+
+    async fn get_with_project_id(
+        &self,
+        project_id: Id,
+    ) -> Result<Vec<ProjectEvaluation>, proj::GetAllError> {
+        let items = self.project_evaluations.clone();
+
+        tokio::task::spawn_blocking(move || {
+            let mut evals: Vec<ProjectEvaluation> = vec![];
+
+            for kv in items.prefix(format!("proj:{project_id}")) {
+                let Ok(slice) = kv.value() else {
+                    return Err(proj::ConnectionError)?;
+                };
+
+                evals.push((&slice).into())
+            }
+
+            Ok(evals)
+        })
+        .await
+        .map_err(|_| proj::ConnectionError)?
     }
 }
 

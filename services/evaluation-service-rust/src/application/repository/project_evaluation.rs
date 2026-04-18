@@ -49,5 +49,10 @@ pub trait Repo: Send + Sync {
     async fn delete(&self, id: Id) -> Result<ProjectEvaluation, DeleteError>;
     async fn len(&self) -> Result<usize, CountError>;
 
-    async fn new_id(&self, project_id: &Id, team_id: &Id) -> Id;
+    async fn make_id(&self, project_id: &Id, team_id: &Id) -> Id;
+
+    async fn get_with_project_id(
+        &self,
+        project_id: Id,
+    ) -> Result<Vec<ProjectEvaluation>, GetAllError>;
 }

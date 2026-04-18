@@ -1,9 +1,9 @@
-use derive_getters::Getters;
 use thiserror::Error;
 
 use crate::{
     application::{
-        repository::project_evaluation as proj_eval, usecase::project_evaluation::CreateResult,
+        repository::project_evaluation::{self as proj_eval, ConnectionError},
+        usecase::project_evaluation::CreateResult,
     },
     domain::{Id, ProjectEvaluation},
 };
@@ -17,10 +17,7 @@ pub struct Request {
     pub feedback: String,
 }
 
-#[derive(Getters)]
-pub struct Response {
-    evaluation_id: Id,
-}
+pub type Response = ProjectEvaluation;
 
 #[derive(Debug, Error)]
 pub enum Error {
@@ -46,8 +43,7 @@ where
     pub async fn exec(&self, req: Request) -> CreateResult {
         log::debug!("Create new project evaluation: {:?}", req);
 
-        let id = self.repo.new_id(&req.project_id, &req.team_id).await;
-
+        let id = self.repo.make_id(&req.project_id, &req.team_id).await;
         let record = ProjectEvaluation {
             id: id.clone(),
             project_id: req.project_id,
@@ -57,9 +53,13 @@ where
             feedback: req.feedback,
             created_at_utc: chrono::Utc::now(),
         };
-
         self.repo.save(record).await?;
 
-        Ok(Response { evaluation_id: id })
+        let eval = self
+            .repo
+            .get(id)
+            .await
+            .map_err(|_| Error::Repo(ConnectionError.into()))?;
+        Ok(eval)
     }
 }

@@ -13,7 +13,7 @@ impl Present<uc::CreateResult> for Presenter {
 
     fn present(&self, t: uc::CreateResult) -> Self::ViewModel {
         match t {
-            Ok(res) => format!("Created project evaluation (Id = {})", res.evaluation_id()),
+            Ok(res) => format!("Created: {res:#?}"),
             Err(err) => format!("Failed to create project evaluation: {err}"),
         }
     }
