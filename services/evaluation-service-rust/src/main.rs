@@ -1,9 +1,8 @@
-use evaluation_service_rust::infrastructure::{self, init_logging};
+use evaluation_service_rust::infrastructure::{self};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     dotenvy::dotenv().ok();
-    init_logging();
 
     if let Err(e) = infrastructure::api::run().await {
         log::error!("{e}")

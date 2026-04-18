@@ -1,9 +1,10 @@
+use std::{path::PathBuf, sync::Arc};
+
 use crate::{
     adapter::{self, Db, presenter::cli},
     infrastructure::storage::data_storage_fjall,
 };
 use clap::{Parser, Subcommand};
-use std::{path::PathBuf, sync::Arc};
 
 #[derive(Subcommand)]
 pub enum Command {
