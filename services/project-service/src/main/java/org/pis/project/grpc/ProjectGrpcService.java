@@ -38,8 +38,7 @@ import org.pis.project.services.TeamJoinRequestService;
 import org.pis.project.services.TeamService;
 import org.springframework.stereotype.Service;
 
-import com.google.protobuf.Empty;
-
+import common.Common.Ack;
 import io.grpc.stub.StreamObserver;
 import lombok.RequiredArgsConstructor;
 
@@ -102,11 +101,16 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
     }
 
     @Override
-    public void deleteProject(DeleteProjectRequest request, StreamObserver<Empty> responseObserver) {
+    public void deleteProject(DeleteProjectRequest request, StreamObserver<Ack> responseObserver) {
         UUID projectId = UUID.fromString(request.getProjectId());
         projectService.deleteProject(projectId);
 
-        responseObserver.onNext(Empty.getDefaultInstance());
+        Ack response = Ack.newBuilder()
+                .setSuccess(true)
+                .setMessage("Project deleted")
+                .build();
+
+        responseObserver.onNext(response);
         responseObserver.onCompleted();
 
     }
@@ -150,12 +154,14 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
     }
 
     @Override
-    public void leaveTeam(LeaveTeamRequest request, StreamObserver<Empty> responseObserver) {
+    public void leaveTeam(LeaveTeamRequest request, StreamObserver<Ack> responseObserver) {
 
         UUID teamId = UUID.fromString(request.getTeamId());
         teamService.leaveTeam(teamId, request.getStudentId());
 
-        responseObserver.onNext(Empty.getDefaultInstance());
+        Ack response = Ack.newBuilder().setSuccess(true).build();
+
+        responseObserver.onNext(response);
         responseObserver.onCompleted();
     }
 
@@ -216,12 +222,14 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
     }
 
     @Override
-    public void deleteJoinRequest(DeleteJoinRequestRequest request, StreamObserver<Empty> responseObserver) {
+    public void deleteJoinRequest(DeleteJoinRequestRequest request, StreamObserver<Ack> responseObserver) {
         UUID joinRequestId = UUID.fromString(request.getJoinRequestId());
 
         teamJoinRequestService.deleteJoinRequest(joinRequestId);
 
-        responseObserver.onNext(Empty.getDefaultInstance());
+        Ack response = Ack.newBuilder().setSuccess(true).build();
+
+        responseObserver.onNext(response);
         responseObserver.onCompleted();
     }
 

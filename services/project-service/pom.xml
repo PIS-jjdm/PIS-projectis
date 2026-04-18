@@ -186,6 +186,7 @@
                     </plugins>
                     <includes>
                         <include>project.proto</include>
+                        <include>common.proto</include>
                     </includes>
                 </configuration>
                 <executions>
