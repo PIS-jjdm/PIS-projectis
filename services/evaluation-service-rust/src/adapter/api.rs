@@ -75,6 +75,19 @@ where
         self.presenter.present(res)
     }
 
+    pub async fn get_evaluation_by_proj_team_id(
+        &self,
+        project_id: &str,
+        team_id: &str,
+    ) -> <P as Present<peuc::FindByIdResult>>::ViewModel {
+        let interceptor = uc::project_evaluation::FindById::new(&*self.db);
+        let res = interceptor
+            .by_proj_team_id(project_id.to_owned(), team_id.to_owned())
+            .await;
+
+        self.presenter.present(res)
+    }
+
     pub async fn delete_project_evaluation(
         &self,
         evaluation_id: &str,

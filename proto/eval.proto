@@ -6,28 +6,11 @@ import "common.proto";
 import "google/protobuf/timestamp.proto";
 
 service EvaluationService {
-  rpc GetSubjectEvaluation(GetSubjectEvaluationRequest) returns (SubjectEvaluation);
   rpc GetProjectEvaluation(GetProjectEvaluationRequest) returns (ProjectEvaluation);
-
-  rpc ListSubjectEvaluations(ListSubjectEvaluationsRequest) returns (ListSubjectEvaluationsResponse);
   rpc ListProjectEvaluations(ListProjectEvaluationsRequest) returns (ListProjectEvaluationsResponse);
-
-  rpc CreateSubjectEvaluation(CreateSubjectEvaluationRequest) returns (SubjectEvaluation);
   rpc CreateProjectEvaluation(CreateProjectEvaluationRequest) returns (ProjectEvaluation);
-
-  rpc UpdateSubjectEvaluation(UpdateSubjectEvaluationRequest) returns (SubjectEvaluation);
   rpc UpdateProjectEvaluation(UpdateProjectEvaluationRequest) returns (ProjectEvaluation);
-
-  rpc DeleteSubjectEvaluation(DeleteEvaluationRequest) returns (common.Ack);
   rpc DeleteProjectEvaluation(DeleteEvaluationRequest) returns (common.Ack);
-}
-
-message SubjectEvaluation {
-  string id = 1;
-  string subject_id = 2;
-  string student_id = 3;
-  string grade = 4;
-  google.protobuf.Timestamp timestamp = 7;
 }
 
 message ProjectEvaluation {
@@ -40,20 +23,10 @@ message ProjectEvaluation {
   google.protobuf.Timestamp timestamp = 7;
 }
 
-message GetSubjectEvaluationRequest {
-  string evaluation_id = 1;
-}
-
 message GetProjectEvaluationRequest {
   string project_id = 1;
   string team_id = 2;
-  string evaluator_teacher_id = 4;
-}
-
-message CreateSubjectEvaluationRequest {
-  string subject_id = 1;
-  string student_id = 2;
-  string grade = 3;
+  optional string evaluator_teacher_id = 4;
 }
 
 message CreateProjectEvaluationRequest {
@@ -64,35 +37,20 @@ message CreateProjectEvaluationRequest {
   string feedback = 5;
 }
 
-message ListSubjectEvaluationsRequest {
-  string subject_id = 1;
-}
-
-message ListSubjectEvaluationsResponse {
-  repeated SubjectEvaluation evaluations = 1;
-}
-
 message ListProjectEvaluationsRequest {
-  string project_id = 1;
-  string student_id = 2;
-  string evaluator_teacher_id = 3;
+  optional string project_id = 1;
+  optional string student_id = 2;
+  optional string evaluator_teacher_id = 3;
 }
 
 message ListProjectEvaluationsResponse {
-  repeated ProjectEvaluation evaluations = 2;
-}
-
-message UpdateSubjectEvaluationRequest {
-  string subject_id = 2;
-  string student_id = 3;
-  string grade = 4;
+  repeated ProjectEvaluation evaluations = 1;
 }
 
 message UpdateProjectEvaluationRequest {
-  string project_id = 2;
-  string team_id = 3;
-  float total_score = 5;
-  string feedback = 6;
+  string evaluation_id = 1;
+  optional float total_score = 2;
+  optional string feedback = 3;
 }
 
 message DeleteEvaluationRequest {

@@ -5,7 +5,7 @@ async fn main() -> anyhow::Result<()> {
     dotenvy::dotenv().ok();
     init_logging();
 
-    if let Err(e) = infrastructure::api::run().await {
+    if let Err(e) = infrastructure::cli::run().await {
         log::error!("{e}")
     }
 

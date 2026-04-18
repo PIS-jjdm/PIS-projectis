@@ -1,4 +1,5 @@
 pub mod cli;
+pub mod web;
 
 use crate::application::usecase::project_evaluation as peuc;
 

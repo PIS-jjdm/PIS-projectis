@@ -4,7 +4,6 @@ use crate::{
     domain::{Id, ProjectEvaluation},
 };
 use async_trait::async_trait;
-use nid::Nanoid;
 use std::{collections::HashMap, sync::RwLock};
 
 #[derive(Default)]
@@ -70,8 +69,23 @@ impl proj_repo::Repo for InMemory {
         Ok(count)
     }
 
-    async fn new_id(&self, project_id: &Id, team_id: &Id) -> Id {
-        let id = Nanoid::<4, nid::alphabet::Base64UrlAlphabet>::new();
-        format!("{}{}{}", project_id, team_id, id)
+    async fn make_id(&self, project_id: &Id, team_id: &Id) -> Id {
+        format!("proj:{}team:{}", project_id, team_id)
+    }
+
+    async fn get_with_project_id(
+        &self,
+        project_id: Id,
+    ) -> Result<Vec<ProjectEvaluation>, proj_repo::GetAllError> {
+        let res = self
+            .project_evaluations
+            .read()
+            .map_err(|_| proj_repo::ConnectionError)?
+            .values()
+            .filter(|e| e.project_id == project_id)
+            .cloned()
+            .collect();
+
+        Ok(res)
     }
 }

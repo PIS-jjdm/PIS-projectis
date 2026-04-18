@@ -29,4 +29,15 @@ where
 
         Ok(proj_eval)
     }
+
+    pub async fn by_proj_team_id(&self, project_id: Id, team_id: Id) -> FindByIdResult {
+        log::debug!(
+            "Get project evaluation with ProjectId = {:?}, TeamId = {:?}",
+            project_id,
+            team_id
+        );
+
+        self.exec(self.repo.make_id(&project_id, &team_id).await)
+            .await
+    }
 }
