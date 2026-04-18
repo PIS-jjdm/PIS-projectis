@@ -1,10 +1,6 @@
 use crate::{
     adapter::{self, Db, presenter::cli},
-    application,
-    infrastructure::{
-        db::{InMemory, KeyValue},
-        seeding::load_toml_seedings,
-    },
+    infrastructure::storage::data_storage_fjall,
 };
 use clap::{Parser, Subcommand};
 use std::{path::PathBuf, sync::Arc};
@@ -49,34 +45,14 @@ struct Args {
 
     /// Database directory path
     #[arg(short, long)]
-    db_path: PathBuf,
+    data_dir: PathBuf,
 }
 
-pub fn run() {
+pub async fn run() -> Result<(), anyhow::Error> {
     let args = Args::parse();
-    let db = Arc::new(KeyValue::try_from(&args.db_path).unwrap());
-    let rt = tokio::runtime::Runtime::new().unwrap();
+    let db = data_storage_fjall(args.data_dir, args.seeds).await?;
 
-    if let Some(seeds) = args.seeds
-        && let Err(e) = rt.block_on(load_seeds(db.clone(), &seeds))
-    {
-        log::error!("{e}");
-        return;
-    }
-
-    rt.block_on(run_command(db, args.command));
-}
-
-pub async fn load_seeds(db: Arc<impl Db>, path: &PathBuf) -> anyhow::Result<()> {
-    use application::seeding::project_evaluation::*;
-
-    let mut seeds = load_toml_seedings(path).await?;
-
-    let eval_seeds = SeedData {
-        evaluations: seeds.project_evaluations.take().unwrap_or(vec![]),
-    };
-
-    Seeder::new(&*db).seed(eval_seeds).await?;
+    run_command(db, args.command).await;
 
     Ok(())
 }
