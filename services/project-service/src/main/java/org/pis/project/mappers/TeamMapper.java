@@ -5,13 +5,14 @@ import java.util.List;
 import org.mapstruct.CollectionMappingStrategy;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.ReportingPolicy;
 import org.pis.project.entities.TeamEntity;
 import org.pis.project.entities.TeamMemberEntity;
 import org.pis.project.proto.ListTeam;
 import org.pis.project.proto.RegisterTeamRequest;
 import org.pis.project.proto.Team;
 
-@Mapper(componentModel = "spring", uses = CommonMapper.class, collectionMappingStrategy = CollectionMappingStrategy.ADDER_PREFERRED)
+@Mapper(componentModel = "spring", uses = CommonMapper.class, collectionMappingStrategy = CollectionMappingStrategy.ADDER_PREFERRED, unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface TeamMapper {
 
     @Mapping(target = "teamId", source = "id")

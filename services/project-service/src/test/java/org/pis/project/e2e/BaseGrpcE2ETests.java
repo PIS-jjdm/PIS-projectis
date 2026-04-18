@@ -5,14 +5,15 @@ import java.time.temporal.ChronoUnit;
 
 import org.pis.project.proto.CreateProjectRequest;
 import org.pis.project.proto.ProjectServiceGrpc.ProjectServiceBlockingStub;
-import org.pis.project.proto.RegisterTeamRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.grpc.test.autoconfigure.AutoConfigureInProcessTransport;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 
 import com.google.protobuf.Timestamp;
 
-@AutoConfigureInProcessTransport // Replaces network channels with in-process memory channels
+@AutoConfigureInProcessTransport
+@ActiveProfiles("test")
 @TestPropertySource(properties = {
         "spring.grpc.client.default-channel.address=localhost:9090"
 })
@@ -40,13 +41,4 @@ public abstract class BaseGrpcE2ETests {
             .setEndDate(createTimestamp(7))
             .setSubjectId("SUB")
             .build();
-
-    // protected TeamJoinRequestEntity createJoinRequestEntity(UUID projectId, UUID teamId, UUID joinRequestId) {
-    //     TeamJoinRequestEntity r = new TeamJoinRequestEntity();
-    //     r.setId(joinRequestId);
-    //     r.setRequestorStudentId("test student");
-    //     r.setTeam(createTeamEntity(teamId, projectId));
-    //     return r;
-    // }
-
 }

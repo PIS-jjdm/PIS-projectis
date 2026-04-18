@@ -41,7 +41,7 @@ public class TeamEntity extends BaseEntity {
     @OneToMany(mappedBy = "team", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<TeamJoinRequestEntity> joinRequests;
 
-    @Transient // JPA: not persisted
+    @Transient
     private Integer memberCount;
 
     public void addMember(TeamMemberEntity teamMember) {

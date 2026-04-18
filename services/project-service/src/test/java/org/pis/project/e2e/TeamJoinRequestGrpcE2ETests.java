@@ -28,9 +28,7 @@ import org.pis.project.repositories.TeamRepository;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
 
-@ActiveProfiles("test")
 @SpringBootTest
 public class TeamJoinRequestGrpcE2ETests extends BaseGrpcE2ETests {
 

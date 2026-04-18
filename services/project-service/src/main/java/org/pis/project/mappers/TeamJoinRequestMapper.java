@@ -2,6 +2,7 @@ package org.pis.project.mappers;
 
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.ReportingPolicy;
 import org.pis.project.domain.JoinRequestFilter;
 import org.pis.project.entities.TeamJoinRequestEntity;
 import org.pis.project.entities.enums.JoinRequestStatus;
@@ -9,7 +10,8 @@ import org.pis.project.proto.CreateJoinRequestRequest;
 import org.pis.project.proto.JoinRequest;
 import org.pis.project.proto.ListJoinRequestsRequest;
 
-@Mapper(componentModel = "spring", uses = {CommonMapper.class, TeamMapper.class})
+@Mapper(componentModel = "spring", uses = { CommonMapper.class,
+        TeamMapper.class }, unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface TeamJoinRequestMapper {
 
     @Mapping(target = "joinRequestId", source = "id")

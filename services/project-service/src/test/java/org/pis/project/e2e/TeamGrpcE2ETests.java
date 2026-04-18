@@ -30,12 +30,10 @@ import org.pis.project.repositories.ProjectRepository;
 import org.pis.project.repositories.TeamRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
 
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
 
-@ActiveProfiles("test")
 @SpringBootTest
 public class TeamGrpcE2ETests extends BaseGrpcE2ETests {
 
