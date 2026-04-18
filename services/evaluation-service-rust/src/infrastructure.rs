@@ -1,6 +1,6 @@
 pub mod cli;
 pub mod db;
-pub mod seeding;
+pub mod storage;
 
 use std::env;
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
