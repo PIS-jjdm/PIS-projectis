@@ -1,22 +1,9 @@
 use clap::{Parser, Subcommand};
-use std::net::{IpAddr, SocketAddr};
-
-use crate::eval::{
+use evaluation_service_rust::infrastructure::api::grpc_models::eval::{
     DeleteEvaluationRequest, GetProjectEvaluationRequest, ListProjectEvaluationsRequest,
     UpdateProjectEvaluationRequest, evaluation_service_client::EvaluationServiceClient,
 };
-
-mod common {
-    tonic::include_proto!("common");
-}
-
-mod auth {
-    tonic::include_proto!("auth");
-}
-
-mod eval {
-    tonic::include_proto!("eval");
-}
+use std::net::{IpAddr, SocketAddr};
 
 #[derive(Subcommand)]
 enum Command {
