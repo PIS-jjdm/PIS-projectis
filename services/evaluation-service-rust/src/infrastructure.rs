@@ -1,6 +1,6 @@
 pub mod api;
-pub mod cli;
 pub mod db;
+pub mod gateway;
 pub mod storage;
 
 use std::env;

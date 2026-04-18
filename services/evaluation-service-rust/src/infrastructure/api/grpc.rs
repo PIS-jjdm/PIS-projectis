@@ -1,39 +1,30 @@
-mod common {
-    tonic::include_proto!("common");
-}
-
-mod auth {
-    tonic::include_proto!("auth");
-}
-
-mod eval {
-    tonic::include_proto!("eval");
-}
-
+use super::grpc_models::eval::{
+    CreateProjectEvaluationRequest, DeleteEvaluationRequest, GetProjectEvaluationRequest,
+    ListProjectEvaluationsRequest, ListProjectEvaluationsResponse, ProjectEvaluation,
+    UpdateProjectEvaluationRequest,
+    evaluation_service_server::{EvaluationService, EvaluationServiceServer},
+};
+use crate::infrastructure::api::grpc_models::common;
 use crate::{
     adapter::{self, Db, presenter::web},
     domain,
-    infrastructure::api::grpc::{
-        self,
-        eval::{
-            CreateProjectEvaluationRequest, DeleteEvaluationRequest, GetProjectEvaluationRequest,
-            ListProjectEvaluationsRequest, ListProjectEvaluationsResponse,
-            UpdateProjectEvaluationRequest,
-        },
+    infrastructure::{
+        api::grpc::{self},
+        gateway::GrpcGatewayCollection,
     },
-};
-use eval::{
-    ProjectEvaluation,
-    evaluation_service_server::{EvaluationService, EvaluationServiceServer},
 };
 use std::{net::SocketAddr, sync::Arc};
 use tonic::{Code, Request, Response, Status, transport::Server};
 use tracing::info;
 
-pub async fn run(db: Arc<impl Db>, addr: SocketAddr) -> Result<(), anyhow::Error> {
+pub async fn run(
+    db: Arc<impl Db>,
+    gateways: Arc<GrpcGatewayCollection>,
+    addr: SocketAddr,
+) -> Result<(), anyhow::Error> {
     info!(addr = %addr, "Starting GRPC server");
 
-    let evaluation_service = GrpcEvaluationService::new(db);
+    let evaluation_service = GrpcEvaluationService::new(db, gateways);
 
     Server::builder()
         .add_service(EvaluationServiceServer::new(evaluation_service))
@@ -43,15 +34,14 @@ pub async fn run(db: Arc<impl Db>, addr: SocketAddr) -> Result<(), anyhow::Error
     Ok(())
 }
 
-#[derive(Debug)]
 pub struct GrpcEvaluationService<D> {
-    app_api: adapter::Api<D, web::Presenter>,
+    app_api: adapter::Api<D, web::Presenter, GrpcGatewayCollection>,
 }
 
 impl<D: Db> GrpcEvaluationService<D> {
-    pub fn new(db: Arc<D>) -> Self {
+    pub fn new(db: Arc<D>, gateways: Arc<GrpcGatewayCollection>) -> Self {
         Self {
-            app_api: adapter::Api::new(db.clone(), web::Presenter),
+            app_api: adapter::Api::new(db.clone(), web::Presenter, gateways),
         }
     }
 }
@@ -73,7 +63,7 @@ impl<D: Db> EvaluationService for GrpcEvaluationService<D> {
 
     async fn list_project_evaluations(
         &self,
-        req: Request<ListProjectEvaluationsRequest>,
+        _req: Request<ListProjectEvaluationsRequest>,
     ) -> Result<Response<ListProjectEvaluationsResponse>, Status> {
         let res = self.app_api.getall_project_evaluations().await.map(|r| {
             Response::new(ListProjectEvaluationsResponse {

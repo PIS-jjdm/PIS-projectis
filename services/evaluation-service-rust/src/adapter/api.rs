@@ -1,37 +1,48 @@
 use std::sync::Arc;
 
-use crate::adapter::{
-    Db,
-    presenter::{self, Present},
-};
 use crate::application::usecase::{self as uc, project_evaluation as peuc};
+use crate::{
+    adapter::{
+        Db,
+        presenter::{self, Present},
+    },
+    application::gateway::GatewayCollection,
+};
 
 #[derive(Debug)]
-pub struct Api<D, P> {
+pub struct Api<D, P, G> {
     db: Arc<D>,
+    gateways: Arc<G>,
     presenter: P,
 }
 
-impl<D, P> Clone for Api<D, P>
+impl<D, P, G> Clone for Api<D, P, G>
 where
     D: Db,
     P: Clone,
+    G: GatewayCollection,
 {
     fn clone(&self) -> Self {
         Self {
             db: Arc::clone(&self.db),
             presenter: self.presenter.clone(),
+            gateways: Arc::clone(&self.gateways),
         }
     }
 }
 
-impl<D, P> Api<D, P>
+impl<D, P, G> Api<D, P, G>
 where
     D: Db,
     P: presenter::ProjectEvaluationPresenter,
+    G: GatewayCollection,
 {
-    pub fn new(db: Arc<D>, presenter: P) -> Self {
-        Self { db, presenter }
+    pub fn new(db: Arc<D>, presenter: P, gateways: Arc<G>) -> Self {
+        Self {
+            db,
+            presenter,
+            gateways,
+        }
     }
 
     pub async fn create_project_evaluation(
@@ -50,7 +61,7 @@ where
             feedback: feedback.to_owned(),
         };
 
-        let interceptor = uc::project_evaluation::Create::new(&*self.db);
+        let interceptor = uc::project_evaluation::Create::new(&*self.db, &*self.gateways);
         let res = interceptor.exec(req).await;
 
         self.presenter.present(res)

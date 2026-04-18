@@ -11,12 +11,7 @@ path = "./src/main.rs"
 name = "client"
 path = "./src/client.rs"
 
-[[bin]]
-name = "cli"
-path = "./src/cli.rs"
-
 [dependencies]
-nid = { version = "3.0.0", features = ["serde"] }
 thiserror = "2.0.18"
 chrono = { version = "0.4.44", features = ["serde"] }
 anyhow = "1.0.102"
