@@ -64,7 +64,9 @@ where
             .await
             .map_err(|_| Error::Repo(ConnectionError.into()))?;
 
-        self.notify(&eval).await;
+        if let Err(e) = self.notify(&eval).await {
+            log::warn!("Notification creation failed: {e}");
+        }
 
         Ok(eval)
     }
