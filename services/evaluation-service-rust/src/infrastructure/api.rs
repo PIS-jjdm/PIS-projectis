@@ -52,21 +52,22 @@ pub async fn init_gateways(
     pe: &str,
     se: &str,
 ) -> Result<Arc<GrpcGatewayCollection>, anyhow::Error> {
-    log::info!("Initializing notification service gateway");
+    tracing::info!(endpoint = ne, "Initializing notification service gateway");
     let notification = GrpcNotificationGateway::connect(ne)
         .await
         .map_err(|e| InitGatewaysError::Connect("notification", e))?;
 
-    log::info!("Initializing project service gateway");
+    tracing::info!(endpoint = pe, "Initializing project service gateway");
     let project = GrpcProjectGateway::connect(pe)
         .await
         .map_err(|e| InitGatewaysError::Connect("project", e))?;
 
-    log::info!("Initializing subject service gateway");
+    tracing::info!(endpoint = se, "Initializing subject service gateway");
     let subject = GrpcSubjectGateway::connect(se)
         .await
         .map_err(|e| InitGatewaysError::Connect("subject", e))?;
 
+    log::info!("Gateways initialized");
     Ok(Arc::new(GrpcGatewayCollection {
         notification,
         project,
