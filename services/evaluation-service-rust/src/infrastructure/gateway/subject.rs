@@ -9,15 +9,16 @@ use crate::{
 };
 
 pub struct GrpcSubjectGateway {
-    client: Arc<Mutex<SubjectServiceClient<Channel>>>,
+    client: Option<Arc<Mutex<SubjectServiceClient<Channel>>>>,
 }
 
 impl GrpcSubjectGateway {
     pub async fn connect(addr: &str) -> Result<Self, anyhow::Error> {
-        let client = SubjectServiceClient::connect(addr.to_owned()).await?;
+        // let client = SubjectServiceClient::connect(addr.to_owned()).await?;
+        log::warn!("Subject gateway not implemented yet. Skipping.");
 
         Ok(Self {
-            client: Arc::new(Mutex::new(client)),
+            client: None, //Arc::new(Mutex::new(client)),
         })
     }
 }

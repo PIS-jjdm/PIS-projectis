@@ -9,15 +9,16 @@ use crate::{
 };
 
 pub struct GrpcProjectGateway {
-    client: Arc<Mutex<ProjectServiceClient<Channel>>>,
+    client: Option<Arc<Mutex<ProjectServiceClient<Channel>>>>,
 }
 
 impl GrpcProjectGateway {
     pub async fn connect(addr: &str) -> Result<Self, anyhow::Error> {
-        let client = ProjectServiceClient::connect(addr.to_owned()).await?;
+        // let client = ProjectServiceClient::connect(addr.to_owned()).await?;
+        log::warn!("Project gateway not implemented yet. Skipping.");
 
         Ok(Self {
-            client: Arc::new(Mutex::new(client)),
+            client: None, // Arc::new(Mutex::new(client)),
         })
     }
 }
