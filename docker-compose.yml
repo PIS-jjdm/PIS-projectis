@@ -101,6 +101,25 @@ services:
     ports:
       - "127.0.0.1:50054:50054"
 
+  evaluation-service:
+    build:
+      context: .
+      dockerfile: services/evaluation-service-rust/Dockerfile
+    environment:
+      BIND_ADDRESS: 0.0.0.0
+      BIND_PORT: 50055
+      DATA_DIR: /data/eval-db
+      SEEDS_PATH: /app/seeds.toml
+      OTLP_ENDPOINT: http://otel-collector:4317
+      # SUBJECT_ENDPOINT: http://???
+      NOTIFICATION_ENDPOINT: http://notification-service:50052
+      # PROJECT_ENDPOINT: http://???
+      RUST_LOG: info
+    depends_on:
+      - notification-service
+    volumes:
+      - eval_data:/data
+
   router:
     build:
       context: .
@@ -117,6 +136,7 @@ services:
     depends_on:
       - auth-service
       - notification-service
+      - evaluation-service
       # - subject-service
       - project-service
       - otel-collector
@@ -139,3 +159,4 @@ volumes:
   auth_data:
   notification_data:
   project_postgres_data:
+  eval_data:
