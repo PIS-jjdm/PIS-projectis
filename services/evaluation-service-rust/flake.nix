@@ -24,6 +24,7 @@
             cargo = rustToolchain;
             rustc = rustToolchain;
         };
+        proto_path = ../../proto;
       in
       rec {
         devShells.default = pkgs.mkShell {
@@ -31,6 +32,7 @@
           env = {
             # For editors
             RUST_SRC_PATH = "${rustToolchain}/lib/rustlib/src/rust/library";
+            RUST_LOG = "debug";
           };
         };
 
@@ -42,6 +44,11 @@
           cargoLock = {
             lockFile = ./Cargo.lock;
           };
+          env = {
+            PROTO_PATH = "${proto_path}";
+            RUST_LOG = "info";
+            DATA_DIR = "data";
+          };
         };
 
         packages.docker = pkgs.dockerTools.buildImage {
@@ -50,12 +57,20 @@
 
           copyToRoot = pkgs.buildEnv {
             name = "image-root";
-            paths = [ packages.default ];
+            paths = [ packages.default pkgs.busybox ];
             pathsToLink = [ "/bin" ];
           };
 
           config = {
-            Cmd = [ "${packages.default}/bin/evaluation-service" ];
+            Cmd = [ "${packages.default}/bin/server" ];
+            Env = [
+              "RUST_LOG=info"
+              "BIND_ADDRESS=127.0.0.1"
+              "BIND_PORT=50123"
+              "DATA_DIR=/data"
+              # "SEEDS_PATH="
+              # "OTLP_ENDPOINT="
+            ];
             WorkingDir = "/";
           };
         };
