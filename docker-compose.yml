@@ -84,8 +84,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-    ports:
-      - 30054:30054
 
   project-service:
     build:
@@ -98,8 +96,6 @@ services:
         condition: service_healthy
       otel-collector:
         condition: service_started
-    ports:
-      - "127.0.0.1:50054:50054"
 
   evaluation-service:
     build:
@@ -113,7 +109,7 @@ services:
       OTLP_ENDPOINT: http://otel-collector:4317
       # SUBJECT_ENDPOINT: http://???
       NOTIFICATION_ENDPOINT: http://notification-service:50052
-      # PROJECT_ENDPOINT: http://???
+      PROJECT_ENDPOINT: http://project-service:50054
       RUST_LOG: info
     depends_on:
       - notification-service
