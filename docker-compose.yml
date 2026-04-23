@@ -71,17 +71,35 @@ services:
   #   ports:
   #     - "50053:50053"
   #
-  # project-service:
-  #   build:
-  #     context: .
-  #     dockerfile: services/project-service-dotnet-template/Dockerfile
-  #   environment:
-  #     ASPNETCORE_URLS: http://+:50054
-  #     OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
-  #   depends_on:
-  #     - otel-collector
-  #   ports:
-  #     - "50054:50054"
+
+  project-postgres:
+    image: postgres:15
+    command: -p 30054
+    env_file:
+      - ./services/project-service/.env.example
+    volumes:
+      - project_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -p 30054"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    ports:
+      - 30054:30054
+
+  project-service:
+    build:
+      context: .
+      dockerfile: services/project-service/Dockerfile
+    env_file:
+      - ./services/project-service/.env.example
+    depends_on:
+      project-postgres:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+    ports:
+      - "127.0.0.1:50054:50054"
 
   router:
     build:
@@ -100,7 +118,7 @@ services:
       - auth-service
       - notification-service
       # - subject-service
-      # - project-service
+      - project-service
       - otel-collector
     ports:
       - "8081:8081"
@@ -120,3 +138,4 @@ services:
 volumes:
   auth_data:
   notification_data:
+  project_postgres_data:

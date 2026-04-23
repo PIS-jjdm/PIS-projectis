@@ -27,14 +27,22 @@ service FrontendGateway {
   rpc DeleteSubject(subject.DeleteSubjectRequest) returns (common.Ack);
   rpc RegisterSubject(RegisterSubjectGatewayRequest) returns (common.Ack);
 
-  rpc ListProjects(common.Empty) returns (project.ListProjectsResponse);
-  rpc CreateProject(CreateProjectGatewayRequest) returns (project.Project);
+  rpc ListProjects(project.ListProjectsRequest) returns (project.ListProjectsResponse);
   rpc GetProject(project.GetProjectRequest) returns (project.Project);
-  rpc RegisterTeam(RegisterTeamGatewayRequest) returns (project.Team);
-  rpc ListTeamsByProject(project.ListTeamsByProjectRequest)
-      returns (project.ListTeamsByProjectResponse);
+  rpc CreateProject(CreateProjectGatewayRequest) returns (project.Project);
+  rpc UpdateProject(project.UpdateProjectRequest) returns (project.Project);
+  rpc DeleteProject(project.DeleteProjectRequest) returns (common.Ack);
+  rpc RegisterTeam(project.RegisterTeamRequest) returns (project.Team);
+  rpc GetTeam(project.GetTeamRequest) returns (project.Team);
+  rpc ListTeamsByProject(project.ListTeamsByProjectRequest) returns (project.ListTeamsByProjectResponse);
+  rpc LeaveTeam(project.LeaveTeamRequest) returns (common.Ack);
+  rpc ChangeTeamLeader(project.ChangeTeamLeaderRequest) returns (project.Team);
   rpc AddTeamMember(project.AddTeamMemberRequest) returns (project.Team);
   rpc RemoveTeamMember(project.RemoveTeamMemberRequest) returns (project.Team);
+  rpc CreateJoinRequest(project.CreateJoinRequestRequest) returns (project.JoinRequest);
+  rpc DeleteJoinRequest(project.DeleteJoinRequestRequest) returns (common.Ack);
+  rpc ResolveJoinRequest(project.ResolveJoinRequestRequest) returns (project.JoinRequest);
+  rpc ListJoinRequests(project.ListJoinRequestsRequest) returns (project.ListJoinRequestsResponse);
 
   rpc ListNotifications(common.Empty) returns (ListNotificationsGatewayResponse);
   rpc ListScheduledNotifications(common.Empty)
