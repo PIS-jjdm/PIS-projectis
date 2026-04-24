@@ -1,0 +1,36 @@
+name: subject-service-ci
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+      - master
+      - develop
+    paths:
+      - ".github/workflows/reusable-service-check.yml"
+      - ".github/workflows/subject-service-ci.yml"
+      - "proto/**"
+      - "services/subject-service-dotnet/**"
+  push:
+    branches:
+      - main
+      - master
+      - develop
+    paths:
+      - ".github/workflows/reusable-service-check.yml"
+      - ".github/workflows/subject-service-ci.yml"
+      - "proto/**"
+      - "services/subject-service-dotnet/**"
+
+jobs:
+  subject-service:
+    uses: ./.github/workflows/reusable-service-check.yml
+    with:
+      service-name: subject-service-dotnet
+      working-directory: services/subject-service-dotnet
+      language: dotnet
+      dotnet-version: 10.0.x
+      setup-command: sudo apt-get update && sudo apt-get install -y --no-install-recommends protobuf-compiler
+      build-command: Protobuf_ProtocFullPath=/usr/bin/protoc dotnet build SubjectService.slnx --configuration Release
+      test-command: Protobuf_ProtocFullPath=/usr/bin/protoc dotnet test SubjectService.Tests/SubjectService.Tests.csproj --configuration Release --no-build

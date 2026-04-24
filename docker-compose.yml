@@ -59,17 +59,34 @@ services:
       - otel-collector
     volumes:
       - notification_data:/data
-  #
-  # subject-service:
-  #   build:
-  #     context: .
-  #     dockerfile: services/subject-service-dart-template/Dockerfile
-  #   environment:
-  #     SUBJECT_SERVICE_PORT: 50053
-  #   depends_on:
-  #     - otel-collector
-  #   ports:
-  #     - "50053:50053"
+
+  subject-db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: subject
+      POSTGRES_USER: subject
+      POSTGRES_PASSWORD: subject
+    volumes:
+      - subject_db_data:/var/lib/postgresql/data
+
+  subject-service:
+    build:
+      context: .
+      dockerfile: services/subject-service-dotnet/Dockerfile
+    environment:
+      SUBJECT_SERVICE_PORT: 50053
+      ConnectionStrings__SubjectDb: Host=subject-db;Port=5432;Database=subject;Username=subject;Password=subject
+      AUTH_GRPC_ENDPOINT: http://auth-service:50051
+      PROJECT_GRPC_ENDPOINT: http://project-service:50054
+      SEED_DEMO_SUBJECTS: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: subject-service
+    depends_on:
+      - auth-service
+      - otel-collector
+      - subject-db
+    ports:
+      - "50053:50053"
   #
 
   project-postgres:
@@ -132,6 +149,8 @@ services:
     depends_on:
       - auth-service
       - notification-service
+      - subject-service
+      # - project-service
       - evaluation-service
       # - subject-service
       - project-service
@@ -154,5 +173,6 @@ services:
 volumes:
   auth_data:
   notification_data:
+  subject_db_data:
   project_postgres_data:
   eval_data:

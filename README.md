@@ -11,7 +11,7 @@ The repository currently contains:
 - `services/auth-service-rust/`: Rust authentication service
 - `services/notification-service-rust/`: Rust notification service
 - `proto/`: shared protobuf contracts
-- `services/subject-service-dart-template/`: subject-service template
+- `services/subject-service-dotnet/`: subject-service implementation in .NET
 - `services/project-service-dotnet-template/`: project-service template
 
 The frontend talks to the router through gRPC-Web. Backend services communicate with each other over gRPC.
@@ -29,11 +29,10 @@ Implemented and usable:
 
 Not finished yet:
 
-- subject service is still a Dart template
 - project service is still a .NET template
-- some frontend flows still degrade when those two services are unavailable
+- some frontend flows still degrade when project-service is unavailable
 
-In the current `docker-compose.yml`, `subject-service` and `project-service` are commented out. That means related gateway calls will fail unless you provide those services yourself.
+In the current `docker-compose.yml`, `project-service` is still commented out. Project-related gateway calls will fail unless you provide that service yourself.
 
 ## Architecture
 
@@ -70,7 +69,7 @@ Current backend services:
 │   ├── notification-service-rust/
 │   ├── project-service-dotnet-template/
 │   ├── router-rust/
-│   └── subject-service-dart-template/
+│   └── subject-service-dotnet/
 ├── docker-compose.yml
 ├── grpc-web-generate.sh
 ├── Makefile
@@ -208,5 +207,5 @@ Services are configured to export traces to the collector at `http://otel-collec
 ## Notes
 
 - The router is gRPC-only now. There is no REST API, Swagger UI, or `/health` endpoint in the router.
-- The subject and project services are not active by default in the current compose file.
+- The project service is not active by default in the current compose file.
 - The shared service boundary is the protobuf contract in `proto/`. Services should not share internal code or storage models.

@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AllowMissingPrunePackageData>true</AllowMissingPrunePackageData>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Grpc.AspNetCore" />
+    <PackageReference Include="Grpc.Net.ClientFactory" />
+    <PackageReference Include="Grpc.Tools">
+      <PrivateAssets>All</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>All</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Protobuf Include="..\..\..\proto\common.proto" GrpcServices="None" ProtoRoot="..\..\..\proto" />
+    <Protobuf Include="..\..\..\proto\subject.proto" GrpcServices="Both" ProtoRoot="..\..\..\proto" />
+    <Protobuf Include="..\..\..\proto\auth.proto" GrpcServices="Client" ProtoRoot="..\..\..\proto" />
+    <Protobuf Include="..\..\..\proto\project.proto" GrpcServices="Client" ProtoRoot="..\..\..\proto" />
+  </ItemGroup>
+</Project>

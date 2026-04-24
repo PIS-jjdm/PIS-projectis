@@ -6,4 +6,5 @@
 **/node_modules/
 **/dist/
 frontend/src/lib/grpc/generated/
+**/.idea/**
 **/result

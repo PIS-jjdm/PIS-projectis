@@ -26,6 +26,8 @@ service FrontendGateway {
   rpc UpdateSubject(subject.UpdateSubjectRequest) returns (subject.Subject);
   rpc DeleteSubject(subject.DeleteSubjectRequest) returns (common.Ack);
   rpc RegisterSubject(RegisterSubjectGatewayRequest) returns (common.Ack);
+  rpc AssignTeacherToSubject(subject.TeacherSubjectRequest) returns (subject.Subject);
+  rpc RemoveTeacherFromSubject(subject.TeacherSubjectRequest) returns (subject.Subject);
 
   rpc ListProjects(project.ListProjectsRequest) returns (project.ListProjectsResponse);
   rpc GetProject(project.GetProjectRequest) returns (project.Project);
