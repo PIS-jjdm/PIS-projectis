@@ -149,7 +149,7 @@ public sealed class SubjectGrpcIntegrationTests
                         var response = new ProjectProto.ListProjectsResponse();
                         response.Projects.Add(new ProjectProto.Project
                         {
-                            Id = "project-1",
+                            ProjectId = "project-1",
                             Title = "Router",
                             Description = "Uses the subject",
                             SubjectId = "subject-1",

@@ -17,14 +17,18 @@ use crate::proto::{
     gateway::{
         frontend_gateway_server::FrontendGateway, CancelScheduledNotificationGatewayRequest,
         ChangePasswordGatewayRequest, CreateNotificationGatewayRequest,
-        CreateNotificationGatewayResponse, CreateProjectGatewayRequest,
-        ListNotificationsGatewayResponse, NotificationWithSender, RegisterSubjectGatewayRequest,
-        RegisterTeamGatewayRequest, RescheduleScheduledNotificationGatewayRequest,
+        CreateNotificationGatewayResponse, ListNotificationsGatewayResponse, 
+        NotificationWithSender, RegisterSubjectGatewayRequest,
+        RescheduleScheduledNotificationGatewayRequest, CreateProjectGatewayRequest
     },
     notification::{ListScheduledNotificationsResponse, MarkAsReadRequest, Notification},
     project::{
-        AddTeamMemberRequest, GetProjectRequest, ListProjectsResponse, ListTeamsByProjectRequest,
-        ListTeamsByProjectResponse, Project, RemoveTeamMemberRequest, Team,
+        AddTeamMemberRequest, ChangeTeamLeaderRequest, DeleteJoinRequestRequest, DeleteProjectRequest,
+        GetProjectRequest, GetTeamRequest, JoinRequest, ListJoinRequestsRequest,
+        ListJoinRequestsResponse, ListProjectsRequest, ListProjectsResponse,
+        ListTeamsByProjectRequest, ListTeamsByProjectResponse, Project, RemoveTeamMemberRequest,
+        Team, UpdateProjectRequest, RegisterTeamRequest, LeaveTeamRequest, CreateJoinRequestRequest, 
+        ResolveJoinRequestRequest
     },
     subject::{
         CreateSubjectRequest, DeleteSubjectRequest, ListSubjectsResponse, Subject,
@@ -262,7 +266,7 @@ impl FrontendGateway for FrontendGatewayService {
 
     async fn list_projects(
         &self,
-        request: Request<Empty>,
+        request: Request<ListProjectsRequest>,
     ) -> Result<Response<ListProjectsResponse>, Status> {
         projects::list_projects(self, request).await
     }
@@ -281,11 +285,32 @@ impl FrontendGateway for FrontendGatewayService {
         projects::get_project(self, request).await
     }
 
+    async fn update_project(
+        &self,
+        request: Request<UpdateProjectRequest>,
+    ) -> Result<Response<Project>, Status> {
+        projects::update_project(self, request).await
+    }
+
+    async fn delete_project(
+        &self,
+        request: Request<DeleteProjectRequest>,
+    ) -> Result<Response<Ack>, Status> {
+        projects::delete_project(self, request).await
+    }
+
     async fn register_team(
         &self,
-        request: Request<RegisterTeamGatewayRequest>,
+        request: Request<RegisterTeamRequest>,
     ) -> Result<Response<Team>, Status> {
         projects::register_team(self, request).await
+    }
+
+    async fn get_team(
+        &self,
+        request: Request<GetTeamRequest>,
+    ) -> Result<Response<Team>, Status> {
+        projects::get_team(self, request).await
     }
 
     async fn list_teams_by_project(
@@ -293,6 +318,20 @@ impl FrontendGateway for FrontendGatewayService {
         request: Request<ListTeamsByProjectRequest>,
     ) -> Result<Response<ListTeamsByProjectResponse>, Status> {
         projects::list_teams_by_project(self, request).await
+    }
+
+    async fn leave_team(
+        &self,
+        request: Request<LeaveTeamRequest>,
+    ) -> Result<Response<Ack>, Status> {
+        projects::leave_team(self, request).await
+    }
+
+    async fn change_team_leader(
+        &self,
+        request: Request<ChangeTeamLeaderRequest>,
+    ) -> Result<Response<Team>, Status> {
+        projects::change_team_leader(self, request).await
     }
 
     async fn add_team_member(
@@ -307,6 +346,34 @@ impl FrontendGateway for FrontendGatewayService {
         request: Request<RemoveTeamMemberRequest>,
     ) -> Result<Response<Team>, Status> {
         projects::remove_team_member(self, request).await
+    }
+
+    async fn create_join_request(
+        &self,
+        request: Request<CreateJoinRequestRequest>,
+    ) -> Result<Response<JoinRequest>, Status> {
+        projects::create_join_request(self, request).await
+    }
+
+    async fn delete_join_request(
+        &self,
+        request: Request<DeleteJoinRequestRequest>,
+    ) -> Result<Response<Ack>, Status> {
+        projects::delete_join_request(self, request).await
+    }
+
+    async fn resolve_join_request(
+        &self,
+        request: Request<ResolveJoinRequestRequest>,
+    ) -> Result<Response<JoinRequest>, Status> {
+        projects::resolve_join_request(self, request).await
+    }
+
+    async fn list_join_requests(
+        &self,
+        request: Request<ListJoinRequestsRequest>,
+    ) -> Result<Response<ListJoinRequestsResponse>, Status> {
+        projects::list_join_requests(self, request).await
     }
 
     async fn list_notifications(

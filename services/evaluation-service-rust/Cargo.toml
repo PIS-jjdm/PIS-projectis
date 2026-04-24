@@ -1,10 +1,43 @@
 [package]
-name = "evaluation-service"
+name = "evaluation-service-rust"
 version = "0.1.0"
 edition = "2024"
 
-[dependencies]
-anyhow = "1.0.102"
-tokio = { version = "1.51.1", features = ["full"] }
-tonic = "0.14.5"
+[[bin]]
+name = "server"
+path = "./src/main.rs"
 
+[[bin]]
+name = "client"
+path = "./src/client.rs"
+
+[dependencies]
+thiserror = "2.0.18"
+chrono = { version = "0.4.44", features = ["serde"] }
+anyhow = "1.0.102"
+log = "0.4.29"
+derive-getters = "0.5.0"
+clap = { version = "4.6.1", features = ["derive", "env"] }
+dotenvy = "0.15.7"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+tokio = { version = "1.52.1", features = ["full"] }
+async-trait = "0.1.89"
+toml = { version = "1.1.2+spec-1.1.0", features = ["serde"] }
+serde = { version = "1.0.228", features = ["derive"] }
+rmp-serde = "1.3.1"
+fjall = "3.1.4"
+
+tonic = "0.14.5"
+tonic-prost = "0.14.5"
+prost = "0.14.3"
+prost-types = "0.14.3"
+jsonwebtoken = { version = "10.3.0", features = ["rust_crypto"] }
+opentelemetry = "0.31.0"
+opentelemetry-otlp = { version = "0.31.1", features = ["grpc-tonic", "trace"] }
+opentelemetry_sdk = "0.31.0"
+tracing-opentelemetry = "0.32.1"
+
+[build-dependencies]
+tonic-prost-build = "0.14.5"
+protoc-bin-vendored = "3.2.0"

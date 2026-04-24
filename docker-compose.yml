@@ -88,17 +88,50 @@ services:
     ports:
       - "50053:50053"
   #
-  # project-service:
-  #   build:
-  #     context: .
-  #     dockerfile: services/project-service-dotnet-template/Dockerfile
-  #   environment:
-  #     ASPNETCORE_URLS: http://+:50054
-  #     OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
-  #   depends_on:
-  #     - otel-collector
-  #   ports:
-  #     - "50054:50054"
+
+  project-postgres:
+    image: postgres:15
+    command: -p 30054
+    env_file:
+      - ./services/project-service/.env.example
+    volumes:
+      - project_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -p 30054"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  project-service:
+    build:
+      context: .
+      dockerfile: services/project-service/Dockerfile
+    env_file:
+      - ./services/project-service/.env.example
+    depends_on:
+      project-postgres:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+
+  evaluation-service:
+    build:
+      context: .
+      dockerfile: services/evaluation-service-rust/Dockerfile
+    environment:
+      BIND_ADDRESS: 0.0.0.0
+      BIND_PORT: 50055
+      DATA_DIR: /data/eval-db
+      SEEDS_PATH: /app/seeds.toml
+      OTLP_ENDPOINT: http://otel-collector:4317
+      # SUBJECT_ENDPOINT: http://???
+      NOTIFICATION_ENDPOINT: http://notification-service:50052
+      PROJECT_ENDPOINT: http://project-service:50054
+      RUST_LOG: info
+    depends_on:
+      - notification-service
+    volumes:
+      - eval_data:/data
 
   router:
     build:
@@ -118,6 +151,9 @@ services:
       - notification-service
       - subject-service
       # - project-service
+      - evaluation-service
+      # - subject-service
+      - project-service
       - otel-collector
     ports:
       - "8081:8081"
@@ -138,3 +174,5 @@ volumes:
   auth_data:
   notification_data:
   subject_db_data:
+  project_postgres_data:
+  eval_data:

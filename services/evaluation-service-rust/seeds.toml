@@ -1,0 +1,287 @@
+[[project_evaluations]]
+id = "proj:proj1team:team1"
+project_id = "proj1"
+team_id = "team1"
+evaluator_teacher_id = "teacher1"
+total_score = 85
+feedback = "Solid work, minor issues."
+created_at_utc = "2024-04-13T12:00:00Z"
+
+[[project_evaluations]]
+id = "proj:proj1team:team2"
+project_id = "proj1"
+team_id = "team2"
+evaluator_teacher_id = "teacher2"
+total_score = 78
+feedback = "Good effort, needs refinement."
+created_at_utc = "2024-04-13T12:01:40Z"
+
+[[project_evaluations]]
+id = "proj:proj1team:team3"
+project_id = "proj1"
+team_id = "team3"
+evaluator_teacher_id = "teacher3"
+total_score = 92
+feedback = "Excellent implementation."
+created_at_utc = "2024-04-13T12:03:20Z"
+
+[[project_evaluations]]
+id = "proj:proj1team:team4"
+project_id = "proj1"
+team_id = "team4"
+evaluator_teacher_id = "teacher1"
+total_score = 88
+feedback = "Very good structure."
+created_at_utc = "2024-04-13T12:05:00Z"
+
+[[project_evaluations]]
+id = "proj:proj2team:team1"
+project_id = "proj2"
+team_id = "team1"
+evaluator_teacher_id = "teacher2"
+total_score = 74
+feedback = "Average result."
+created_at_utc = "2024-04-13T12:06:40Z"
+
+[[project_evaluations]]
+id = "proj:proj2team:team2"
+project_id = "proj2"
+team_id = "team2"
+evaluator_teacher_id = "teacher3"
+total_score = 81
+feedback = "Good, but inconsistent."
+created_at_utc = "2024-04-13T12:08:20Z"
+
+[[project_evaluations]]
+id = "proj:proj2team:team3"
+project_id = "proj2"
+team_id = "team3"
+evaluator_teacher_id = "teacher1"
+total_score = 90
+feedback = "Strong solution."
+created_at_utc = "2024-04-13T12:10:00Z"
+
+[[project_evaluations]]
+id = "proj:proj2team:team4"
+project_id = "proj2"
+team_id = "team4"
+evaluator_teacher_id = "teacher2"
+total_score = 69
+feedback = "Below expectations."
+created_at_utc = "2024-04-13T12:11:40Z"
+
+[[project_evaluations]]
+id = "proj:proj3team:team1"
+project_id = "proj3"
+team_id = "team1"
+evaluator_teacher_id = "teacher3"
+total_score = 95
+feedback = "Outstanding work."
+created_at_utc = "2024-04-13T12:13:20Z"
+
+[[project_evaluations]]
+id = "proj:proj3team:team2"
+project_id = "proj3"
+team_id = "team2"
+evaluator_teacher_id = "teacher1"
+total_score = 83
+feedback = "Well done overall."
+created_at_utc = "2024-04-13T12:15:00Z"
+
+[[project_evaluations]]
+id = "proj:proj3team:team3"
+project_id = "proj3"
+team_id = "team3"
+evaluator_teacher_id = "teacher2"
+total_score = 77
+feedback = "Decent but improvable."
+created_at_utc = "2024-04-13T12:16:40Z"
+
+[[project_evaluations]]
+id = "proj:proj3team:team4"
+project_id = "proj3"
+team_id = "team4"
+evaluator_teacher_id = "teacher3"
+total_score = 86
+feedback = "Nice design."
+created_at_utc = "2024-04-13T12:18:20Z"
+
+[[project_evaluations]]
+id = "proj:proj4team:team1"
+project_id = "proj4"
+team_id = "team1"
+evaluator_teacher_id = "teacher1"
+total_score = 91
+feedback = "Great job."
+created_at_utc = "2024-04-13T12:20:00Z"
+
+[[project_evaluations]]
+id = "proj:proj4team:team2"
+project_id = "proj4"
+team_id = "team2"
+evaluator_teacher_id = "teacher2"
+total_score = 72
+feedback = "Needs improvement."
+created_at_utc = "2024-04-13T12:21:40Z"
+
+[[project_evaluations]]
+id = "proj:proj4team:team3"
+project_id = "proj4"
+team_id = "team3"
+evaluator_teacher_id = "teacher3"
+total_score = 80
+feedback = "Good baseline."
+created_at_utc = "2024-04-13T12:23:20Z"
+
+[[project_evaluations]]
+id = "proj:proj4team:team4"
+project_id = "proj4"
+team_id = "team4"
+evaluator_teacher_id = "teacher1"
+total_score = 87
+feedback = "Very solid."
+created_at_utc = "2024-04-13T12:25:00Z"
+
+[[project_evaluations]]
+id = "proj:proj5team:team1"
+project_id = "proj5"
+team_id = "team1"
+evaluator_teacher_id = "teacher2"
+total_score = 79
+feedback = "Acceptable."
+created_at_utc = "2024-04-13T12:26:40Z"
+
+[[project_evaluations]]
+id = "proj:proj5team:team2"
+project_id = "proj5"
+team_id = "team2"
+evaluator_teacher_id = "teacher3"
+total_score = 84
+feedback = "Good consistency."
+created_at_utc = "2024-04-13T12:28:20Z"
+
+[[project_evaluations]]
+id = "proj:proj5team:team3"
+project_id = "proj5"
+team_id = "team3"
+evaluator_teacher_id = "teacher1"
+total_score = 93
+feedback = "Excellent clarity."
+created_at_utc = "2024-04-13T12:30:00Z"
+
+[[project_evaluations]]
+id = "proj:proj5team:team4"
+project_id = "proj5"
+team_id = "team4"
+evaluator_teacher_id = "teacher2"
+total_score = 68
+feedback = "Weak performance."
+created_at_utc = "2024-04-13T12:31:40Z"
+
+[[project_evaluations]]
+id = "proj:proj6team:team1"
+project_id = "proj6"
+team_id = "team1"
+evaluator_teacher_id = "teacher3"
+total_score = 82
+feedback = "Good structure."
+created_at_utc = "2024-04-13T12:33:20Z"
+
+[[project_evaluations]]
+id = "proj:proj6team:team2"
+project_id = "proj6"
+team_id = "team2"
+evaluator_teacher_id = "teacher1"
+total_score = 88
+feedback = "Very good."
+created_at_utc = "2024-04-13T12:35:00Z"
+
+[[project_evaluations]]
+id = "proj:proj6team:team3"
+project_id = "proj6"
+team_id = "team3"
+evaluator_teacher_id = "teacher2"
+total_score = 76
+feedback = "Room for improvement."
+created_at_utc = "2024-04-13T12:36:40Z"
+
+[[project_evaluations]]
+id = "proj:proj6team:team4"
+project_id = "proj6"
+team_id = "team4"
+evaluator_teacher_id = "teacher3"
+total_score = 89
+feedback = "Strong delivery."
+created_at_utc = "2024-04-13T12:38:20Z"
+
+[[project_evaluations]]
+id = "proj:proj7team:team1"
+project_id = "proj7"
+team_id = "team1"
+evaluator_teacher_id = "teacher1"
+total_score = 94
+feedback = "Top tier."
+created_at_utc = "2024-04-13T12:40:00Z"
+
+[[project_evaluations]]
+id = "proj:proj7team:team2"
+project_id = "proj7"
+team_id = "team2"
+evaluator_teacher_id = "teacher2"
+total_score = 70
+feedback = "Bare minimum."
+created_at_utc = "2024-04-13T12:41:40Z"
+
+[[project_evaluations]]
+id = "proj:proj7team:team3"
+project_id = "proj7"
+team_id = "team3"
+evaluator_teacher_id = "teacher3"
+total_score = 85
+feedback = "Good job."
+created_at_utc = "2024-04-13T12:43:20Z"
+
+[[project_evaluations]]
+id = "proj:proj7team:team4"
+project_id = "proj7"
+team_id = "team4"
+evaluator_teacher_id = "teacher1"
+total_score = 83
+feedback = "Nice effort."
+created_at_utc = "2024-04-13T12:45:00Z"
+
+[[project_evaluations]]
+id = "proj:proj8team:team1"
+project_id = "proj8"
+team_id = "team1"
+evaluator_teacher_id = "teacher2"
+total_score = 91
+feedback = "Great execution."
+created_at_utc = "2024-04-13T12:46:40Z"
+
+[[project_evaluations]]
+id = "proj:proj8team:team2"
+project_id = "proj8"
+team_id = "team2"
+evaluator_teacher_id = "teacher3"
+total_score = 75
+feedback = "Okay result."
+created_at_utc = "2024-04-13T12:48:20Z"
+
+[[project_evaluations]]
+id = "proj:proj8team:team3"
+project_id = "proj8"
+team_id = "team3"
+evaluator_teacher_id = "teacher1"
+total_score = 88
+feedback = "Very competent."
+created_at_utc = "2024-04-13T12:50:00Z"
+
+[[project_evaluations]]
+id = "proj:proj8team:team4"
+project_id = "proj8"
+team_id = "team4"
+evaluator_teacher_id = "teacher2"
+total_score = 79
+feedback = "Decent quality."
+created_at_utc = "2024-04-13T12:51:40Z"

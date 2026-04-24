@@ -3,41 +3,49 @@ syntax = "proto3";
 package project;
 
 import "google/protobuf/timestamp.proto";
+import "common.proto";
+
+option java_multiple_files = true;
+option java_package = "org.pis.project.proto";
+option java_outer_classname = "ProjectProto";
 
 service ProjectService {
   rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse);
   rpc GetProject(GetProjectRequest) returns (Project);
   rpc CreateProject(CreateProjectRequest) returns (Project);
+  rpc UpdateProject(UpdateProjectRequest) returns (Project);
+  rpc DeleteProject(DeleteProjectRequest) returns (common.Ack);
+
   rpc RegisterTeam(RegisterTeamRequest) returns (Team);
+  rpc GetTeam(GetTeamRequest) returns (Team);
   rpc ListTeamsByProject(ListTeamsByProjectRequest) returns (ListTeamsByProjectResponse);
+  rpc LeaveTeam(LeaveTeamRequest) returns (common.Ack);
+  rpc ChangeTeamLeader(ChangeTeamLeaderRequest) returns (Team);
 
   rpc AddTeamMember(AddTeamMemberRequest) returns (Team);
   rpc RemoveTeamMember(RemoveTeamMemberRequest) returns (Team);
 
-  // TODO: Update endpoint, Delete endpoint, Join requests (create, delete, accept)
+  rpc CreateJoinRequest(CreateJoinRequestRequest) returns (JoinRequest);
+  rpc DeleteJoinRequest(DeleteJoinRequestRequest) returns (common.Ack);
+  rpc ResolveJoinRequest(ResolveJoinRequestRequest) returns (JoinRequest);
+  rpc ListJoinRequests(ListJoinRequestsRequest) returns (ListJoinRequestsResponse);
 }
 
+// PROJECT /////////////////////////////////////////////////////////////////////
 message Project {
-  string id = 1;
-  string title = 2;
-  string description = 3;
-  string teacher_id = 4;
-  uint32 max_students_per_team = 5;
-  google.protobuf.Timestamp start_date = 6;
-  google.protobuf.Timestamp end_date = 7;
-  string subject_id = 8;
-}
-
-message Team {
-  string id = 1;
-  string project_id = 2;
-  string name = 3;
-  string leader_student_id = 4;
-  repeated string student_ids = 5;
+  string                    project_id            = 1;
+  string                    title                 = 2;
+  string                    description           = 3;
+  string                    teacher_id            = 4;
+  uint32                    max_students_per_team = 5;
+  google.protobuf.Timestamp start_date            = 6;
+  google.protobuf.Timestamp end_date              = 7;
+  string                    subject_id            = 8;
+  repeated ListTeam         teams                 = 9;
 }
 
 message ListProjectsRequest {
-  // filters???
+  string subject_id = 1;
 }
 
 message ListProjectsResponse { repeated Project projects = 1; }
@@ -45,30 +53,104 @@ message ListProjectsResponse { repeated Project projects = 1; }
 message GetProjectRequest { string project_id = 1; }
 
 message CreateProjectRequest {
-  string title = 1;
-  string description = 2;
-  string teacher_id = 3;
-  uint32 max_students_per_team = 4;
-  google.protobuf.Timestamp start_date = 5;
-  google.protobuf.Timestamp end_date = 6;
-  string subject_id = 7;
+  string                    title                 = 1;
+  string                    description           = 2;
+  string                    teacher_id            = 3;
+  uint32                    max_students_per_team = 4;
+  google.protobuf.Timestamp start_date            = 5;
+  google.protobuf.Timestamp end_date              = 6;
+  string                    subject_id            = 7;
 }
 
+message UpdateProjectRequest {
+  string                    project_id            = 1;
+  string                    title                 = 2;
+  string                    description           = 3;
+  uint32                    max_students_per_team = 4;
+  google.protobuf.Timestamp start_date            = 5;
+  google.protobuf.Timestamp end_date              = 6;
+}
+
+message DeleteProjectRequest { string project_id = 1; }
+
+// TEAM /////////////////////////////////////////////////////////////////////
+message Team {
+  string          team_id           = 1;
+  string          project_id        = 2;
+  string          name              = 3;
+  string          leader_student_id = 4;
+  repeated string student_ids       = 5;
+}
+
+message ListTeam {
+  string team_id           = 1;
+  string project_id        = 2;
+  string name              = 3;
+  string leader_student_id = 4;
+  int32  member_count      = 5;
+}
+
+message GetTeamRequest { string team_id = 1; }
+
 message RegisterTeamRequest {
-  string project_id = 1;
+  string project_id         = 1;
   string creator_student_id = 2;
+  string team_name          = 3;
 }
 
 message ListTeamsByProjectRequest { string project_id = 1; }
 
-message ListTeamsByProjectResponse { repeated Team teams = 1; }
+message ListTeamsByProjectResponse { repeated ListTeam teams = 1; }
 
+message LeaveTeamRequest  {
+  string team_id    = 1;
+  string student_id = 2;
+}
+
+message ChangeTeamLeaderRequest {
+  string team_id               = 1;
+  string old_leader_student_id = 2;
+  string new_leader_student_id = 3;
+}
+
+// JOIN REQUEST /////////////////////////////////////////////////////////////////////
+message JoinRequest {
+  string   join_request_id      = 1;
+  ListTeam team                 = 2;
+  string   requestor_student_id = 3;
+  string   status               = 4;
+}
+
+message CreateJoinRequestRequest {
+  string team_id              = 1;
+  string requestor_student_id = 2;
+}
+
+message DeleteJoinRequestRequest { string join_request_id = 1; }
+
+message ResolveJoinRequestRequest {
+  string join_request_id     = 1;
+  bool   accept              = 2;
+  string resolver_student_id = 3;
+}
+
+message ListJoinRequestsRequest {
+  oneof context_filter {
+    string requestor_student_id = 1;
+    string team_id              = 2;
+    string status               = 3;
+  }
+}
+
+message ListJoinRequestsResponse { repeated JoinRequest join_requests = 1; }
+
+// TEAM MEMBER /////////////////////////////////////////////////////////////////////
 message AddTeamMemberRequest {
-  string team_id = 1;
+  string team_id    = 1;
   string student_id = 2;
 }
 
 message RemoveTeamMemberRequest {
-  string team_id = 1;
+  string team_id    = 1;
   string student_id = 2;
 }
