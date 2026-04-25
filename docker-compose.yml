@@ -23,6 +23,31 @@ services:
       - "9090:9090"
     depends_on:
       - otel-collector
+      - blackbox-exporter
+
+  blackbox-exporter:
+    image: prom/blackbox-exporter:v0.25.0
+    command:
+      - "--config.file=/etc/blackbox_exporter/config.yml"
+    volumes:
+      - ./blackbox.yml:/etc/blackbox_exporter/config.yml:ro
+    ports:
+      - "9115:9115"
+
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
 
   auth-service:
     build:
@@ -75,6 +100,7 @@ services:
       dockerfile: services/subject-service-dotnet/Dockerfile
     environment:
       SUBJECT_SERVICE_PORT: 50053
+      SUBJECT_HEALTH_PORT: 50080
       ConnectionStrings__SubjectDb: Host=subject-db;Port=5432;Database=subject;Username=subject;Password=subject
       AUTH_GRPC_ENDPOINT: http://auth-service:50051
       PROJECT_GRPC_ENDPOINT: http://project-service:50054
@@ -87,6 +113,7 @@ services:
       - subject-db
     ports:
       - "50053:50053"
+      - "50080:50080"
   #
 
   project-postgres:
@@ -176,3 +203,4 @@ volumes:
   subject_db_data:
   project_postgres_data:
   eval_data:
+  grafana_data:

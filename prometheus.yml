@@ -9,3 +9,26 @@ scrape_configs:
   - job_name: "otel-collector-internal"
     static_configs:
       - targets: ["otel-collector:8888"]
+
+  - job_name: "blackbox-subject-service-health"
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - http://subject-service:50080/health/live
+        labels:
+          service: subject-service
+          check: liveness
+      - targets:
+          - http://subject-service:50080/health/ready
+        labels:
+          service: subject-service
+          check: readiness-db
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox-exporter:9115

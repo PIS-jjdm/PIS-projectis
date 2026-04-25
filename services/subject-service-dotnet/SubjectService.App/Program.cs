@@ -1,17 +1,20 @@
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
+using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using SubjectServiceDotnet.Application;
 using SubjectServiceDotnet.Data;
 using SubjectServiceDotnet.Data.Entities;
 using SubjectServiceDotnet.Grpc;
+using SubjectServiceDotnet.Observability;
 using AuthProto = Auth;
 using ProjectProto = Project;
 
 var builder = WebApplication.CreateBuilder(args);
 
 var port = builder.Configuration.GetValue("SUBJECT_SERVICE_PORT", 50053);
+var healthPort = builder.Configuration.GetValue("SUBJECT_HEALTH_PORT", 50080);
 var subjectDbConnectionString =
     builder.Configuration.GetConnectionString("SubjectDb")
     ?? "Host=127.0.0.1;Port=5432;Database=subject;Username=subject;Password=subject";
@@ -27,6 +30,10 @@ builder.WebHost.ConfigureKestrel(options =>
     options.ListenAnyIP(port, listenOptions =>
     {
         listenOptions.Protocols = HttpProtocols.Http2;
+    });
+    options.ListenAnyIP(healthPort, listenOptions =>
+    {
+        listenOptions.Protocols = HttpProtocols.Http1;
     });
 });
 
@@ -44,8 +51,20 @@ builder.Services.AddGrpcClient<ProjectProto.ProjectService.ProjectServiceClient>
     options.Address = new Uri(projectGrpcEndpoint);
 });
 builder.Services.AddScoped<SubjectManager>();
+builder.Services.AddSingleton<SubjectMetrics>();
+builder.Services
+    .AddHealthChecks()
+    .AddCheck<SubjectDbHealthCheck>("subject-db");
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(resource => resource.AddService(otelServiceName))
+    .WithMetrics(metrics =>
+    {
+        metrics
+            .AddAspNetCoreInstrumentation()
+            .AddRuntimeInstrumentation()
+            .AddMeter(SubjectMetrics.MeterName)
+            .AddOtlpExporter();
+    })
     .WithTracing(tracing =>
     {
         tracing.AddAspNetCoreInstrumentation();
@@ -62,6 +81,9 @@ await using (var scope = app.Services.CreateAsyncScope())
 }
 
 app.MapGrpcService<SubjectGrpcService>();
+app.MapGet("/health/live", () => Results.Ok("Healthy"));
+app.MapHealthChecks("/health");
+app.MapHealthChecks("/health/ready");
 app.MapGet("/", () => "Use a gRPC client to communicate with this service.");
 await app.RunAsync();
 
