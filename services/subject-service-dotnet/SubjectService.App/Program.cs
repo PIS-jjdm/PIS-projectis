@@ -73,12 +73,7 @@ builder.Services.AddOpenTelemetry()
 
 var app = builder.Build();
 
-await using (var scope = app.Services.CreateAsyncScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<SubjectDbContext>();
-    await db.Database.MigrateAsync();
-    await SeedDemoSubjectsAsync(db, builder.Configuration);
-}
+await MigrateAndSeedWithRetryAsync(app.Services, builder.Configuration);
 
 app.MapGrpcService<SubjectGrpcService>();
 app.MapGet("/health/live", () => Results.Ok("Healthy"));
@@ -86,6 +81,38 @@ app.MapHealthChecks("/health");
 app.MapHealthChecks("/health/ready");
 app.MapGet("/", () => "Use a gRPC client to communicate with this service.");
 await app.RunAsync();
+
+static async Task MigrateAndSeedWithRetryAsync(IServiceProvider services, IConfiguration configuration)
+{
+    const int maxAttempts = 20;
+    var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger("SubjectService.Startup");
+
+    for (var attempt = 1; attempt <= maxAttempts; attempt++)
+    {
+        try
+        {
+            await using var scope = services.CreateAsyncScope();
+            var db = scope.ServiceProvider.GetRequiredService<SubjectDbContext>();
+            await db.Database.MigrateAsync();
+            await SeedDemoSubjectsAsync(db, configuration);
+            return;
+        }
+        catch (Exception ex) when (attempt < maxAttempts)
+        {
+            logger.LogWarning(
+                ex,
+                "Subject database is not ready, retrying startup migration. Attempt {Attempt}/{MaxAttempts}",
+                attempt,
+                maxAttempts);
+            await Task.Delay(TimeSpan.FromSeconds(2));
+        }
+    }
+
+    await using var finalScope = services.CreateAsyncScope();
+    var finalDb = finalScope.ServiceProvider.GetRequiredService<SubjectDbContext>();
+    await finalDb.Database.MigrateAsync();
+    await SeedDemoSubjectsAsync(finalDb, configuration);
+}
 
 static async Task SeedDemoSubjectsAsync(SubjectDbContext db, IConfiguration configuration)
 {

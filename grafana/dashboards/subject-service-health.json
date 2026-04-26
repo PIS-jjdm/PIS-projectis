@@ -238,7 +238,7 @@
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "expr": "sum by (rpc_method) (rate({__name__=~\"subject_grpc_requests_total(_total)?\"}[5m]))",
+          "expr": "sum by (rpc_method) (rate(subject_grpc_requests_total[$__rate_interval]))",
           "legendFormat": "{{rpc_method}}",
           "refId": "A"
         }
@@ -281,7 +281,7 @@
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "expr": "sum by (rpc_method, rpc_grpc_status_code) (rate({__name__=~\"subject_grpc_requests_total(_total)?\", rpc_grpc_status_code!=\"OK\"}[5m]))",
+          "expr": "sum by (rpc_method, rpc_grpc_status_code) (rate(subject_grpc_requests_total{rpc_grpc_status_code!=\"OK\"}[$__rate_interval])) or vector(0)",
           "legendFormat": "{{rpc_method}} {{rpc_grpc_status_code}}",
           "refId": "A"
         }
@@ -367,7 +367,7 @@
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "expr": "histogram_quantile(0.95, sum by (le, rpc_method) (rate(subject_grpc_request_duration_seconds_bucket[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le, rpc_method) (rate(subject_grpc_request_duration_seconds_bucket[$__rate_interval])))",
           "legendFormat": "{{rpc_method}}",
           "refId": "A"
         }
