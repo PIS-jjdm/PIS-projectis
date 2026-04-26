@@ -374,6 +374,41 @@
       ],
       "title": "gRPC p95 Duration",
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "loki",
+        "uid": "Loki"
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 32
+      },
+      "id": 8,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "Loki"
+          },
+          "expr": "{service_name=\"subject-service\"}",
+          "refId": "A"
+        }
+      ],
+      "title": "Subject Service Logs",
+      "type": "logs"
     }
   ],
   "refresh": "10s",
@@ -381,7 +416,8 @@
   "tags": [
     "subject-service",
     "health",
-    "metrics"
+    "metrics",
+    "logs"
   ],
   "templating": {
     "list": []
