@@ -2,7 +2,9 @@ package org.pis.project.grpc;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
+import org.pis.project.clients.AuthClientService;
 import org.pis.project.clients.EvaluationClientService;
 import org.pis.project.domain.JoinRequestFilter;
 import org.pis.project.entities.ProjectEntity;
@@ -33,18 +35,22 @@ import org.pis.project.proto.RegisterTeamRequest;
 import org.pis.project.proto.RemoveTeamMemberRequest;
 import org.pis.project.proto.ResolveJoinRequestRequest;
 import org.pis.project.proto.Team;
+import org.pis.project.proto.TeamDetail;
 import org.pis.project.proto.UpdateProjectRequest;
 import org.pis.project.services.ProjectService;
 import org.pis.project.services.TeamJoinRequestService;
 import org.pis.project.services.TeamService;
 import org.springframework.stereotype.Service;
 
+import auth.Auth.User;
 import common.Common.Ack;
 import eval.Eval.ProjectEvaluation;
 import io.grpc.stub.StreamObserver;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBase {
 
@@ -58,6 +64,7 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
     private final TeamJoinRequestMapper teamJoinRequestMapper;
 
     private final EvaluationClientService evaluationClientService;
+    private final AuthClientService authClientService;
 
     @Override
     public void getProject(GetProjectRequest request, StreamObserver<Project> responseObserver) {
@@ -120,14 +127,18 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
     }
 
     @Override
-    public void getTeam(GetTeamRequest request, StreamObserver<Team> responseObserver) {
+    public void getTeam(GetTeamRequest request, StreamObserver<TeamDetail> responseObserver) {
         UUID teamId = UUID.fromString(request.getTeamId());
-        TeamEntity retievedTeam = teamService.getTeam(teamId);
+        TeamEntity retrievedTeam = teamService.getTeam(teamId);
 
-        ProjectEvaluation evaluation = evaluationClientService.getEvaluationDetail(retievedTeam.getProject().getId(),
-                retievedTeam.getId(), null);
+        ProjectEvaluation evaluation = evaluationClientService
+                .getEvaluationDetail(retrievedTeam.getProject().getId(), retrievedTeam.getId(), null)
+                .orElse(null);
 
-        Team response = teamMapper.toProto(retievedTeam, evaluation);
+        List<User> teamMembers = retrievedTeam.getMembers().stream()
+                .map(member -> authClientService.getUser(member.getStudentId())).collect(Collectors.toList());
+
+        TeamDetail response = teamMapper.toProtoDetail(retrievedTeam, evaluation, teamMembers);
 
         responseObserver.onNext(response);
         responseObserver.onCompleted();
@@ -179,6 +190,9 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
         String oldLeaderStudentId = request.getOldLeaderStudentId();
         String newLeaderStudentId = request.getNewLeaderStudentId();
 
+        // check if user exists
+        authClientService.getUser(newLeaderStudentId);
+
         TeamEntity abandonedTeam = teamService.changeLeader(teamId, oldLeaderStudentId, newLeaderStudentId);
 
         Team response = teamMapper.toProto(abandonedTeam);
@@ -192,6 +206,9 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
 
         UUID teamId = UUID.fromString(request.getTeamId());
         String studentId = request.getStudentId();
+
+        // check if user exists
+        authClientService.getUser(studentId);
 
         TeamEntity joinedTeam = teamService.addMember(teamId, studentId);
 

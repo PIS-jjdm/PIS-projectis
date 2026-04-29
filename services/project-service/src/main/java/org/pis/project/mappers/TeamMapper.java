@@ -11,16 +11,21 @@ import org.pis.project.entities.TeamMemberEntity;
 import org.pis.project.proto.ListTeam;
 import org.pis.project.proto.RegisterTeamRequest;
 import org.pis.project.proto.Team;
+import org.pis.project.proto.TeamDetail;
 
+import auth.Auth.User;
 import eval.Eval.ProjectEvaluation;
 
 @Mapper(componentModel = "spring", uses = CommonMapper.class, collectionMappingStrategy = CollectionMappingStrategy.ADDER_PREFERRED, unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface TeamMapper {
 
     @Mapping(target = "teamId", source = "team.id")
-    @Mapping(target = "projectId", source = "team.project.id") // Unwraps the ProjectEntity to get its ID
-    @Mapping(target = "studentIdsList", source = "team.members") // Protobuf 'repeated' fields map to '...List'
-    Team toProto(TeamEntity team, ProjectEvaluation evalution);
+    @Mapping(target = "projectId", source = "team.project.id")
+    @Mapping(target = "name", source = "team.name")
+    @Mapping(target = "leaderStudentId", source = "team.leaderStudentId")
+    @Mapping(target = "studentsList", source = "teamMembers")
+    @Mapping(target = "evaluation", source = "evaluation")
+    TeamDetail toProtoDetail(TeamEntity team, ProjectEvaluation evaluation, List<User> teamMembers);
 
     @Mapping(target = "teamId", source = "id")
     @Mapping(target = "projectId", source = "project.id")

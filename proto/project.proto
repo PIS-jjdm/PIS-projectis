@@ -5,6 +5,7 @@ package project;
 import "google/protobuf/timestamp.proto";
 import "common.proto";
 import "eval.proto";
+import "auth.proto";
 
 option java_multiple_files = true;
 option java_package = "org.pis.project.proto";
@@ -18,7 +19,7 @@ service ProjectService {
   rpc DeleteProject(DeleteProjectRequest) returns (common.Ack);
 
   rpc RegisterTeam(RegisterTeamRequest) returns (Team);
-  rpc GetTeam(GetTeamRequest) returns (Team);
+  rpc GetTeam(GetTeamRequest) returns (TeamDetail);
   rpc ListTeamsByProject(ListTeamsByProjectRequest) returns (ListTeamsByProjectResponse);
   rpc LeaveTeam(LeaveTeamRequest) returns (common.Ack);
   rpc ChangeTeamLeader(ChangeTeamLeaderRequest) returns (Team);
@@ -76,11 +77,19 @@ message DeleteProjectRequest { string project_id = 1; }
 
 // TEAM /////////////////////////////////////////////////////////////////////
 message Team {
+  string          team_id           = 1;
+  string          project_id        = 2;
+  string          name              = 3;
+  string          leader_student_id = 4;
+  repeated string student_ids       = 5;
+}
+
+message TeamDetail {
   string                          team_id           = 1;
   string                          project_id        = 2;
   string                          name              = 3;
   string                          leader_student_id = 4;
-  repeated string                 student_ids       = 5;
+  repeated auth.User              students          = 5;
   optional eval.ProjectEvaluation evaluation        = 6;
 }
 

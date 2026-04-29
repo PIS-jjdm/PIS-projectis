@@ -35,7 +35,7 @@ service FrontendGateway {
   rpc UpdateProject(project.UpdateProjectRequest) returns (project.Project);
   rpc DeleteProject(project.DeleteProjectRequest) returns (common.Ack);
   rpc RegisterTeam(project.RegisterTeamRequest) returns (project.Team);
-  rpc GetTeam(project.GetTeamRequest) returns (project.Team);
+  rpc GetTeam(project.GetTeamRequest) returns (project.TeamDetail);
   rpc ListTeamsByProject(project.ListTeamsByProjectRequest) returns (project.ListTeamsByProjectResponse);
   rpc LeaveTeam(project.LeaveTeamRequest) returns (common.Ack);
   rpc ChangeTeamLeader(project.ChangeTeamLeaderRequest) returns (project.Team);

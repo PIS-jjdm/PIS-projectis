@@ -27,7 +27,7 @@ use crate::proto::{
         GetProjectRequest, GetTeamRequest, JoinRequest, ListJoinRequestsRequest,
         ListJoinRequestsResponse, ListProjectsRequest, ListProjectsResponse,
         ListTeamsByProjectRequest, ListTeamsByProjectResponse, Project, RemoveTeamMemberRequest,
-        Team, UpdateProjectRequest, RegisterTeamRequest, LeaveTeamRequest, CreateJoinRequestRequest, 
+        Team, TeamDetail, UpdateProjectRequest, RegisterTeamRequest, LeaveTeamRequest, CreateJoinRequestRequest, 
         ResolveJoinRequestRequest
     },
     subject::{
@@ -309,7 +309,7 @@ impl FrontendGateway for FrontendGatewayService {
     async fn get_team(
         &self,
         request: Request<GetTeamRequest>,
-    ) -> Result<Response<Team>, Status> {
+    ) -> Result<Response<TeamDetail>, Status> {
         projects::get_team(self, request).await
     }
 

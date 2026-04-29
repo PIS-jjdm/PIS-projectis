@@ -188,6 +188,7 @@
                         <include>project.proto</include>
                         <include>common.proto</include>
                         <include>eval.proto</include>
+                        <include>auth.proto</include>
                     </includes>
                 </configuration>
                 <executions>

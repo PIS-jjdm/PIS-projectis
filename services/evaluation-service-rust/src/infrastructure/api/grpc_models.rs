@@ -17,3 +17,7 @@ pub mod notification {
 pub mod project {
     tonic::include_proto!("project");
 }
+
+pub mod auth {
+    tonic::include_proto!("auth");
+}
