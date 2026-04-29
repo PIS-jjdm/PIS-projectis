@@ -187,6 +187,7 @@
                     <includes>
                         <include>project.proto</include>
                         <include>common.proto</include>
+                        <include>eval.proto</include>
                     </includes>
                 </configuration>
                 <executions>

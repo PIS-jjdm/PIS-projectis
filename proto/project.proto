@@ -4,6 +4,7 @@ package project;
 
 import "google/protobuf/timestamp.proto";
 import "common.proto";
+import "eval.proto";
 
 option java_multiple_files = true;
 option java_package = "org.pis.project.proto";
@@ -75,11 +76,12 @@ message DeleteProjectRequest { string project_id = 1; }
 
 // TEAM /////////////////////////////////////////////////////////////////////
 message Team {
-  string          team_id           = 1;
-  string          project_id        = 2;
-  string          name              = 3;
-  string          leader_student_id = 4;
-  repeated string student_ids       = 5;
+  string                          team_id           = 1;
+  string                          project_id        = 2;
+  string                          name              = 3;
+  string                          leader_student_id = 4;
+  repeated string                 student_ids       = 5;
+  optional eval.ProjectEvaluation evaluation        = 6;
 }
 
 message ListTeam {

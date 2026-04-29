@@ -3,6 +3,7 @@ package org.pis.project.grpc;
 import java.util.List;
 import java.util.UUID;
 
+import org.pis.project.clients.EvaluationClientService;
 import org.pis.project.domain.JoinRequestFilter;
 import org.pis.project.entities.ProjectEntity;
 import org.pis.project.entities.TeamEntity;
@@ -39,6 +40,7 @@ import org.pis.project.services.TeamService;
 import org.springframework.stereotype.Service;
 
 import common.Common.Ack;
+import eval.Eval.ProjectEvaluation;
 import io.grpc.stub.StreamObserver;
 import lombok.RequiredArgsConstructor;
 
@@ -54,6 +56,8 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
 
     private final TeamJoinRequestService teamJoinRequestService;
     private final TeamJoinRequestMapper teamJoinRequestMapper;
+
+    private final EvaluationClientService evaluationClientService;
 
     @Override
     public void getProject(GetProjectRequest request, StreamObserver<Project> responseObserver) {
@@ -120,7 +124,10 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
         UUID teamId = UUID.fromString(request.getTeamId());
         TeamEntity retievedTeam = teamService.getTeam(teamId);
 
-        Team response = teamMapper.toProto(retievedTeam);
+        ProjectEvaluation evaluation = evaluationClientService.getEvaluationDetail(retievedTeam.getProject().getId(),
+                retievedTeam.getId(), null);
+
+        Team response = teamMapper.toProto(retievedTeam, evaluation);
 
         responseObserver.onNext(response);
         responseObserver.onCompleted();
