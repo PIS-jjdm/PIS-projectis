@@ -87,7 +87,7 @@ where
         let subject = self
             .gateways
             .subject()
-            .get_subject_info(team.subject_id.clone())
+            .get_subject_info(project.subject_id.clone())
             .await?;
 
         self.gateways
