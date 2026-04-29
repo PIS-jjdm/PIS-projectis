@@ -19,8 +19,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class TeamService {
     private final TeamRepository teamRepository;
@@ -51,16 +53,22 @@ public class TeamService {
 
     @Transactional
     public TeamEntity createTeam(TeamEntity newTeam, UUID projectId) {
+        log.info("Attempting to create team for leader [{}] in project [{}]", newTeam.getLeaderStudentId(), projectId);
+
         if (teamMemberRepository.existsByStudentIdAndProjectId(newTeam.getLeaderStudentId(), projectId)) {
+            log.warn("Failed to create team: Leader [{}] already in a team for project [{}]",
+                    newTeam.getLeaderStudentId(), projectId);
             throw new BusinessRuleViolationException("Student is already part of a team in this project.");
         }
 
-        // Fetch the Project
         ProjectEntity project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new ResourceNotFoundException("Project not found with id: " + projectId));
+                .orElseThrow(() -> {
+                    log.error("Failed to create team: Project [{}] not found", projectId);
+                    return new ResourceNotFoundException("Project not found with id: " + projectId);
+                });
+
         newTeam.setProject(project);
 
-        // Create a team leader
         TeamMemberEntity leaderMember = new TeamMemberEntity();
         leaderMember.setStudentId(newTeam.getLeaderStudentId());
         leaderMember.setProjectId(projectId);
@@ -69,118 +77,139 @@ public class TeamService {
         newTeam.setMembers(new ArrayList<>(List.of(leaderMember)));
         newTeam.setJoinRequests(new ArrayList<>());
 
-        // Cancel any pending join requests for the leader in the same project
         eventPublisher.publishEvent(new StudentJoinedTeamEvent(newTeam.getLeaderStudentId(), projectId));
 
-        return teamRepository.save(newTeam);
+        TeamEntity savedTeam = teamRepository.save(newTeam);
+        log.info("Successfully created team [{}] with leader [{}]", savedTeam.getId(), savedTeam.getLeaderStudentId());
+        return savedTeam;
     }
 
     @Transactional
     public TeamEntity deleteTeam(UUID teamId) {
+        log.info("Attempting to delete team [{}]", teamId);
         TeamEntity team = getTeam(teamId);
         teamRepository.deleteById(teamId);
+        log.info("Successfully deleted team [{}]", teamId);
         return team;
     }
 
     @Transactional
     public TeamEntity leaveTeam(UUID teamId, String studentId) {
+        log.info("Student [{}] attempting to leave team [{}]", studentId, teamId);
+
         TeamEntity team = getTeam(teamId);
         TeamMemberEntity member = teamMemberRepository.findByStudentIdAndTeamId(studentId, teamId)
-                .orElseThrow(
-                        () -> new ResourceNotFoundException("Team Membership not found for student: " + studentId));
+                .orElseThrow(() -> {
+                    log.warn("Failed leave operation: Student [{}] not found in team [{}]", studentId, teamId);
+                    return new ResourceNotFoundException("Team Membership not found for student: " + studentId);
+                });
 
-        // Last member leaving the team, delete the team as well
         if (teamMemberRepository.countByTeamId(teamId) <= 1) {
+            log.info("Last member [{}] leaving; deleting team [{}]", studentId, teamId);
             return deleteTeam(teamId);
         }
 
-        // If the leader is leaving, assign a new leader
         if (team.getLeaderStudentId().equals(studentId)) {
             TeamMemberEntity newLeader = teamMemberRepository.findByTeamId(teamId).stream()
                     .filter(m -> !m.getStudentId().equals(studentId))
                     .findFirst().orElseThrow(
                             () -> new ResourceNotFoundException("No other team members found to assign as leader."));
 
+            log.info("Leader leaving team [{}]; promoting student [{}] to leader", teamId, newLeader.getStudentId());
             team.setLeaderStudentId(newLeader.getStudentId());
             team = teamRepository.save(team);
         }
+
         team.removeMember(member);
         Hibernate.initialize(team.getMembers());
 
+        log.info("Student [{}] successfully left team [{}]", studentId, teamId);
         return team;
     }
 
     @Transactional
     public TeamEntity changeLeader(UUID teamId, String oldLeaderStudentId, String newLeaderStudentId) {
+        log.info("Attempting to change leader of team [{}] from [{}] to [{}]", teamId, oldLeaderStudentId,
+                newLeaderStudentId);
+
         TeamEntity team = getTeam(teamId);
 
         boolean isNewLeaderPartOfTeam = teamMemberRepository.existsByStudentIdAndTeamId(newLeaderStudentId, teamId);
         boolean isFormerLeaderPartOfTeam = team.getLeaderStudentId().equals(oldLeaderStudentId);
 
         if (!isNewLeaderPartOfTeam) {
+            log.warn("Leader change failed: New leader [{}] is not in team [{}]", newLeaderStudentId, teamId);
             throw new BusinessRuleViolationException("New leader must be a member of the team.");
         } else if (!isFormerLeaderPartOfTeam) {
+            log.warn("Leader change failed: [{}] is not the current leader of team [{}]", oldLeaderStudentId, teamId);
             throw new BusinessRuleViolationException("Former leader must be the current leader of the team.");
         } else {
             team.setLeaderStudentId(newLeaderStudentId);
             TeamEntity updatedEntity = teamRepository.save(team);
             Hibernate.initialize(updatedEntity.getMembers());
+            log.info("Successfully changed leader of team [{}] to [{}]", teamId, newLeaderStudentId);
             return updatedEntity;
         }
     }
 
     @Transactional
     public TeamEntity addMember(UUID teamId, String studentId) {
+        log.info("Attempting to add student [{}] to team [{}]", studentId, teamId);
 
         TeamEntity team = teamRepository.findById(teamId)
-                .orElseThrow(() -> new ResourceNotFoundException("Team not found with id: " + teamId));
+                .orElseThrow(() -> {
+                    log.error("Failed to add member: Team [{}] not found", teamId);
+                    return new ResourceNotFoundException("Team not found with id: " + teamId);
+                });
         ProjectEntity project = team.getProject();
 
-        // TODO: Validate Student Existence
-        // userClient.validateStudentExists(studentId);
-
-        // Check team capacity before adding a new member
         long currentMemberCount = teamMemberRepository.countByTeamId(teamId);
         if (currentMemberCount >= project.getMaxStudentsPerTeam()) {
+            log.warn("Failed to add student [{}]: Team [{}] has reached max capacity of {}",
+                    studentId, teamId, project.getMaxStudentsPerTeam());
             throw new IllegalStateException("Cannot add member. Team is already at full capacity.");
         }
 
-        // Students can only be part of one team per project
         UUID projectId = project.getId();
-        String projectName = project.getTitle();
         if (teamMemberRepository.existsByStudentIdAndProjectId(studentId, projectId)) {
+            log.warn("Failed to add student [{}]: Already in a team for project [{}]", studentId, projectId);
             throw new BusinessRuleViolationException(
-                    "Student is already a member of team in project " + projectName);
+                    "Student is already a member of team in project " + project.getTitle());
         }
 
-        // Procceed to add the member to the team
         TeamMemberEntity teamMember = TeamMemberEntity.builder()
                 .team(team)
                 .studentId(studentId)
                 .projectId(projectId)
                 .build();
 
-        // cancel any pending join requests for the student in the same project
         eventPublisher.publishEvent(new StudentJoinedTeamEvent(studentId, projectId));
 
         team.addMember(teamMember);
         teamMemberRepository.save(teamMember);
 
-        Hibernate.initialize(team.getMembers());
+        log.info("Successfully added student [{}] to team [{}]", studentId, teamId);
 
+        Hibernate.initialize(team.getMembers());
         return team;
     }
 
     @Transactional
     public TeamEntity removeMember(UUID teamId, String studentId) {
+        log.info("Attempting to remove student [{}] from team [{}]", studentId, teamId);
+
         TeamMemberEntity teamMember = teamMemberRepository.findByStudentIdAndTeamId(studentId, teamId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Team member not found for studentId: " + studentId + " and teamId: " + teamId));
+                .orElseThrow(() -> {
+                    log.warn("Failed to remove member: Student [{}] not found in team [{}]", studentId, teamId);
+                    return new ResourceNotFoundException(
+                            "Team member not found for studentId: " + studentId + " and teamId: " + teamId);
+                });
 
         TeamEntity team = teamMember.getTeam();
         team.removeMember(teamMember);
 
         Hibernate.initialize(team.getMembers());
+        log.info("Successfully removed student [{}] from team [{}]", studentId, teamId);
         return team;
     }
 }
