@@ -160,11 +160,15 @@ services:
       dockerfile: services/project-service/Dockerfile
     env_file:
       - ./services/project-service/.env.example
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: project-service
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      AUTH_GRPC_ENDPOINT: auth-service:50051
+      EVALUATION_GRPC_ENDPOINT: evaluation-service:50055
     depends_on:
-      project-postgres:
-        condition: service_healthy
-      otel-collector:
-        condition: service_started
+      - project-postgres
+      - otel-collector
 
   evaluation-service:
     build:
