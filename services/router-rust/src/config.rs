@@ -7,6 +7,7 @@ pub struct Config {
     pub(crate) notification_grpc_endpoint: String,
     pub(crate) subject_grpc_endpoint: String,
     pub(crate) project_grpc_endpoint: String,
+    pub(crate) eval_grpc_endpoint: String,
     pub(crate) otel_endpoint: String,
     pub(crate) otel_service_name: String,
 }
@@ -23,6 +24,8 @@ impl Config {
                 .unwrap_or_else(|_| "http://127.0.0.1:50053".into()),
             project_grpc_endpoint: env::var("PROJECT_GRPC_ENDPOINT")
                 .unwrap_or_else(|_| "http://127.0.0.1:50054".into()),
+            eval_grpc_endpoint: env::var("EVAL_GRPC_ENDPOINT")
+                .unwrap_or_else(|_| "http://127.0.0.1:50057".into()),
             otel_endpoint: env::var("OTEL_EXPORTER_OTLP_ENDPOINT")
                 .unwrap_or_else(|_| "http://127.0.0.1:4317".into()),
             otel_service_name: env::var("OTEL_SERVICE_NAME").unwrap_or_else(|_| "router".into()),

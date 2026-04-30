@@ -1,4 +1,5 @@
 mod auth;
+mod eval;
 mod notifications;
 mod projects;
 mod subjects;
@@ -425,5 +426,46 @@ impl FrontendGateway for FrontendGatewayService {
         request: Request<Empty>,
     ) -> Result<Response<Self::StreamNotificationsStream>, Status> {
         notifications::stream_notifications(self, request).await
+    }
+
+    async fn get_project_evaluation(
+        &self,
+        request: tonic::Request<super::proto::eval::GetProjectEvaluationRequest>,
+    ) -> std::result::Result<tonic::Response<super::proto::eval::ProjectEvaluation>, tonic::Status>
+    {
+        eval::get_project_evaluation(&self.state, request).await
+    }
+
+    async fn list_project_evaluations(
+        &self,
+        request: tonic::Request<super::proto::eval::ListProjectEvaluationsRequest>,
+    ) -> std::result::Result<
+        tonic::Response<super::proto::eval::ListProjectEvaluationsResponse>,
+        tonic::Status,
+    > {
+        eval::list_project_evaluations(&self.state, request).await
+    }
+
+    async fn create_project_evaluation(
+        &self,
+        request: tonic::Request<super::proto::eval::CreateProjectEvaluationRequest>,
+    ) -> std::result::Result<tonic::Response<super::proto::eval::ProjectEvaluation>, tonic::Status>
+    {
+        eval::create_project_evaluation(&self.state, request).await
+    }
+
+    async fn update_project_evaluation(
+        &self,
+        request: tonic::Request<super::proto::eval::UpdateProjectEvaluationRequest>,
+    ) -> std::result::Result<tonic::Response<super::proto::eval::ProjectEvaluation>, tonic::Status>
+    {
+        eval::update_project_evaluation(&self.state, request).await
+    }
+
+    async fn delete_project_evaluation(
+        &self,
+        request: tonic::Request<super::proto::eval::DeleteEvaluationRequest>,
+    ) -> std::result::Result<tonic::Response<super::proto::common::Ack>, tonic::Status> {
+        eval::delete_project_evaluation(&self.state, request).await
     }
 }
