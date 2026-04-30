@@ -14,6 +14,7 @@ use crate::{
     },
 };
 use std::{net::SocketAddr, sync::Arc};
+use tokio::signal;
 use tonic::{Code, Request, Response, Status, transport::Server};
 use tracing::info;
 
@@ -28,7 +29,7 @@ pub async fn run(
 
     Server::builder()
         .add_service(EvaluationServiceServer::new(evaluation_service))
-        .serve(addr)
+        .serve_with_shutdown(addr, shutdown_signal())
         .await?;
 
     Ok(())
@@ -187,5 +188,33 @@ impl From<Timestamp> for prost_types::Timestamp {
             seconds: value.0.timestamp(),
             nanos: value.0.timestamp_subsec_nanos() as i32,
         }
+    }
+}
+
+// Samelessly taken from axum's graceful shutdown example:
+// https://github.com/tokio-rs/axum/blob/da26db264f811e73485f1db1c134d374e8f99464/examples/graceful-shutdown/src/main.rs#L54
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {
+            tracing::info!("Shutting down..")
+        },
+        _ = terminate => {},
     }
 }
