@@ -1,6 +1,9 @@
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 use tokio::sync::Mutex;
-use tonic::{Code, async_trait, transport::Channel};
+use tonic::{
+    Code, async_trait,
+    transport::{Channel, Uri},
+};
 
 use crate::{
     application::gateway::{ProjectError, ProjectGateway, models},
@@ -16,7 +19,10 @@ pub struct GrpcProjectGateway {
 
 impl GrpcProjectGateway {
     pub async fn connect(addr: &str) -> Result<Self, anyhow::Error> {
-        let client = ProjectServiceClient::connect(addr.to_owned()).await?;
+        let channel = Channel::builder(Uri::from_str(addr)?).connect_lazy();
+        let client = ProjectServiceClient::new(channel);
+
+        tracing::info!(addr = addr, "Using lazy connect");
 
         Ok(Self {
             client: Arc::new(Mutex::new(client)),

@@ -5,6 +5,7 @@ mod subject;
 pub use notification::GrpcNotificationGateway;
 pub use project::GrpcProjectGateway;
 pub use subject::GrpcSubjectGateway;
+use tonic::transport::Channel;
 
 use crate::application::gateway::{
     GatewayCollection, NotificationGateway, ProjectGateway, SubjectGateway,
@@ -28,4 +29,8 @@ impl GatewayCollection for GrpcGatewayCollection {
     fn subject(&self) -> &impl SubjectGateway {
         &self.subject
     }
+}
+
+pub fn connect_with_retries() -> Result<Channel, anyhow::Error> {
+    todo!();
 }

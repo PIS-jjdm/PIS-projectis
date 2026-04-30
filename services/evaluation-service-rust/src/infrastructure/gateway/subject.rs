@@ -1,7 +1,10 @@
-use std::sync::Arc;
+use std::{str::FromStr, sync::Arc};
 
 use tokio::sync::Mutex;
-use tonic::{async_trait, transport::Channel};
+use tonic::{
+    async_trait,
+    transport::{Channel, Uri},
+};
 
 use crate::{
     application::gateway::{SubjectError, SubjectGateway, models},
@@ -17,7 +20,10 @@ pub struct GrpcSubjectGateway {
 
 impl GrpcSubjectGateway {
     pub async fn connect(addr: &str) -> Result<Self, anyhow::Error> {
-        let client = SubjectServiceClient::connect(addr.to_owned()).await?;
+        let channel = Channel::builder(Uri::from_str(addr)?).connect_lazy();
+        let client = SubjectServiceClient::new(channel);
+
+        tracing::info!(addr = addr, "Using lazy connect");
 
         Ok(Self {
             client: Arc::new(Mutex::new(client)),
