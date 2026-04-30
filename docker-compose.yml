@@ -167,6 +167,7 @@ services:
       AUTH_GRPC_ENDPOINT: auth-service:50051
       NOTIFICATION_GRPC_ENDPOINT: notification-service:50052
       EVALUATION_GRPC_ENDPOINT: evaluation-service:50055
+      JAVA_TOOL_OPTIONS: --add-opens=java.base/java.nio=ALL-UNNAMED --enable-native-access=ALL-UNNAMED
     depends_on:
       - project-postgres
       - otel-collector
