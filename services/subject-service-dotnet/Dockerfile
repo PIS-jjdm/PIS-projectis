@@ -17,4 +17,5 @@ WORKDIR /app
 COPY --from=build /app/publish .
 
 EXPOSE 50053
+EXPOSE 50080
 ENTRYPOINT ["dotnet", "SubjectService.App.dll"]

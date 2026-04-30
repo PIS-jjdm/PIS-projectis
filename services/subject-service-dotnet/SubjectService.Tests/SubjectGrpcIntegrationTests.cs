@@ -15,6 +15,7 @@ using SubjectServiceDotnet.Application;
 using SubjectServiceDotnet.Data;
 using SubjectServiceDotnet.Data.Entities;
 using SubjectServiceDotnet.Grpc;
+using SubjectServiceDotnet.Observability;
 using Xunit;
 using AuthProto = Auth;
 using CommonProto = Common;
@@ -269,6 +270,7 @@ internal sealed class SubjectGrpcTestHost : IAsyncDisposable
         builder.Services.AddSingleton(_ => new AuthProto.AuthService.AuthServiceClient(authInvoker));
         builder.Services.AddSingleton(_ => new ProjectProto.ProjectService.ProjectServiceClient(projectInvoker));
         builder.Services.AddScoped<SubjectManager>();
+        builder.Services.AddSingleton<SubjectMetrics>();
 
         _app = builder.Build();
         _app.MapGrpcService<SubjectGrpcService>();
