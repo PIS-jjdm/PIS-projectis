@@ -165,6 +165,7 @@ services:
       OTEL_SERVICE_NAME: project-service
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
       AUTH_GRPC_ENDPOINT: auth-service:50051
+      NOTIFICATION_GRPC_ENDPOINT: notification-service:50052
       EVALUATION_GRPC_ENDPOINT: evaluation-service:50055
     depends_on:
       - project-postgres

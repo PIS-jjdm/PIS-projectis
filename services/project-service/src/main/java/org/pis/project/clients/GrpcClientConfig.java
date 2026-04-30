@@ -2,6 +2,7 @@ package org.pis.project.clients;
 
 import auth.AuthServiceGrpc;
 import eval.EvaluationServiceGrpc;
+import notification.NotificationServiceGrpc;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.grpc.client.GrpcChannelFactory;
@@ -17,5 +18,10 @@ public class GrpcClientConfig {
     @Bean
     EvaluationServiceGrpc.EvaluationServiceBlockingStub evaluationStub(GrpcChannelFactory channels) {
         return EvaluationServiceGrpc.newBlockingStub(channels.createChannel("evaluation"));
+    }
+
+    @Bean
+    NotificationServiceGrpc.NotificationServiceBlockingStub notificationStub(GrpcChannelFactory channels) {
+        return NotificationServiceGrpc.newBlockingStub(channels.createChannel("notification"));
     }
 }

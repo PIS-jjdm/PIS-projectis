@@ -3,6 +3,7 @@ package org.pis.project.services;
 import java.util.List;
 import java.util.UUID;
 
+import org.pis.project.clients.NotificationClientService;
 import org.pis.project.domain.JoinRequestFilter;
 import org.pis.project.entities.TeamEntity;
 import org.pis.project.entities.TeamJoinRequestEntity;
@@ -10,7 +11,9 @@ import org.pis.project.entities.enums.JoinRequestStatus;
 import org.pis.project.events.StudentJoinedTeamEvent;
 import org.pis.project.exceptions.BusinessRuleViolationException;
 import org.pis.project.exceptions.ResourceNotFoundException;
+import org.pis.project.grpc.interceptors.AuthenticationInterceptor;
 import org.pis.project.repositories.TeamJoinRequestRepository;
+import org.pis.project.utils.JwtUtils;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
@@ -26,6 +29,7 @@ public class TeamJoinRequestService {
     private final TeamJoinRequestRepository teamJoinRequestRepository;
     private final TeamService teamService;
     private final ApplicationEventPublisher eventPublisher;
+    private final NotificationClientService notificationClient;
 
     @Transactional
     public TeamJoinRequestEntity createJoinRequest(TeamJoinRequestEntity joinRequest, UUID teamId) {
@@ -40,6 +44,16 @@ public class TeamJoinRequestService {
         newJoinRequest.setProjectId(team.getProject().getId());
 
         TeamJoinRequestEntity saved = teamJoinRequestRepository.save(newJoinRequest);
+
+        JwtUtils.UserContext ctx = AuthenticationInterceptor.USER_CONTEXT_KEY.get();
+
+        notificationClient.createNotification(
+                List.of(team.getLeaderStudentId()),
+                String.format("New join request for team %s from student %s", team.getName(),
+                        saved.getRequestorStudentId()),
+                ctx.userId(),
+                null);
+
         log.info("Join request [{}] created for student [{}]", saved.getId(), saved.getRequestorStudentId());
         return saved;
     }
@@ -78,6 +92,14 @@ public class TeamJoinRequestService {
         }
 
         joinRequest.setStatus(accept ? JoinRequestStatus.ACCEPTED : JoinRequestStatus.REJECTED);
+
+        JwtUtils.UserContext ctx = AuthenticationInterceptor.USER_CONTEXT_KEY.get();
+        notificationClient.createNotification(
+                List.of(joinRequest.getRequestorStudentId()),
+                String.format("Your application to team %s was %s", joinRequest.getTeam().getName(),
+                        joinRequest.getStatus().toString()),
+                ctx.userId(),
+                null);
 
         eventPublisher.publishEvent(
                 new StudentJoinedTeamEvent(joinRequest.getRequestorStudentId(), joinRequest.getProjectId()));
