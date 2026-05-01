@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 import org.pis.project.clients.AuthClientService;
 import org.pis.project.clients.EvaluationClientService;
 import org.pis.project.clients.NotificationClientService;
+import org.pis.project.clients.SubjectClientService;
 import org.pis.project.domain.JoinRequestFilter;
 import org.pis.project.entities.ProjectEntity;
 import org.pis.project.entities.TeamEntity;
@@ -69,6 +70,7 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
 
     private final EvaluationClientService evaluationClientService;
     private final AuthClientService authClientService;
+    private final SubjectClientService subjectClientService;
     private final NotificationClientService notificationClient;
 
     @Override
@@ -99,10 +101,29 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
         ProjectEntity newProjectEntity = projectMapper.toEntity(request);
         ProjectEntity savedEntity = projectService.createProject(newProjectEntity);
 
-        Project response = projectMapper.toProto(savedEntity);
+        // Capture data for Async
+        JwtUtils.UserContext ctx = AuthenticationInterceptor.USER_CONTEXT_KEY.get();
+        String currentUserId = ctx.userId();
+        String subjectId = savedEntity.getSubjectId(); // Assuming ProjectEntity has subjectId
+        String projectName = savedEntity.getTitle();
 
+        Project response = projectMapper.toProto(savedEntity);
         responseObserver.onNext(response);
         responseObserver.onCompleted();
+
+        // Async Notification
+        CompletableFuture.runAsync(() -> {
+            try {
+                subject.SubjectOuterClass.Subject subject = subjectClientService.getSubject(subjectId);
+                notificationClient.createNotification(
+                        subject.getUserIdsList(),
+                        String.format("A new project '%s' has been created in subject %s.", projectName,
+                                subject.getName()),
+                        currentUserId, null);
+            } catch (Exception e) {
+                log.error("Failed to send project creation notification", e);
+            }
+        });
     }
 
     @Override
@@ -110,25 +131,60 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
         ProjectEntity newProjectEntity = projectMapper.toEntity(request);
         ProjectEntity savedEntity = projectService.updateProject(newProjectEntity);
 
-        Project response = projectMapper.toProto(savedEntity);
+        // Capture data
+        JwtUtils.UserContext ctx = AuthenticationInterceptor.USER_CONTEXT_KEY.get();
+        String currentUserId = ctx.userId();
+        String subjectId = savedEntity.getSubjectId();
+        String projectName = savedEntity.getTitle();
 
+        Project response = projectMapper.toProto(savedEntity);
         responseObserver.onNext(response);
         responseObserver.onCompleted();
+
+        // Async Notification
+        CompletableFuture.runAsync(() -> {
+            try {
+                subject.SubjectOuterClass.Subject subject = subjectClientService.getSubject(subjectId);
+                notificationClient.createNotification(
+                        subject.getUserIdsList(),
+                        String.format("Project '%s' in subject %s has been updated.", projectName, subject.getName()),
+                        currentUserId, null);
+            } catch (Exception e) {
+                log.error("Failed to send project update notification", e);
+            }
+        });
     }
 
     @Override
     public void deleteProject(DeleteProjectRequest request, StreamObserver<Ack> responseObserver) {
         UUID projectId = UUID.fromString(request.getProjectId());
-        projectService.deleteProject(projectId);
+
+        ProjectEntity deletedProject = projectService.deleteProject(projectId);
+        String subjectId = deletedProject.getSubjectId();
+        String projectName = deletedProject.getTitle();
+
+        JwtUtils.UserContext ctx = AuthenticationInterceptor.USER_CONTEXT_KEY.get();
+        String currentUserId = ctx.userId();
 
         Ack response = Ack.newBuilder()
                 .setSuccess(true)
                 .setMessage("Project deleted")
                 .build();
-
         responseObserver.onNext(response);
         responseObserver.onCompleted();
 
+        // Async Notification
+        CompletableFuture.runAsync(() -> {
+            try {
+                subject.SubjectOuterClass.Subject subject = subjectClientService.getSubject(subjectId);
+                notificationClient.createNotification(
+                        subject.getUserIdsList(),
+                        String.format("Project '%s' in subject %s has been deleted.", projectName, subject.getName()),
+                        currentUserId, null);
+            } catch (Exception e) {
+                log.error("Failed to send project deletion notification", e);
+            }
+        });
     }
 
     @Override
