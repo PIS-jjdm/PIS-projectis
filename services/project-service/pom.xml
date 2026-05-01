@@ -197,6 +197,7 @@
                         <include>eval.proto</include>
                         <include>auth.proto</include>
                         <include>notification.proto</include>
+                        <include>subject.proto</include>
                     </includes>
                 </configuration>
                 <executions>
