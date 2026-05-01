@@ -40,6 +40,13 @@
     <dependencies>
 
         <dependency>
+            <groupId>com.auth0</groupId>
+            <artifactId>java-jwt</artifactId>
+            <version>4.4.0</version>
+        </dependency>
+
+
+        <dependency>
             <groupId>com.google.protobuf</groupId>
             <artifactId>protobuf-java-util</artifactId>
             <version>4.31.1</version>
@@ -187,6 +194,10 @@
                     <includes>
                         <include>project.proto</include>
                         <include>common.proto</include>
+                        <include>eval.proto</include>
+                        <include>auth.proto</include>
+                        <include>notification.proto</include>
+                        <include>subject.proto</include>
                     </includes>
                 </configuration>
                 <executions>

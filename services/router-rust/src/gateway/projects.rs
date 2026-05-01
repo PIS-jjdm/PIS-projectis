@@ -9,7 +9,7 @@ use crate::proto::project::{
     DeleteJoinRequestRequest, DeleteProjectRequest, GetProjectRequest, GetTeamRequest, JoinRequest,
     LeaveTeamRequest, ListJoinRequestsRequest, ListJoinRequestsResponse, ListProjectsRequest,
     ListProjectsResponse, ListTeamsByProjectRequest, ListTeamsByProjectResponse, Project,
-    RegisterTeamRequest, RemoveTeamMemberRequest, ResolveJoinRequestRequest, Team,
+    RegisterTeamRequest, RemoveTeamMemberRequest, ResolveJoinRequestRequest, Team, TeamDetail,
     UpdateProjectRequest, 
 };
 
@@ -133,7 +133,7 @@ pub(super) async fn register_team(
 pub(super) async fn get_team(
     service: &FrontendGatewayService,
     request: Request<GetTeamRequest>,
-) -> Result<Response<Team>, Status> {
+) -> Result<Response<TeamDetail>, Status> {
     let response = service
         .state
         .project_client()

@@ -17,3 +17,6 @@ pub mod project {
 pub mod subject {
     tonic::include_proto!("subject");
 }
+pub mod eval {
+    tonic::include_proto!("eval");
+}

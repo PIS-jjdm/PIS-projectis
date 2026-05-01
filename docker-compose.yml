@@ -160,11 +160,18 @@ services:
       dockerfile: services/project-service/Dockerfile
     env_file:
       - ./services/project-service/.env.example
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+      OTEL_SERVICE_NAME: project-service
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      AUTH_GRPC_ENDPOINT: auth-service:50051
+      NOTIFICATION_GRPC_ENDPOINT: notification-service:50052
+      SUBJECT_GRPC_ENDPOINT: subject-service:50053
+      EVALUATION_GRPC_ENDPOINT: evaluation-service:50055
+      JAVA_TOOL_OPTIONS: --add-opens=java.base/java.nio=ALL-UNNAMED --enable-native-access=ALL-UNNAMED
     depends_on:
-      project-postgres:
-        condition: service_healthy
-      otel-collector:
-        condition: service_started
+      - project-postgres
+      - otel-collector
 
   evaluation-service:
     build:

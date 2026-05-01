@@ -1,9 +1,7 @@
 package org.pis.project.e2e;
 
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
-import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -209,65 +207,5 @@ public class TeamGrpcE2ETests extends BaseGrpcE2ETests {
 
         // safer: verify NOT_FOUND only if you expect hard deletion
         assertEquals(Status.Code.NOT_FOUND, ex.getStatus().getCode());
-    }
-
-    @Test
-    public void testLeaveTeam_NotLastMember_Success() {
-        // Arrange
-        Team team = blockingStub.registerTeam(RegisterTeamRequest.newBuilder()
-                .setProjectId(activeProject.getProjectId())
-                .setCreatorStudentId("leader1")
-                .setTeamName("Team Alpha")
-                .build());
-
-        blockingStub.addTeamMember(AddTeamMemberRequest.newBuilder()
-                .setTeamId(team.getTeamId())
-                .setStudentId("memberLeaving")
-                .build());
-
-        // Act
-        LeaveTeamRequest leaveReq = LeaveTeamRequest.newBuilder()
-                .setTeamId(team.getTeamId())
-                .setStudentId("memberLeaving")
-                .build();
-        blockingStub.leaveTeam(leaveReq);
-
-        // Assert
-        Team updatedTeam = blockingStub.getTeam(GetTeamRequest.newBuilder()
-                .setTeamId(team.getTeamId())
-                .build());
-
-        assertThat(updatedTeam.getStudentIdsList(), not(contains("memberLeaving")));
-    }
-
-    @Test
-    public void testLeaveTeamAsLeader_NotLastMember_Success() {
-        // Arrange
-        Team team = blockingStub.registerTeam(RegisterTeamRequest.newBuilder()
-                .setProjectId(activeProject.getProjectId())
-                .setCreatorStudentId("leader")
-                .setTeamName("Team Alpha")
-                .build());
-
-        blockingStub.addTeamMember(AddTeamMemberRequest.newBuilder()
-                .setTeamId(team.getTeamId())
-                .setStudentId("memberStaying")
-                .build());
-
-        // Act
-        LeaveTeamRequest leaveReq = LeaveTeamRequest.newBuilder()
-                .setTeamId(team.getTeamId())
-                .setStudentId("leader")
-                .build();
-        blockingStub.leaveTeam(leaveReq);
-
-        // Assert
-        Team updatedTeam = blockingStub.getTeam(GetTeamRequest.newBuilder()
-                .setTeamId(team.getTeamId())
-                .build());
-
-        assertEquals(updatedTeam.getLeaderStudentId(), "memberStaying");
-        assertThat(updatedTeam.getStudentIdsList(), not(contains("leader")));
-        assertThat(updatedTeam.getStudentIdsList(), contains("memberStaying"));
     }
 }

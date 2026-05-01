@@ -8,11 +8,13 @@ import org.pis.project.exceptions.ResourceNotFoundException;
 import org.pis.project.mappers.ProjectMapper;
 import org.pis.project.repositories.ProjectRepository;
 import org.springframework.stereotype.Service;
-
 import org.springframework.transaction.annotation.Transactional;
+
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class ProjectService {
     private final ProjectRepository projectRepository;
@@ -26,30 +28,46 @@ public class ProjectService {
     @Transactional(readOnly = true)
     public ProjectEntity getProject(UUID id) {
         return projectRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Project not found with id: " + id));
+                .orElseThrow(() -> {
+                    log.error("Project not found with id: [{}]", id);
+                    return new ResourceNotFoundException("Project not found with id: " + id);
+                });
     }
 
     @Transactional
     public ProjectEntity createProject(ProjectEntity project) {
+        log.info("Attempting to create new project: [{}]", project.getTitle());
+
         project.setId(null);
         project.validateDates();
-        return projectRepository.save(project);
+
+        ProjectEntity savedProject = projectRepository.save(project);
+        log.info("Successfully created project [{}] with ID [{}]", savedProject.getTitle(), savedProject.getId());
+        return savedProject;
     }
 
     @Transactional
     public ProjectEntity updateProject(ProjectEntity projectUpdated) {
+        log.info("Attempting to update project ID [{}]", projectUpdated.getId());
+
         ProjectEntity existingProject = getProject(projectUpdated.getId());
         projectMapper.updateEntityFromRequest(projectUpdated, existingProject);
 
         existingProject.validateDates();
 
-        return projectRepository.save(existingProject);
+        ProjectEntity savedProject = projectRepository.save(existingProject);
+        log.info("Successfully updated project [{}]", savedProject.getId());
+        return savedProject;
     }
 
     @Transactional
     public ProjectEntity deleteProject(UUID project_id) {
+        log.info("Attempting to delete project ID [{}]", project_id);
+
         ProjectEntity project = getProject(project_id);
         projectRepository.delete(project);
+
+        log.info("Successfully deleted project [{}]", project_id);
         return project;
     }
 }

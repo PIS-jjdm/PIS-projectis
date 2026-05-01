@@ -36,6 +36,7 @@ protoc \
   "$PROTO_DIR/subject.proto" \
   "$PROTO_DIR/project.proto" \
   "$PROTO_DIR/notification.proto" \
+  "$PROTO_DIR/eval.proto" \
   "$PROTO_DIR/gateway.proto"
 
 node -e '

@@ -13,6 +13,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "../../proto/subject.proto",
             "../../proto/project.proto",
             "../../proto/common.proto",
+            "../../proto/eval.proto",
         ],
         &["../../proto", protoc_include.to_str().unwrap()],
     )?;
