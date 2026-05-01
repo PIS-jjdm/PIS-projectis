@@ -3,19 +3,17 @@ package org.pis.project.services;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+
 import org.hibernate.Hibernate;
-import org.pis.project.clients.NotificationClientService;
 import org.pis.project.entities.ProjectEntity;
 import org.pis.project.entities.TeamEntity;
 import org.pis.project.entities.TeamMemberEntity;
 import org.pis.project.events.StudentJoinedTeamEvent;
 import org.pis.project.exceptions.BusinessRuleViolationException;
 import org.pis.project.exceptions.ResourceNotFoundException;
-import org.pis.project.grpc.interceptors.AuthenticationInterceptor;
 import org.pis.project.repositories.ProjectRepository;
 import org.pis.project.repositories.TeamMemberRepository;
 import org.pis.project.repositories.TeamRepository;
-import org.pis.project.utils.JwtUtils;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,8 +29,6 @@ public class TeamService {
     private final TeamMemberRepository teamMemberRepository;
     private final ProjectRepository projectRepository;
     private final ApplicationEventPublisher eventPublisher;
-
-    private final NotificationClientService notificationClient;
 
     @Transactional(readOnly = true)
     public List<TeamEntity> listTeams(UUID projectId) {
@@ -114,7 +110,6 @@ public class TeamService {
         }
 
         String oldLeaderId = team.getLeaderStudentId();
-        JwtUtils.UserContext ctx = AuthenticationInterceptor.USER_CONTEXT_KEY.get();
 
         // leader leaving team -> new leader assigned
         if (oldLeaderId.equals(studentId)) {
@@ -126,18 +121,6 @@ public class TeamService {
             log.info("Leader leaving team [{}]; promoting student [{}] to leader", teamId, newLeader.getStudentId());
             team.setLeaderStudentId(newLeader.getStudentId());
             team = teamRepository.save(team);
-
-            // Notify new leader about promotion
-            notificationClient.createNotification(
-                    List.of(newLeader.getStudentId()),
-                    "You have been promoted to leader because the previous leader left.",
-                    ctx.userId(), null);
-        } else {
-            // Notify the leader that someone left
-            notificationClient.createNotification(
-                    List.of(team.getLeaderStudentId()),
-                    String.format("Student %s has left your team.", studentId),
-                    ctx.userId(), null);
         }
 
         team.removeMember(member);
@@ -163,20 +146,14 @@ public class TeamService {
         } else if (!isFormerLeaderPartOfTeam) {
             log.warn("Leader change failed: [{}] is not the current leader of team [{}]", oldLeaderStudentId, teamId);
             throw new BusinessRuleViolationException("Former leader must be the current leader of the team.");
-        } else {
-            team.setLeaderStudentId(newLeaderStudentId);
-            TeamEntity updatedEntity = teamRepository.save(team);
-            Hibernate.initialize(updatedEntity.getMembers());
-
-            // Notify the new leader
-            notificationClient.createNotification(
-                    List.of(newLeaderStudentId),
-                    "You have been appointed as the new team leader.",
-                    oldLeaderStudentId, null);
-
-            log.info("Successfully changed leader of team [{}] to [{}]", teamId, newLeaderStudentId);
-            return updatedEntity;
         }
+
+        team.setLeaderStudentId(newLeaderStudentId);
+        TeamEntity updatedEntity = teamRepository.save(team);
+        Hibernate.initialize(updatedEntity.getMembers());
+
+        log.info("Successfully changed leader of team [{}] to [{}]", teamId, newLeaderStudentId);
+        return updatedEntity;
     }
 
     @Transactional
@@ -214,12 +191,6 @@ public class TeamService {
 
         team.addMember(teamMember);
         teamMemberRepository.save(teamMember);
-
-        JwtUtils.UserContext ctx = AuthenticationInterceptor.USER_CONTEXT_KEY.get();
-        notificationClient.createNotification(
-                List.of(studentId),
-                String.format("You have been added to team: %s", team.getName()),
-                ctx.userId(), null);
 
         log.info("Successfully added student [{}] to team [{}]", studentId, teamId);
 

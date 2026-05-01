@@ -2,14 +2,17 @@ package org.pis.project.grpc;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import org.pis.project.clients.AuthClientService;
 import org.pis.project.clients.EvaluationClientService;
+import org.pis.project.clients.NotificationClientService;
 import org.pis.project.domain.JoinRequestFilter;
 import org.pis.project.entities.ProjectEntity;
 import org.pis.project.entities.TeamEntity;
 import org.pis.project.entities.TeamJoinRequestEntity;
+import org.pis.project.grpc.interceptors.AuthenticationInterceptor;
 import org.pis.project.mappers.ProjectMapper;
 import org.pis.project.mappers.TeamJoinRequestMapper;
 import org.pis.project.mappers.TeamMapper;
@@ -40,6 +43,7 @@ import org.pis.project.proto.UpdateProjectRequest;
 import org.pis.project.services.ProjectService;
 import org.pis.project.services.TeamJoinRequestService;
 import org.pis.project.services.TeamService;
+import org.pis.project.utils.JwtUtils;
 import org.springframework.stereotype.Service;
 
 import auth.Auth.User;
@@ -65,6 +69,7 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
 
     private final EvaluationClientService evaluationClientService;
     private final AuthClientService authClientService;
+    private final NotificationClientService notificationClient;
 
     @Override
     public void getProject(GetProjectRequest request, StreamObserver<Project> responseObserver) {
@@ -175,12 +180,38 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
     public void leaveTeam(LeaveTeamRequest request, StreamObserver<Ack> responseObserver) {
 
         UUID teamId = UUID.fromString(request.getTeamId());
-        teamService.leaveTeam(teamId, request.getStudentId());
+        TeamEntity team = teamService.leaveTeam(teamId, request.getStudentId());
 
         Ack response = Ack.newBuilder().setSuccess(true).build();
 
+        JwtUtils.UserContext ctx = AuthenticationInterceptor.USER_CONTEXT_KEY.get();
+
         responseObserver.onNext(response);
         responseObserver.onCompleted();
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                var user = authClientService.getUser(request.getStudentId());
+                String studentName = String.format("%s %s", user.getFirstname(), user.getLastname());
+
+                if (ctx.userId() == request.getStudentId()) {
+                    notificationClient.createNotification(
+                            List.of(team.getLeaderStudentId()),
+                            String.format(
+                                    "You have been promoted to leader in team '%s' because the previous leader left.",
+                                    team.getName()),
+                            ctx.userId(), null);
+                } else {
+                    notificationClient.createNotification(
+                            List.of(team.getLeaderStudentId()),
+                            String.format("Student %s has left your team '%s'.", studentName, team.getName()),
+                            ctx.userId(), null);
+                }
+            } catch (Exception e) {
+                log.error("Failed to send leave team notification", e);
+            }
+        });
+
     }
 
     @Override
@@ -199,11 +230,25 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
 
         responseObserver.onNext(response);
         responseObserver.onCompleted();
+
+        // Notify the new leader
+        CompletableFuture.runAsync(() -> {
+            try {
+                notificationClient.createNotification(
+                        List.of(newLeaderStudentId),
+                        String.format("You have been appointed as the new team leader of '%s'.",
+                                abandonedTeam.getName()),
+                        oldLeaderStudentId, null);
+
+            } catch (Exception e) {
+                log.error("Failed to send leave team notification", e);
+            }
+        });
+
     }
 
     @Override
     public void addTeamMember(AddTeamMemberRequest request, StreamObserver<Team> responseObserver) {
-
         UUID teamId = UUID.fromString(request.getTeamId());
         String studentId = request.getStudentId();
 
@@ -212,10 +257,25 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
 
         TeamEntity joinedTeam = teamService.addMember(teamId, studentId);
 
-        Team response = teamMapper.toProto(joinedTeam);
+        // Capture context variables for the async thread
+        JwtUtils.UserContext ctx = AuthenticationInterceptor.USER_CONTEXT_KEY.get();
+        String currentUserId = ctx.userId();
+        String teamName = joinedTeam.getName();
 
+        Team response = teamMapper.toProto(joinedTeam);
         responseObserver.onNext(response);
         responseObserver.onCompleted();
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                notificationClient.createNotification(
+                        List.of(studentId),
+                        String.format("You have been added to team: %s", teamName),
+                        currentUserId, null);
+            } catch (Exception e) {
+                log.error("Failed to send add-member notification for student: {}", studentId, e);
+            }
+        });
     }
 
     @Override
@@ -226,10 +286,25 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
 
         TeamEntity leftTeam = teamService.removeMember(teamId, studentId);
 
-        Team response = teamMapper.toProto(leftTeam);
+        // Capture context variables for the async thread
+        JwtUtils.UserContext ctx = AuthenticationInterceptor.USER_CONTEXT_KEY.get();
+        String currentUserId = ctx.userId();
+        String teamName = leftTeam.getName();
 
+        Team response = teamMapper.toProto(leftTeam);
         responseObserver.onNext(response);
         responseObserver.onCompleted();
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                notificationClient.createNotification(
+                        List.of(studentId),
+                        String.format("You have been removed from team: %s", teamName),
+                        currentUserId, null);
+            } catch (Exception e) {
+                log.error("Failed to send remove-member notification for student: {}", studentId, e);
+            }
+        });
     }
 
     @Override
@@ -239,10 +314,29 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
         TeamJoinRequestEntity newJoinRequest = teamJoinRequestMapper.toEntity(request);
 
         TeamJoinRequestEntity savedRequest = teamJoinRequestService.createJoinRequest(newJoinRequest, teamId);
-        JoinRequest response = teamJoinRequestMapper.toProto(savedRequest);
 
+        // Capture data for Async block
+        JwtUtils.UserContext ctx = AuthenticationInterceptor.USER_CONTEXT_KEY.get();
+        String currentUserId = ctx.userId();
+        String leaderId = savedRequest.getTeam().getLeaderStudentId();
+        String teamName = savedRequest.getTeam().getName();
+        String requestorId = savedRequest.getRequestorStudentId();
+
+        JoinRequest response = teamJoinRequestMapper.toProto(savedRequest);
         responseObserver.onNext(response);
         responseObserver.onCompleted();
+
+        // 4. Async Notification
+        CompletableFuture.runAsync(() -> {
+            try {
+                notificationClient.createNotification(
+                        List.of(leaderId),
+                        String.format("New join request for team %s from student %s", teamName, requestorId),
+                        currentUserId, null);
+            } catch (Exception e) {
+                log.error("Failed to send join request notification", e);
+            }
+        });
     }
 
     @Override
@@ -266,10 +360,28 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
         TeamJoinRequestEntity resolvedRequest = teamJoinRequestService.resolveToJoinRequest(joinRequestId, accept,
                 resolverStudentId);
 
-        JoinRequest response = teamJoinRequestMapper.toProto(resolvedRequest);
+        // Capture data for Async block
+        JwtUtils.UserContext ctx = AuthenticationInterceptor.USER_CONTEXT_KEY.get();
+        String currentUserId = ctx.userId();
+        String targetStudentId = resolvedRequest.getRequestorStudentId();
+        String teamName = resolvedRequest.getTeam().getName();
+        String status = resolvedRequest.getStatus().toString();
 
+        JoinRequest response = teamJoinRequestMapper.toProto(resolvedRequest);
         responseObserver.onNext(response);
         responseObserver.onCompleted();
+
+        // Async Notification
+        CompletableFuture.runAsync(() -> {
+            try {
+                notificationClient.createNotification(
+                        List.of(targetStudentId),
+                        String.format("Your application to team %s was %s", teamName, status),
+                        currentUserId, null);
+            } catch (Exception e) {
+                log.error("Failed to send resolve request notification", e);
+            }
+        });
     }
 
     @Override
