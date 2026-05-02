@@ -66,6 +66,7 @@ pub(super) async fn create_project(
             start_date: body.start_date,
             end_date: body.end_date,
             subject_id: body.subject_id,
+            submission_size_limit: body.submission_size_limit,
         })
         .await?
         .into_inner();

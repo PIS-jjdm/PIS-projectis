@@ -16,7 +16,8 @@ import org.pis.project.proto.TeamDetail;
 import auth.Auth.User;
 import eval.Eval.ProjectEvaluation;
 
-@Mapper(componentModel = "spring", uses = CommonMapper.class, collectionMappingStrategy = CollectionMappingStrategy.ADDER_PREFERRED, unmappedTargetPolicy = ReportingPolicy.IGNORE)
+@Mapper(componentModel = "spring", uses = { CommonMapper.class,
+        ProjectSubmissionMapper.class }, collectionMappingStrategy = CollectionMappingStrategy.ADDER_PREFERRED, unmappedTargetPolicy = ReportingPolicy.IGNORE)
 public interface TeamMapper {
 
     @Mapping(target = "teamId", source = "team.id")
@@ -25,6 +26,7 @@ public interface TeamMapper {
     @Mapping(target = "leaderStudentId", source = "team.leaderStudentId")
     @Mapping(target = "studentsList", source = "teamMembers")
     @Mapping(target = "evaluation", source = "evaluation")
+    @Mapping(target = "submission", source = "team.projectSubmission")
     TeamDetail toProtoDetail(TeamEntity team, ProjectEvaluation evaluation, List<User> teamMembers);
 
     @Mapping(target = "teamId", source = "id")

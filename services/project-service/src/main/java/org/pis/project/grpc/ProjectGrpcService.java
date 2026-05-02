@@ -11,10 +11,12 @@ import org.pis.project.clients.NotificationClientService;
 import org.pis.project.clients.SubjectClientService;
 import org.pis.project.domain.JoinRequestFilter;
 import org.pis.project.entities.ProjectEntity;
+import org.pis.project.entities.ProjectSubmissionEntity;
 import org.pis.project.entities.TeamEntity;
 import org.pis.project.entities.TeamJoinRequestEntity;
 import org.pis.project.grpc.interceptors.AuthenticationInterceptor;
 import org.pis.project.mappers.ProjectMapper;
+import org.pis.project.mappers.ProjectSubmissionMapper;
 import org.pis.project.mappers.TeamJoinRequestMapper;
 import org.pis.project.mappers.TeamMapper;
 import org.pis.project.proto.AddTeamMemberRequest;
@@ -23,6 +25,9 @@ import org.pis.project.proto.CreateJoinRequestRequest;
 import org.pis.project.proto.CreateProjectRequest;
 import org.pis.project.proto.DeleteJoinRequestRequest;
 import org.pis.project.proto.DeleteProjectRequest;
+import org.pis.project.proto.DeleteSubmissionRequest;
+import org.pis.project.proto.DownloadSubmissionRequest;
+import org.pis.project.proto.FileChunk;
 import org.pis.project.proto.GetProjectRequest;
 import org.pis.project.proto.GetTeamRequest;
 import org.pis.project.proto.JoinRequest;
@@ -35,17 +40,22 @@ import org.pis.project.proto.ListTeamsByProjectRequest;
 import org.pis.project.proto.ListTeamsByProjectResponse;
 import org.pis.project.proto.Project;
 import org.pis.project.proto.ProjectServiceGrpc;
+import org.pis.project.proto.ProjectSubmission;
 import org.pis.project.proto.RegisterTeamRequest;
 import org.pis.project.proto.RemoveTeamMemberRequest;
 import org.pis.project.proto.ResolveJoinRequestRequest;
+import org.pis.project.proto.SubmitProjectRequest;
 import org.pis.project.proto.Team;
 import org.pis.project.proto.TeamDetail;
 import org.pis.project.proto.UpdateProjectRequest;
 import org.pis.project.services.ProjectService;
+import org.pis.project.services.ProjectSubmissionService;
 import org.pis.project.services.TeamJoinRequestService;
 import org.pis.project.services.TeamService;
 import org.pis.project.utils.JwtUtils;
 import org.springframework.stereotype.Service;
+
+import com.google.protobuf.ByteString;
 
 import auth.Auth.User;
 import common.Common.Ack;
@@ -67,6 +77,9 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
 
     private final TeamJoinRequestService teamJoinRequestService;
     private final TeamJoinRequestMapper teamJoinRequestMapper;
+
+    private final ProjectSubmissionService projectSubmissionService;
+    private final ProjectSubmissionMapper projectSubmissionMapper;
 
     private final EvaluationClientService evaluationClientService;
     private final AuthClientService authClientService;
@@ -452,6 +465,62 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
                 .build();
 
         responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void submitProject(SubmitProjectRequest request,
+            StreamObserver<ProjectSubmission> responseObserver) {
+        UUID teamId = UUID.fromString(request.getTeamId());
+        log.info("gRPC submitProject called for team [{}]", teamId);
+
+        ProjectSubmissionEntity saved = projectSubmissionService.submit(
+                teamId,
+                request.getFileData().toByteArray(),
+                request.getFileName(),
+                request.getContentType(),
+                request.getFileSize());
+
+        responseObserver.onNext(projectSubmissionMapper.toProto(saved));
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void deleteSubmission(DeleteSubmissionRequest request,
+            StreamObserver<Ack> responseObserver) {
+        UUID teamId = UUID.fromString(request.getTeamId());
+        log.info("gRPC deleteSubmission called for team [{}]", teamId);
+
+        projectSubmissionService.deleteSubmission(teamId);
+
+        responseObserver.onNext(Ack.newBuilder()
+                .setSuccess(true)
+                .setMessage("Submission deleted successfully")
+                .build());
+        responseObserver.onCompleted();
+    }
+
+    @Override
+    public void downloadSubmission(DownloadSubmissionRequest request,
+            StreamObserver<FileChunk> responseObserver) {
+        UUID teamId = UUID.fromString(request.getTeamId());
+        log.info("gRPC downloadSubmission called for team [{}]", teamId);
+
+        ProjectSubmissionEntity submission = projectSubmissionService.getSubmission(teamId);
+
+        int chunkSize = 1024 * 64; // 64KB chunks
+        byte[] data = submission.getFileData();
+
+        for (int offset = 0; offset < data.length; offset += chunkSize) {
+            int length = Math.min(chunkSize, data.length - offset);
+            FileChunk chunk = FileChunk.newBuilder()
+                    .setData(ByteString.copyFrom(data, offset, length))
+                    .setFileName(offset == 0 ? submission.getFileName() : "")
+                    .setContentType(offset == 0 ? submission.getContentType() : "")
+                    .build();
+            responseObserver.onNext(chunk);
+        }
+
         responseObserver.onCompleted();
     }
 }

@@ -70,9 +70,10 @@ message CreateProjectGatewayRequest {
   string title = 1;
   string description = 2;
   uint32 max_students_per_team = 3;
-  google.protobuf.Timestamp start_date = 4;
-  google.protobuf.Timestamp end_date = 5;
-  string subject_id = 6;
+  uint64 submission_size_limit = 4;
+  google.protobuf.Timestamp start_date = 5;
+  google.protobuf.Timestamp end_date = 6;
+  string subject_id = 7;
 }
 
 message RegisterTeamGatewayRequest { string project_id = 1; }
