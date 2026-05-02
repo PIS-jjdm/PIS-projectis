@@ -56,11 +56,11 @@ impl From<grpc::Project> for models::Project {
     }
 }
 
-impl From<grpc::Team> for models::Team {
-    fn from(team: grpc::Team) -> Self {
+impl From<grpc::TeamDetail> for models::Team {
+    fn from(team: grpc::TeamDetail) -> Self {
         Self {
             name: team.name,
-            members: team.student_ids,
+            members: team.students.iter().map(|s| s.id.clone()).collect(),
         }
     }
 }
