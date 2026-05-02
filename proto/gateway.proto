@@ -45,6 +45,9 @@ service FrontendGateway {
   rpc DeleteJoinRequest(project.DeleteJoinRequestRequest) returns (common.Ack);
   rpc ResolveJoinRequest(project.ResolveJoinRequestRequest) returns (project.JoinRequest);
   rpc ListJoinRequests(project.ListJoinRequestsRequest) returns (project.ListJoinRequestsResponse);
+  rpc SubmitProject(project.SubmitProjectRequest) returns (project.ProjectSubmission);
+  rpc DeleteSubmission(project.DeleteSubmissionRequest) returns (common.Ack);
+  rpc DownloadSubmission(project.DownloadSubmissionRequest) returns (stream project.FileChunk);
 
   rpc ListNotifications(common.Empty) returns (ListNotificationsGatewayResponse);
   rpc ListScheduledNotifications(common.Empty)
