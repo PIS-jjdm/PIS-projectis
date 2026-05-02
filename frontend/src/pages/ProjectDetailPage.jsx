@@ -210,7 +210,12 @@ export default function ProjectDetailPage() {
       )}
 
       <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 3 }}>
-        <Chip label={`Subject: ${subject?.name || 'Unassigned'}`} color="secondary" />
+        <Chip
+          label={`Subject: ${subject?.name || 'Unassigned'}`}
+          color="secondary"
+          clickable={Boolean(project.subject_id)}
+          onClick={project.subject_id ? () => navigate(`/subjects/${project.subject_id}`) : undefined}
+        />
         <Chip label={`Teacher: ${displayUserName(knownUsersById.get(project.teacher_id))}`} />
         <Chip label={`Max ${project.max_students_per_team} / team`} />
         {project.start_date && <Chip label={`Start ${formatDateOnly(project.start_date)}`} />}

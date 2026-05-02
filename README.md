@@ -112,6 +112,7 @@ Main endpoints:
 - auth service gRPC: `http://localhost:50051`
 - notification service gRPC: `http://localhost:50052`
 - Prometheus: `http://localhost:9090`
+- Grafana: `http://localhost:3001` (`admin` / `admin`)
 - OTLP gRPC: `http://localhost:4317`
 
 Stop the stack:

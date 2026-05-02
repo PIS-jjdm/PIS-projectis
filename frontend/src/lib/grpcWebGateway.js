@@ -154,6 +154,11 @@ const methods = {
     commonPb.Empty,
     subjectPb.ListSubjectsResponse,
   ),
+  getSubject: unaryDescriptor(
+    '/gateway.FrontendGateway/GetSubject',
+    subjectPb.GetSubjectRequest,
+    subjectPb.Subject,
+  ),
   createSubject: unaryDescriptor(
     '/gateway.FrontendGateway/CreateSubject',
     subjectPb.CreateSubjectRequest,
@@ -173,6 +178,26 @@ const methods = {
     '/gateway.FrontendGateway/RegisterSubject',
     gatewayPb.RegisterSubjectGatewayRequest,
     commonPb.Ack,
+  ),
+  addStudentToSubject: unaryDescriptor(
+    '/gateway.FrontendGateway/AddStudentToSubject',
+    subjectPb.UserSubjectRequest,
+    commonPb.Ack,
+  ),
+  removeStudentFromSubject: unaryDescriptor(
+    '/gateway.FrontendGateway/RemoveStudentFromSubject',
+    subjectPb.UserSubjectRequest,
+    commonPb.Ack,
+  ),
+  assignTeacherToSubject: unaryDescriptor(
+    '/gateway.FrontendGateway/AssignTeacherToSubject',
+    subjectPb.TeacherSubjectRequest,
+    subjectPb.Subject,
+  ),
+  removeTeacherFromSubject: unaryDescriptor(
+    '/gateway.FrontendGateway/RemoveTeacherFromSubject',
+    subjectPb.TeacherSubjectRequest,
+    subjectPb.Subject,
   ),
   listProjects: unaryDescriptor(
     '/gateway.FrontendGateway/ListProjects',
@@ -322,6 +347,12 @@ export const gatewayClient = {
     return client.unary(methods.listSubjects, new commonPb.Empty(), accessToken)
   },
 
+  getSubject(accessToken, subjectId) {
+    const request = new subjectPb.GetSubjectRequest()
+    request.setSubjectId(subjectId || '')
+    return client.unary(methods.getSubject, request, accessToken)
+  },
+
   createSubject(accessToken, payload) {
     const request = new subjectPb.CreateSubjectRequest()
     request.setName(payload.name || '')
@@ -349,6 +380,34 @@ export const gatewayClient = {
     const request = new gatewayPb.RegisterSubjectGatewayRequest()
     request.setSubjectId(subjectId || '')
     return client.unary(methods.registerSubject, request, accessToken)
+  },
+
+  addStudentToSubject(accessToken, subjectId, userId) {
+    const request = new subjectPb.UserSubjectRequest()
+    request.setSubjectId(subjectId || '')
+    request.setUserId(userId || '')
+    return client.unary(methods.addStudentToSubject, request, accessToken)
+  },
+
+  removeStudentFromSubject(accessToken, subjectId, userId) {
+    const request = new subjectPb.UserSubjectRequest()
+    request.setSubjectId(subjectId || '')
+    request.setUserId(userId || '')
+    return client.unary(methods.removeStudentFromSubject, request, accessToken)
+  },
+
+  assignTeacherToSubject(accessToken, subjectId, teacherUserId) {
+    const request = new subjectPb.TeacherSubjectRequest()
+    request.setSubjectId(subjectId || '')
+    request.setTeacherUserId(teacherUserId || '')
+    return client.unary(methods.assignTeacherToSubject, request, accessToken)
+  },
+
+  removeTeacherFromSubject(accessToken, subjectId, teacherUserId) {
+    const request = new subjectPb.TeacherSubjectRequest()
+    request.setSubjectId(subjectId || '')
+    request.setTeacherUserId(teacherUserId || '')
+    return client.unary(methods.removeTeacherFromSubject, request, accessToken)
   },
 
   listProjects(accessToken) {

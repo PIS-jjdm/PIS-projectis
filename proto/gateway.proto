@@ -23,10 +23,13 @@ service FrontendGateway {
   rpc Logout(common.Empty) returns (common.Ack);
 
   rpc ListSubjects(common.Empty) returns (subject.ListSubjectsResponse);
+  rpc GetSubject(subject.GetSubjectRequest) returns (subject.Subject);
   rpc CreateSubject(subject.CreateSubjectRequest) returns (subject.Subject);
   rpc UpdateSubject(subject.UpdateSubjectRequest) returns (subject.Subject);
   rpc DeleteSubject(subject.DeleteSubjectRequest) returns (common.Ack);
   rpc RegisterSubject(RegisterSubjectGatewayRequest) returns (common.Ack);
+  rpc AddStudentToSubject(subject.UserSubjectRequest) returns (common.Ack);
+  rpc RemoveStudentFromSubject(subject.UserSubjectRequest) returns (common.Ack);
   rpc AssignTeacherToSubject(subject.TeacherSubjectRequest) returns (subject.Subject);
   rpc RemoveTeacherFromSubject(subject.TeacherSubjectRequest) returns (subject.Subject);
 

@@ -310,6 +310,13 @@ export default function SubjectsPage() {
                       </Stack>
 
                       <Stack direction={{ xs: 'row', sm: 'row' }} spacing={1} flexWrap="wrap" useFlexGap>
+                        <Button
+                          variant="outlined"
+                          startIcon={<LaunchRoundedIcon />}
+                          onClick={() => navigate(`/subjects/${subject.id}`)}
+                        >
+                          Open details
+                        </Button>
                         {user?.role === 'student' && (
                           <Button variant="outlined" onClick={() => handleRegisterSubject(subject.id)}>
                             Register to subject

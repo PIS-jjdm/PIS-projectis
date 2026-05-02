@@ -489,6 +489,13 @@ export const mockApi = {
     return delay(subjects)
   },
 
+  async getSubject(subjectId) {
+    syncSubjectsFromRegistrations()
+    const subject = subjects.find((item) => item.id === subjectId)
+    if (!subject) throw new Error('Subject not found')
+    return delay(subject)
+  },
+
   async createSubject(session, payload) {
     if (requireCurrentUser(session).role !== 'admin') throw new Error('Forbidden')
     const subject = { id: generateId('subject'), ...payload, user_ids: [], teacher_ids: [] }
@@ -531,6 +538,58 @@ export const mockApi = {
       ...notifications,
     ]
     return delay({ success: true })
+  },
+
+  async addStudentToSubject(session, subjectId, userId) {
+    if (requireCurrentUser(session).role !== 'admin') throw new Error('Forbidden')
+    if (!users.some((user) => user.id === userId && user.role === 'student')) {
+      throw new Error('Student not found')
+    }
+    if (!subjects.some((subject) => subject.id === subjectId)) throw new Error('Subject not found')
+    const current = new Set(subjectRegistrations[userId] || [])
+    current.add(subjectId)
+    subjectRegistrations[userId] = [...current]
+    syncSubjectsFromRegistrations()
+    return delay({ success: true })
+  },
+
+  async removeStudentFromSubject(session, subjectId, userId) {
+    if (requireCurrentUser(session).role !== 'admin') throw new Error('Forbidden')
+    if (!subjects.some((subject) => subject.id === subjectId)) throw new Error('Subject not found')
+    const current = new Set(subjectRegistrations[userId] || [])
+    current.delete(subjectId)
+    subjectRegistrations[userId] = [...current]
+    syncSubjectsFromRegistrations()
+    return delay({ success: true })
+  },
+
+  async assignTeacherToSubject(session, subjectId, teacherUserId) {
+    if (requireCurrentUser(session).role !== 'admin') throw new Error('Forbidden')
+    const teacher = users.find((user) => user.id === teacherUserId)
+    if (!teacher || !['teacher', 'admin'].includes(teacher.role)) {
+      throw new Error('Teacher not found')
+    }
+    if (!subjects.some((subject) => subject.id === subjectId)) throw new Error('Subject not found')
+    subjects = subjects.map((subject) =>
+      subject.id === subjectId
+        ? { ...subject, teacher_ids: [...new Set([...(subject.teacher_ids || []), teacherUserId])] }
+        : subject,
+    )
+    return delay(subjects.find((subject) => subject.id === subjectId))
+  },
+
+  async removeTeacherFromSubject(session, subjectId, teacherUserId) {
+    if (requireCurrentUser(session).role !== 'admin') throw new Error('Forbidden')
+    if (!subjects.some((subject) => subject.id === subjectId)) throw new Error('Subject not found')
+    subjects = subjects.map((subject) =>
+      subject.id === subjectId
+        ? {
+            ...subject,
+            teacher_ids: (subject.teacher_ids || []).filter((item) => item !== teacherUserId),
+          }
+        : subject,
+    )
+    return delay(subjects.find((subject) => subject.id === subjectId))
   },
 
   async listProjects() {

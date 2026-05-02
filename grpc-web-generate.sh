@@ -42,10 +42,40 @@ protoc \
 node -e '
 const fs = require("fs");
 const path = process.argv[1];
+const packageByFile = {
+  "auth_pb.js": "auth",
+  "common_pb.js": "common",
+  "eval_pb.js": "eval",
+  "gateway_pb.js": "gateway",
+  "notification_pb.js": "notification",
+  "project_pb.js": "project",
+  "subject_pb.js": "subject",
+};
 for (const file of fs.readdirSync(path)) {
   if (!file.endsWith("_pb.js")) continue;
   const target = `${path}/${file}`;
   let source = fs.readFileSync(target, "utf8");
+  const imports = [];
+  source = source.replace("var jspb = require('\''google-protobuf'\'');", () => {
+    imports.push("import jspb from '\''google-protobuf'\'';");
+    return "var exports = {};";
+  });
+  source = source.replace(
+    /var ([a-zA-Z0-9_]+) = require\('\''\.\/([^'\'']+)'\''\);/g,
+    (_match, variableName, importPath) => {
+      imports.push(`import ${variableName} from '\''./${importPath}'\'';`);
+      return "";
+    },
+  );
+  source = source.replace(
+    /var ([a-zA-Z0-9_]+) = require\('\''google-protobuf\/google\/protobuf\/timestamp_pb\.js'\''\);/g,
+    (_match, variableName) => {
+      imports.push(
+        `import ${variableName} from '\''google-protobuf/google/protobuf/timestamp_pb.js'\'';`,
+      );
+      return "";
+    },
+  );
   const marker = "Function('\''return this'\'')();\n";
   if (!source.includes("var proto = globalThis.proto || (globalThis.proto = {});")) {
     source = source.replace(
@@ -58,6 +88,11 @@ for (const file of fs.readdirSync(path)) {
       "var proto = globalThis.proto || (globalThis.proto = {});\n",
       "var proto = globalThis.proto || (globalThis.proto = {});\nvar COMPILED = false;\n",
     );
+  }
+  source = `${imports.join("\n")}\n${source}`;
+  const packageName = packageByFile[file];
+  if (packageName && !source.includes(`export default proto.${packageName};`)) {
+    source = `${source}\nexport default proto.${packageName};\n`;
   }
   fs.writeFileSync(target, source);
 }
