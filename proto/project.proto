@@ -176,6 +176,7 @@ message RemoveTeamMemberRequest {
 // PROJECT SUBMISSION /////////////////////////////////////////////////////////////
 message ProjectSubmission {
   string team_id      = 1;
+  string submitted_at = 2;
   string file_name    = 3;
   string content_type = 4;
   int64  file_size    = 5;

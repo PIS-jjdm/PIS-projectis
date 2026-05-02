@@ -10,6 +10,7 @@ import org.pis.project.proto.ProjectSubmission;
 public interface ProjectSubmissionMapper {
 
     @Mapping(target = "teamId", source = "team.id")
+    @Mapping(target = "submittedAt", source = "createdAtUtc")
     @Mapping(target = "fileName", source = "fileName")
     @Mapping(target = "contentType", source = "contentType")
     @Mapping(target = "fileSize", source = "fileSize")
