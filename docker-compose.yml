@@ -41,6 +41,7 @@ services:
     ports:
       - "3100:3100"
     volumes:
+      - ./loki-config.yaml:/etc/loki/loki-config.yaml
       - loki_data:/loki
 
   alloy:
@@ -187,8 +188,13 @@ services:
       NOTIFICATION_ENDPOINT: http://notification-service:50052
       PROJECT_ENDPOINT: http://project-service:50054
       RUST_LOG: info
+      OTEL_METRIC_EXPORT_INTERVAL: 5000   # milliseconds
     volumes:
       - eval_data:/data
+    depends_on:
+      - otel-collector
+    ports:
+      - "50055:50055"
 
   router:
     build:

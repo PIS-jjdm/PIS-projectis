@@ -15,6 +15,8 @@ exporters:
   debug:
     # verbosity: basic
     verbosity: detailed
+  otlphttp/loki:
+    endpoint: http://loki:3100/otlp
 
 extensions:
   health_check:
@@ -25,7 +27,7 @@ service:
     metrics:
       receivers: [otlp]
       processors: [batch]
-      exporters: [prometheus]
+      exporters: [debug, prometheus]
     traces:
       receivers: [otlp]
       processors: [batch]
@@ -33,4 +35,4 @@ service:
     logs:
       receivers: [otlp]
       processors: [batch]
-      exporters: [debug]
+      exporters: [debug, otlphttp/loki]
