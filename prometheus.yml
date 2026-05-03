@@ -68,3 +68,15 @@ scrape_configs:
             service: auth-service
             check: grpc-health
     relabel_configs: *blackbox_relabel
+
+  - job_name: "blackbox-notification-service-health"
+    metrics_path: /probe
+    params:
+      module: [grpc_health]
+    static_configs:
+      - targets:
+          - notification-service:50052
+        labels:
+            service: notification-service
+            check: grpc-health
+    relabel_configs: *blackbox_relabel

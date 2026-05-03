@@ -1,8 +1,10 @@
 mod config;
+mod metrics;
 mod service;
 mod store;
 
 use config::Config;
+use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
 use service::{
     notification::notification_service_server::NotificationServiceServer, NotificationGrpc,
 };
@@ -10,7 +12,9 @@ use store::NotificationStore;
 
 use opentelemetry::trace::TracerProvider as _;
 use opentelemetry_otlp::WithExportConfig;
-use opentelemetry_sdk::{trace::SdkTracerProvider, Resource};
+use opentelemetry_sdk::{
+    logs::SdkLoggerProvider, metrics::SdkMeterProvider, trace::SdkTracerProvider, Resource,
+};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::signal;
@@ -18,17 +22,29 @@ use tonic::transport::Server;
 use tracing::error;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
+use crate::metrics::{GrpcMetricsLayer, Metrics};
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     dotenvy::dotenv().ok();
     let config = Config::from_env();
     init_telemetry(&config.otel_service_name, &config.otel_endpoint)?;
 
+    let (health_reporter, health_service) = tonic_health::server::health_reporter();
+    health_reporter
+        .set_serving::<NotificationServiceServer<NotificationGrpc>>()
+        .await;
+
     let store = Arc::new(NotificationStore::open(&config.db_path)?);
     tokio::spawn(delivery_loop(Arc::clone(&store)));
     let addr = config.grpc_addr.parse()?;
 
     Server::builder()
+        .layer(GrpcMetricsLayer::new(Metrics::new(
+            "notification",
+            &config.otel_service_name,
+        )))
+        .add_service(health_service)
         .add_service(NotificationServiceServer::new(NotificationGrpc::new(store)))
         .serve_with_shutdown(addr, shutdown_signal())
         .await?;
@@ -96,26 +112,51 @@ async fn shutdown_signal() {
 }
 
 fn init_telemetry(service_name: &str, otlp_endpoint: &str) -> anyhow::Result<()> {
-    let exporter = opentelemetry_otlp::SpanExporter::builder()
+    let resource = Resource::builder()
+        .with_service_name(service_name.to_string())
+        .build();
+
+    // ------ Tracing -------
+    let trace_exporter = opentelemetry_otlp::SpanExporter::builder()
         .with_tonic()
         .with_endpoint(otlp_endpoint)
         .build()?;
-    let provider = SdkTracerProvider::builder()
-        .with_batch_exporter(exporter)
-        .with_resource(
-            Resource::builder()
-                .with_service_name(service_name.to_string())
-                .build(),
-        )
+    let tracer_provider = SdkTracerProvider::builder()
+        .with_batch_exporter(trace_exporter)
+        .with_resource(resource.clone())
         .build();
-    let tracer = provider.tracer(service_name.to_string());
+    let tracer = tracer_provider.tracer(service_name.to_string());
 
+    // ------ Logs ------
+    let log_exporter = opentelemetry_otlp::LogExporter::builder()
+        .with_tonic()
+        .with_endpoint(otlp_endpoint)
+        .build()?;
+    let log_provider = SdkLoggerProvider::builder()
+        .with_batch_exporter(log_exporter)
+        .with_resource(resource.clone())
+        .build();
+
+    // ------ Metrics -------
+    let metric_exporter = opentelemetry_otlp::MetricExporter::builder()
+        .with_tonic()
+        .with_endpoint(otlp_endpoint)
+        .build()?;
+    let metric_provider = SdkMeterProvider::builder()
+        .with_periodic_exporter(metric_exporter)
+        .with_resource(resource.clone())
+        .build();
+    opentelemetry::global::set_meter_provider(metric_provider);
+
+    // ------ Integration with Tracing ------
     tracing_subscriber::registry()
         .with(EnvFilter::from_default_env())
         .with(tracing_subscriber::fmt::layer())
         .with(tracing_opentelemetry::layer().with_tracer(tracer))
+        .with(OpenTelemetryTracingBridge::new(&log_provider))
         .init();
 
-    opentelemetry::global::set_tracer_provider(provider);
+    opentelemetry::global::set_tracer_provider(tracer_provider);
+
     Ok(())
 }
