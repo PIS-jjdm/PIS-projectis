@@ -222,7 +222,7 @@ const methods = {
   listTeamsByProject: unaryDescriptor(
     '/gateway.FrontendGateway/ListTeamsByProject',
     projectPb.ListTeamsByProjectRequest,
-    projectPb.ListTeamsByProjectResponse,
+    gatewayPb.ListTeamsByProjectGatewayResponse,
   ),
   addTeamMember: unaryDescriptor(
     '/gateway.FrontendGateway/AddTeamMember',
