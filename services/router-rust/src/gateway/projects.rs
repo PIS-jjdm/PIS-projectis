@@ -1,4 +1,8 @@
 use tonic::{Request, Response, Status};
+use tokio_stream::Stream;
+use std::pin::Pin;
+
+type DownloadStream = Pin<Box<dyn Stream<Item = Result<FileChunk, Status>> + Send>>;
 
 use crate::proto::common::{Ack, UserRole};
 
@@ -10,7 +14,8 @@ use crate::proto::project::{
     LeaveTeamRequest, ListJoinRequestsRequest, ListJoinRequestsResponse, ListProjectsRequest,
     ListProjectsResponse, ListTeamsByProjectRequest, ListTeamsByProjectResponse, Project,
     RegisterTeamRequest, RemoveTeamMemberRequest, ResolveJoinRequestRequest, Team, TeamDetail,
-    UpdateProjectRequest, 
+    UpdateProjectRequest, DeleteSubmissionRequest, SubmitProjectRequest, ProjectSubmission,
+    DownloadSubmissionRequest, FileChunk
 };
 
 use crate::gateway::FrontendGatewayService;
@@ -66,6 +71,7 @@ pub(super) async fn create_project(
             start_date: body.start_date,
             end_date: body.end_date,
             subject_id: body.subject_id,
+            submission_size_limit: body.submission_size_limit,
         })
         .await?
         .into_inner();
@@ -287,4 +293,55 @@ pub(super) async fn list_join_requests(
         .into_inner();
 
     Ok(Response::new(response))
+}
+
+pub(super) async fn submit_project(
+    service: &FrontendGatewayService,
+    request: Request<SubmitProjectRequest>,
+) -> Result<Response<ProjectSubmission>, Status> {
+    let current_user = FrontendGatewayService::current_user(&request)?;
+    FrontendGatewayService::require_roles(&current_user, &[UserRole::Student, UserRole::Admin])?;
+
+    let response = service
+        .state
+        .project_client()
+        .submit_project(request.into_inner())
+        .await?
+        .into_inner();
+
+    Ok(Response::new(response))
+}
+
+pub(super) async fn delete_submission(
+    service: &FrontendGatewayService,
+    request: Request<DeleteSubmissionRequest>,
+) -> Result<Response<Ack>, Status> {
+    let current_user = FrontendGatewayService::current_user(&request)?;
+    FrontendGatewayService::require_roles(&current_user, &[UserRole::Student, UserRole::Teacher, UserRole::Admin])?;
+
+    let response = service
+        .state
+        .project_client()
+        .delete_submission(request.into_inner())
+        .await?
+        .into_inner();
+
+    Ok(Response::new(response))
+}
+
+pub(super) async fn download_submission(
+    service: &FrontendGatewayService,
+    request: Request<DownloadSubmissionRequest>,
+) -> Result<Response<DownloadStream>, Status> {
+    let current_user = FrontendGatewayService::current_user(&request)?;
+    FrontendGatewayService::require_roles(&current_user, &[UserRole::Student, UserRole::Teacher, UserRole::Admin])?;
+
+    let stream = service
+        .state
+        .project_client()
+        .download_submission(request.into_inner())
+        .await?
+        .into_inner();
+
+    Ok(Response::new(Box::pin(stream)))
 }

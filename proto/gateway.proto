@@ -46,6 +46,9 @@ service FrontendGateway {
   rpc DeleteJoinRequest(project.DeleteJoinRequestRequest) returns (common.Ack);
   rpc ResolveJoinRequest(project.ResolveJoinRequestRequest) returns (project.JoinRequest);
   rpc ListJoinRequests(project.ListJoinRequestsRequest) returns (project.ListJoinRequestsResponse);
+  rpc SubmitProject(project.SubmitProjectRequest) returns (project.ProjectSubmission);
+  rpc DeleteSubmission(project.DeleteSubmissionRequest) returns (common.Ack);
+  rpc DownloadSubmission(project.DownloadSubmissionRequest) returns (stream project.FileChunk);
 
   rpc ListNotifications(common.Empty) returns (ListNotificationsGatewayResponse);
   rpc ListScheduledNotifications(common.Empty)
@@ -77,9 +80,10 @@ message CreateProjectGatewayRequest {
   string title = 1;
   string description = 2;
   uint32 max_students_per_team = 3;
-  google.protobuf.Timestamp start_date = 4;
-  google.protobuf.Timestamp end_date = 5;
-  string subject_id = 6;
+  uint64 submission_size_limit = 4;
+  google.protobuf.Timestamp start_date = 5;
+  google.protobuf.Timestamp end_date = 6;
+  string subject_id = 7;
 }
 
 message RegisterTeamGatewayRequest { string project_id = 1; }

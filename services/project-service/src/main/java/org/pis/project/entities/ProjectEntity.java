@@ -30,6 +30,9 @@ public class ProjectEntity extends BaseEntity {
     private Integer maxStudentsPerTeam;
 
     @Column(nullable = false)
+    private Long submissionSizeLimit;
+
+    @Column(nullable = false)
     private LocalDateTime startDate;
 
     @Column(nullable = false)

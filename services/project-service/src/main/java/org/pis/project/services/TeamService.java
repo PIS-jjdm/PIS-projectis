@@ -48,6 +48,7 @@ public class TeamService {
         TeamEntity retrievedTeam = teamRepository.findById(teamId)
                 .orElseThrow(() -> new ResourceNotFoundException("Team not found with id: " + teamId));
         Hibernate.initialize(retrievedTeam.getMembers());
+        Hibernate.initialize(retrievedTeam.getProjectSubmission());
         return retrievedTeam;
     }
 

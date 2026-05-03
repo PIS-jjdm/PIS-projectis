@@ -29,7 +29,8 @@ use crate::proto::{
         ListJoinRequestsResponse, ListProjectsRequest, ListProjectsResponse,
         ListTeamsByProjectRequest, ListTeamsByProjectResponse, Project, RemoveTeamMemberRequest,
         Team, TeamDetail, UpdateProjectRequest, RegisterTeamRequest, LeaveTeamRequest, CreateJoinRequestRequest, 
-        ResolveJoinRequestRequest
+        ResolveJoinRequestRequest, DeleteSubmissionRequest, SubmitProjectRequest, ProjectSubmission,
+        DownloadSubmissionRequest, FileChunk
     },
     subject::{
         CreateSubjectRequest, DeleteSubjectRequest, ListSubjectsResponse, Subject,
@@ -375,6 +376,30 @@ impl FrontendGateway for FrontendGatewayService {
         request: Request<ListJoinRequestsRequest>,
     ) -> Result<Response<ListJoinRequestsResponse>, Status> {
         projects::list_join_requests(self, request).await
+    }
+
+    async fn submit_project(
+        &self,
+        request: Request<SubmitProjectRequest>,
+    ) -> Result<Response<ProjectSubmission>, Status> {
+        projects::submit_project(self, request).await
+    }
+
+    type DownloadSubmissionStream = Pin<Box<dyn tokio_stream::Stream<Item = Result<FileChunk, Status>> + Send>>;
+
+    async fn delete_submission(
+        &self,
+        request: Request<DeleteSubmissionRequest>,
+    ) -> Result<Response<Ack>, Status> {
+        projects::delete_submission(self, request).await
+    }
+
+
+    async fn download_submission(
+        &self,
+        request: Request<DownloadSubmissionRequest>,
+    ) -> Result<Response<Self::DownloadSubmissionStream>, Status> {
+        projects::download_submission(self, request).await
     }
 
     async fn list_notifications(
