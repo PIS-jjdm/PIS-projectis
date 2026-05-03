@@ -1,5 +1,5 @@
-use crate::config::Config;
 use crate::proto::{auth, notification, project, subject};
+use crate::{config::Config, proto::eval};
 use std::time::Duration;
 use tokio::time::sleep;
 use tonic::transport::Channel;
@@ -16,6 +16,7 @@ pub struct AppState {
     pub notification_grpc_client: Channel,
     pub subject_grpc_client: Channel,
     pub project_grpc_client: Channel,
+    pub eval_grpc_client: Channel,
 }
 
 async fn connect_with_retry(endpoint: String) -> anyhow::Result<Channel> {
@@ -60,11 +61,16 @@ impl AppState {
             .expect("Invalid project gRPC endpoint")
             .connect_lazy();
 
+        let eval_grpc_client = connect_with_retry(config.eval_grpc_endpoint.clone())
+            .await
+            .expect("Failed to connect to evaluation-service after multiple attempts");
+
         Self {
             auth_grpc_client,
             notification_grpc_client,
             subject_grpc_client,
             project_grpc_client,
+            eval_grpc_client,
         }
     }
 
@@ -86,5 +92,9 @@ impl AppState {
 
     pub fn project_client(&self) -> project::project_service_client::ProjectServiceClient<Channel> {
         project::project_service_client::ProjectServiceClient::new(self.project_grpc_client.clone())
+    }
+
+    pub fn eval_client(&self) -> eval::evaluation_service_client::EvaluationServiceClient<Channel> {
+        eval::evaluation_service_client::EvaluationServiceClient::new(self.eval_grpc_client.clone())
     }
 }

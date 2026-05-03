@@ -41,6 +41,7 @@ services:
     ports:
       - "3100:3100"
     volumes:
+      - ./loki-config.yaml:/etc/loki/loki-config.yaml
       - loki_data:/loki
 
   alloy:
@@ -183,14 +184,17 @@ services:
       DATA_DIR: /data/eval-db
       SEEDS_PATH: /app/seeds.toml
       OTLP_ENDPOINT: http://otel-collector:4317
-      # SUBJECT_ENDPOINT: http://???
+      SUBJECT_ENDPOINT: http://subject-service:50053
       NOTIFICATION_ENDPOINT: http://notification-service:50052
       PROJECT_ENDPOINT: http://project-service:50054
       RUST_LOG: info
-    depends_on:
-      - notification-service
+      OTEL_METRIC_EXPORT_INTERVAL: 5000   # milliseconds
     volumes:
       - eval_data:/data
+    depends_on:
+      - otel-collector
+    ports:
+      - "50055:50055"
 
   router:
     build:
@@ -202,6 +206,7 @@ services:
       NOTIFICATION_GRPC_ENDPOINT: http://notification-service:50052
       SUBJECT_GRPC_ENDPOINT: http://subject-service:50053
       PROJECT_GRPC_ENDPOINT: http://project-service:50054
+      EVAL_GRPC_ENDPOINT: http://evaluation-service:50055
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_SERVICE_NAME: router
       RUST_LOG: info,tower_http=info
@@ -209,9 +214,7 @@ services:
       - auth-service
       - notification-service
       - subject-service
-      # - project-service
       - evaluation-service
-      # - subject-service
       - project-service
       - otel-collector
     ports:

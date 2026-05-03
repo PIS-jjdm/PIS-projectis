@@ -7,6 +7,7 @@ import "common.proto";
 import "notification.proto";
 import "project.proto";
 import "subject.proto";
+import "eval.proto";
 import "google/protobuf/timestamp.proto";
 
 service FrontendGateway {
@@ -57,6 +58,12 @@ service FrontendGateway {
   rpc RescheduleScheduledNotification(RescheduleScheduledNotificationGatewayRequest)
       returns (common.Ack);
   rpc StreamNotifications(common.Empty) returns (stream NotificationWithSender);
+
+  rpc GetProjectEvaluation(eval.GetProjectEvaluationRequest) returns (eval.ProjectEvaluation);
+  rpc ListProjectEvaluations(eval.ListProjectEvaluationsRequest) returns (eval.ListProjectEvaluationsResponse);
+  rpc CreateProjectEvaluation(eval.CreateProjectEvaluationRequest) returns (eval.ProjectEvaluation);
+  rpc UpdateProjectEvaluation(eval.UpdateProjectEvaluationRequest) returns (eval.ProjectEvaluation);
+  rpc DeleteProjectEvaluation(eval.DeleteEvaluationRequest) returns (common.Ack);
 }
 
 message RegisterSubjectGatewayRequest { string subject_id = 1; }

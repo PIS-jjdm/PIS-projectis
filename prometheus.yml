@@ -25,10 +25,22 @@ scrape_configs:
         labels:
           service: subject-service
           check: readiness-db
-    relabel_configs:
+    relabel_configs: &blackbox_relabel
       - source_labels: [__address__]
         target_label: __param_target
       - source_labels: [__param_target]
         target_label: instance
       - target_label: __address__
         replacement: blackbox-exporter:9115
+
+  - job_name: "blackbox-evaluation-service-health"
+    metrics_path: /probe
+    params:
+      module: [grpc_health]
+    static_configs:
+      - targets:
+          - evaluation-service:50055
+        labels:
+            service: evaluation-service
+            check: grpc-health
+    relabel_configs: *blackbox_relabel
