@@ -539,13 +539,13 @@ export default function AppShell() {
         open={mobile ? drawerOpen : true}
         onClose={() => setDrawerOpen(false)}
         ModalProps={{ keepMounted: true }}
-        sx={{
+        sx={(theme) => ({
           '& .MuiDrawer-paper': {
             width: drawerWidth,
             boxSizing: 'border-box',
-            borderRight: '1px solid rgba(167, 180, 186, 0.18)',
+            borderRight: `1px solid ${theme.palette.divider}`,
           },
-        }}
+        })}
       >
         {drawerContent}
       </Drawer>
@@ -619,9 +619,9 @@ export default function AppShell() {
                     version={avatarVersion}
                     size={34}
                     sx={{
-                      bgcolor: 'rgba(214, 227, 255, 0.9)',
-                      color: 'primary.main',
-                      border: '2px solid rgba(214, 227, 255, 1)',
+                      bgcolor: 'primary.light',
+                      color: 'primary.dark',
+                      border: (theme) => `2px solid ${theme.palette.primary.light}`,
                     }}
                   >
                     {user?.firstname?.[0] || 'U'}
@@ -689,12 +689,14 @@ export default function AppShell() {
                       version={avatarVersion}
                       src={accountAvatarSrc}
                       size={88}
-                      sx={{
-                        bgcolor: 'rgba(214, 227, 255, 0.9)',
-                        color: 'primary.main',
+                      sx={(theme) => ({
+                        bgcolor: 'primary.light',
+                        color: 'primary.dark',
                         cursor: savingAvatar ? 'progress' : 'pointer',
-                        border: pendingAvatarFile ? '2px solid rgba(25, 118, 210, 0.45)' : 'none',
-                      }}
+                        border: pendingAvatarFile
+                          ? `2px solid ${theme.palette.primary.main}`
+                          : 'none',
+                      })}
                     >
                       {user?.firstname?.[0] || 'U'}
                     </UserAvatar>

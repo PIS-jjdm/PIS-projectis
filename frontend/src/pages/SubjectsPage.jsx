@@ -5,19 +5,24 @@ import {
   Card,
   CardContent,
   Chip,
+  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  IconButton,
   MenuItem,
   Paper,
   Stack,
   TextField,
   Typography,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
+import ExpandLessRoundedIcon from '@mui/icons-material/ExpandLessRounded'
+import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded'
 import GroupRoundedIcon from '@mui/icons-material/GroupRounded'
 import LaunchRoundedIcon from '@mui/icons-material/LaunchRounded'
 import PlaylistAddRoundedIcon from '@mui/icons-material/PlaylistAddRounded'
@@ -53,6 +58,14 @@ export default function SubjectsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [collapsedSubjects, setCollapsedSubjects] = useState({})
+
+  function toggleSubjectCollapsed(subjectId) {
+    setCollapsedSubjects((current) => ({
+      ...current,
+      [subjectId]: !current[subjectId],
+    }))
+  }
   const [subjectDialogOpen, setSubjectDialogOpen] = useState(false)
   const [projectDialogOpen, setProjectDialogOpen] = useState(false)
   const [editingSubject, setEditingSubject] = useState(null)
@@ -262,16 +275,16 @@ export default function SubjectsPage() {
                     >
                       <Stack direction="row" spacing={2} sx={{ minWidth: 0 }}>
                         <Box
-                          sx={{
+                          sx={(theme) => ({
                             width: 54,
                             height: 54,
                             borderRadius: 3,
                             display: 'grid',
                             placeItems: 'center',
-                            bgcolor: 'rgba(21, 101, 192, 0.08)',
+                            bgcolor: alpha(theme.palette.primary.main, 0.12),
                             color: 'primary.main',
                             flexShrink: 0,
-                          }}
+                          })}
                         >
                           <SchoolRoundedIcon />
                         </Box>
@@ -358,59 +371,103 @@ export default function SubjectsPage() {
                     </Stack>
 
                     <Box>
-                      <Typography variant="overline" color="primary.main" sx={{ fontWeight: 700 }}>
-                        Projects In This Subject
-                      </Typography>
-                      {subjectProjects.length === 0 ? (
-                        <Paper
-                          variant="outlined"
-                          sx={{ mt: 1.5, p: 2.5, borderStyle: 'dashed', color: 'text.secondary' }}
+                      <Stack
+                        direction="row"
+                        alignItems="center"
+                        justifyContent="space-between"
+                        spacing={1}
+                      >
+                        <Typography variant="overline" color="primary.main" sx={{ fontWeight: 700 }}>
+                          Projects In This Subject ({subjectProjects.length})
+                        </Typography>
+                        <IconButton
+                          size="small"
+                          onClick={() => toggleSubjectCollapsed(subject.id)}
+                          aria-label={
+                            collapsedSubjects[subject.id] ? 'Show projects' : 'Hide projects'
+                          }
                         >
-                          No projects have been attached to this subject yet.
-                        </Paper>
-                      ) : (
-                        <Stack spacing={1.5} sx={{ mt: 1.5 }}>
-                          {subjectProjects.map((project) => {
-                            const projectTeams = teamsByProject[project.id] || []
-                            const ownTeam = effectiveUser
-                              ? ownTeamForUser(projectTeams, effectiveUser.id)
-                              : null
+                          {collapsedSubjects[subject.id] ? (
+                            <ExpandMoreRoundedIcon />
+                          ) : (
+                            <ExpandLessRoundedIcon />
+                          )}
+                        </IconButton>
+                      </Stack>
+                      <Collapse in={!collapsedSubjects[subject.id]} unmountOnExit>
+                        {subjectProjects.length === 0 ? (
+                          <Paper
+                            variant="outlined"
+                            sx={{
+                              mt: 1.5,
+                              p: 2.5,
+                              borderStyle: 'dashed',
+                              color: 'text.secondary',
+                            }}
+                          >
+                            No projects have been attached to this subject yet.
+                          </Paper>
+                        ) : (
+                          <Box
+                            sx={{
+                              mt: 1.5,
+                              display: 'grid',
+                              gridTemplateColumns: {
+                                xs: '1fr',
+                                md: 'repeat(2, minmax(0, 1fr))',
+                              },
+                              gap: 1.5,
+                            }}
+                          >
+                            {subjectProjects.map((project) => {
+                              const projectTeams = teamsByProject[project.id] || []
+                              const ownTeam = effectiveUser
+                                ? ownTeamForUser(projectTeams, effectiveUser.id)
+                                : null
 
-                            return (
-                              <Paper
-                                key={project.id}
-                                variant="outlined"
-                                sx={{ p: 2.25, borderRadius: 3 }}
-                              >
-                                <Stack spacing={1.5}>
-                                  <Stack
-                                    direction={{ xs: 'column', md: 'row' }}
-                                    spacing={1.5}
-                                    justifyContent="space-between"
-                                  >
-                                    <Box>
-                                      <Typography variant="h6">{project.title}</Typography>
-                                      <Typography color="text.secondary" sx={{ mt: 0.75 }}>
-                                        {project.description}
-                                      </Typography>
-                                    </Box>
-                                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                                      <Chip
-                                        icon={<GroupRoundedIcon />}
-                                        label={`${projectTeams.length} team${projectTeams.length === 1 ? '' : 's'}`}
-                                        variant="outlined"
-                                        size="small"
-                                      />
-                                      <Chip
-                                        label={`Teacher: ${displayUserName(knownUsersById.get(project.teacher_id))}`}
-                                        variant="outlined"
-                                        size="small"
-                                      />
-                                      <Chip
-                                        label={`Max ${project.max_students_per_team} / team`}
-                                        variant="outlined"
-                                        size="small"
-                                      />
+                              return (
+                                <Paper
+                                  key={project.id}
+                                  variant="outlined"
+                                  sx={{
+                                    p: 2.25,
+                                    borderRadius: 3,
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: 1.25,
+                                  }}
+                                >
+                                  <Box>
+                                    <Typography variant="h6">{project.title}</Typography>
+                                    <Typography color="text.secondary" sx={{ mt: 0.75 }}>
+                                      {project.description}
+                                    </Typography>
+                                  </Box>
+                                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                    <Chip
+                                      icon={<GroupRoundedIcon />}
+                                      label={`${projectTeams.length} team${projectTeams.length === 1 ? '' : 's'}`}
+                                      variant="outlined"
+                                      size="small"
+                                    />
+                                    <Chip
+                                      label={`Teacher: ${displayUserName(knownUsersById.get(project.teacher_id))}`}
+                                      variant="outlined"
+                                      size="small"
+                                    />
+                                    <Chip
+                                      label={`Max ${project.max_students_per_team} / team`}
+                                      variant="outlined"
+                                      size="small"
+                                    />
+                                  </Stack>
+                                  {(project.start_date || project.end_date) && (
+                                    <Stack
+                                      direction="row"
+                                      spacing={1}
+                                      useFlexGap
+                                      flexWrap="nowrap"
+                                    >
                                       {project.start_date && (
                                         <Chip
                                           label={`Start ${formatDateOnly(project.start_date)}`}
@@ -426,9 +483,15 @@ export default function SubjectsPage() {
                                         />
                                       )}
                                     </Stack>
-                                  </Stack>
+                                  )}
 
-                                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                  <Stack
+                                    direction="row"
+                                    spacing={1}
+                                    flexWrap="wrap"
+                                    useFlexGap
+                                    sx={{ mt: 'auto' }}
+                                  >
                                     <Button
                                       variant="outlined"
                                       startIcon={<LaunchRoundedIcon />}
@@ -459,12 +522,12 @@ export default function SubjectsPage() {
                                       </Button>
                                     )}
                                   </Stack>
-                                </Stack>
-                              </Paper>
-                            )
-                          })}
-                        </Stack>
-                      )}
+                                </Paper>
+                              )
+                            })}
+                          </Box>
+                        )}
+                      </Collapse>
                     </Box>
                   </Stack>
                 </CardContent>

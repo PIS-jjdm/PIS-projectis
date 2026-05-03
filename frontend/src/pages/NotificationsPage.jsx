@@ -966,12 +966,12 @@ export default function NotificationsPage() {
                   />
                 }
                 label="Send now"
-                sx={{
+                sx={(theme) => ({
                   m: 0,
                   px: 1.5,
                   py: 1,
                   borderRadius: 2.5,
-                  border: '1px solid rgba(167,180,186,0.22)',
+                  border: `1px solid ${theme.palette.divider}`,
                   bgcolor: 'background.paper',
                   justifyContent: 'space-between',
                   '& .MuiFormControlLabel-label': {
@@ -980,7 +980,7 @@ export default function NotificationsPage() {
                   '& .MuiFormControlLabel-root': {
                     width: '100%',
                   },
-                }}
+                })}
                 labelPlacement="start"
               />
             </FormControl>

@@ -3,7 +3,8 @@ import {
   Box,
   Button,
   Chip,
-  Divider,
+  Collapse,
+  IconButton,
   MenuItem,
   Paper,
   Stack,
@@ -11,6 +12,8 @@ import {
   Typography,
 } from '@mui/material'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
+import ExpandLessRoundedIcon from '@mui/icons-material/ExpandLessRounded'
+import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded'
 import GroupRoundedIcon from '@mui/icons-material/GroupRounded'
 import LaunchRoundedIcon from '@mui/icons-material/LaunchRounded'
 import PersonAddRoundedIcon from '@mui/icons-material/PersonAddRounded'
@@ -99,6 +102,7 @@ export default function SubjectDetailPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [projectsExpanded, setProjectsExpanded] = useState(true)
 
   const isAdmin = user?.role === 'admin'
   const knownUsersById = useMemo(
@@ -389,30 +393,58 @@ export default function SubjectDetailPage() {
 
         <Paper variant="outlined" sx={{ p: { xs: 2.5, md: 3 }, borderRadius: 3 }}>
           <Stack spacing={2}>
-            <Typography variant="h6">Projects</Typography>
-            {subjectProjects.length === 0 ? (
-              <EmptyState
-                title="No projects in this subject"
-                description="Projects attached to this subject will appear here."
-              />
-            ) : (
-              <Stack spacing={1.5} divider={<Divider flexItem />}>
-                {subjectProjects.map((project) => (
-                  <Stack
-                    key={project.id}
-                    direction={{ xs: 'column', md: 'row' }}
-                    spacing={1.5}
-                    justifyContent="space-between"
-                    alignItems={{ xs: 'flex-start', md: 'center' }}
-                  >
-                    <Box>
-                      <Typography variant="subtitle1" fontWeight={700}>
-                        {project.title}
-                      </Typography>
-                      <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-                        {project.description}
-                      </Typography>
-                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+            <Stack
+              direction="row"
+              alignItems="center"
+              justifyContent="space-between"
+              spacing={1}
+            >
+              <Typography variant="h6">
+                Projects ({subjectProjects.length})
+              </Typography>
+              <IconButton
+                size="small"
+                onClick={() => setProjectsExpanded((value) => !value)}
+                aria-label={projectsExpanded ? 'Hide projects' : 'Show projects'}
+              >
+                {projectsExpanded ? <ExpandLessRoundedIcon /> : <ExpandMoreRoundedIcon />}
+              </IconButton>
+            </Stack>
+            <Collapse in={projectsExpanded} unmountOnExit>
+              {subjectProjects.length === 0 ? (
+                <EmptyState
+                  title="No projects in this subject"
+                  description="Projects attached to this subject will appear here."
+                />
+              ) : (
+                <Box
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' },
+                    gap: 1.5,
+                  }}
+                >
+                  {subjectProjects.map((project) => (
+                    <Paper
+                      key={project.id}
+                      variant="outlined"
+                      sx={{
+                        p: 2,
+                        borderRadius: 2,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 1.25,
+                      }}
+                    >
+                      <Box>
+                        <Typography variant="subtitle1" fontWeight={700}>
+                          {project.title}
+                        </Typography>
+                        <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+                          {project.description}
+                        </Typography>
+                      </Box>
+                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                         <Chip
                           label={`Teacher: ${userLabel(knownUsersById.get(project.teacher_id))}`}
                           variant="outlined"
@@ -423,33 +455,38 @@ export default function SubjectDetailPage() {
                           variant="outlined"
                           size="small"
                         />
-                        {project.start_date && (
-                          <Chip
-                            label={`Start ${formatDateOnly(project.start_date)}`}
-                            variant="outlined"
-                            size="small"
-                          />
-                        )}
-                        {project.end_date && (
-                          <Chip
-                            label={`End ${formatDateOnly(project.end_date)}`}
-                            variant="outlined"
-                            size="small"
-                          />
-                        )}
                       </Stack>
-                    </Box>
-                    <Button
-                      variant="outlined"
-                      startIcon={<LaunchRoundedIcon />}
-                      onClick={() => navigate(`/projects/${project.id}`)}
-                    >
-                      Open details
-                    </Button>
-                  </Stack>
-                ))}
-              </Stack>
-            )}
+                      {(project.start_date || project.end_date) && (
+                        <Stack direction="row" spacing={1} useFlexGap flexWrap="nowrap">
+                          {project.start_date && (
+                            <Chip
+                              label={`Start ${formatDateOnly(project.start_date)}`}
+                              variant="outlined"
+                              size="small"
+                            />
+                          )}
+                          {project.end_date && (
+                            <Chip
+                              label={`End ${formatDateOnly(project.end_date)}`}
+                              variant="outlined"
+                              size="small"
+                            />
+                          )}
+                        </Stack>
+                      )}
+                      <Button
+                        variant="outlined"
+                        startIcon={<LaunchRoundedIcon />}
+                        onClick={() => navigate(`/projects/${project.id}`)}
+                        sx={{ mt: 'auto', alignSelf: 'flex-start' }}
+                      >
+                        Open details
+                      </Button>
+                    </Paper>
+                  ))}
+                </Box>
+              )}
+            </Collapse>
           </Stack>
         </Paper>
       </Stack>

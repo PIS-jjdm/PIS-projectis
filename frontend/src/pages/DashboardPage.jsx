@@ -8,6 +8,7 @@ import {
   Stack,
   Typography,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded'
 import ForumRoundedIcon from '@mui/icons-material/ForumRounded'
 import AssignmentTurnedInRoundedIcon from '@mui/icons-material/AssignmentTurnedInRounded'
@@ -36,16 +37,16 @@ function daysUntil(value) {
 
 function milestoneStatus(value) {
   const days = daysUntil(value)
-  if (days === null) return { label: 'Planned', color: '#475265', background: '#d8e3fa' }
-  if (days <= 3) return { label: 'Urgent', color: '#9f403d', background: 'rgba(254, 137, 131, 0.18)' }
-  if (days <= 10) return { label: 'Planned', color: '#475265', background: '#d8e3fa' }
-  return { label: 'Scheduled', color: '#38527b', background: '#d6e3ff' }
+  if (days === null) return { label: 'Planned', color: 'default' }
+  if (days <= 3) return { label: 'Urgent', color: 'error' }
+  if (days <= 10) return { label: 'Planned', color: 'warning' }
+  return { label: 'Scheduled', color: 'primary' }
 }
 
 function subjectAccent(index) {
   return index % 2 === 0
-    ? { bar: '#d6e3ff', iconBg: '#dfeaef', icon: '#455f88', titleHover: '#455f88', label: 'Level 400' }
-    : { bar: '#75aef7', iconBg: '#dfeaef', icon: '#1a61a4', titleHover: '#1a61a4', label: 'Elective' }
+    ? { tone: 'primary', label: 'Level 400' }
+    : { tone: 'secondary', label: 'Elective' }
 }
 
 export default function DashboardPage() {
@@ -109,20 +110,17 @@ export default function DashboardPage() {
     const palette = [
       {
         icon: <DescriptionRoundedIcon sx={{ fontSize: 20 }} />,
-        background: '#d6e3ff',
-        color: '#38527b',
+        accent: 'primary',
         title: 'Project Updated',
       },
       {
         icon: <ForumRoundedIcon sx={{ fontSize: 20 }} />,
-        background: '#d8e3fa',
-        color: '#475265',
+        accent: 'secondary',
         title: 'Team Feedback',
       },
       {
         icon: <AssignmentTurnedInRoundedIcon sx={{ fontSize: 20 }} />,
-        background: '#75aef7',
-        color: '#002d55',
+        accent: 'success',
         title: 'Evaluation Complete',
       },
     ]
@@ -216,8 +214,7 @@ export default function DashboardPage() {
               {(activityItems.length ? activityItems : [
                 {
                   icon: <DescriptionRoundedIcon sx={{ fontSize: 20 }} />,
-                  background: '#d6e3ff',
-                  color: '#38527b',
+                  accent: 'primary',
                   title: 'No recent activity',
                   message: 'Activity will appear here once notifications and milestones are available.',
                   time: 'Just now',
@@ -225,16 +222,16 @@ export default function DashboardPage() {
               ]).map((item) => (
                 <Stack key={`${item.title}-${item.time}`} direction="row" spacing={2}>
                   <Box
-                    sx={{
+                    sx={(theme) => ({
                       width: 40,
                       height: 40,
                       borderRadius: 1,
-                      bgcolor: item.background,
-                      color: item.color,
+                      bgcolor: alpha(theme.palette[item.accent].main, 0.18),
+                      color: theme.palette[item.accent].main,
                       display: 'grid',
                       placeItems: 'center',
                       flexShrink: 0,
-                    }}
+                    })}
                   >
                     {item.icon}
                   </Box>
@@ -343,28 +340,27 @@ export default function DashboardPage() {
                       boxShadow: 'none',
                     }}
                   >
-                    <Box sx={{ height: 12, bgcolor: accent.bar }} />
+                    <Box sx={(theme) => ({ height: 12, bgcolor: theme.palette[accent.tone].main })} />
                     <Box sx={{ p: 3 }}>
                       <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 3 }}>
                         <Box
-                          sx={{
+                          sx={(theme) => ({
                             width: 48,
                             height: 48,
                             borderRadius: 1.5,
-                            bgcolor: accent.iconBg,
-                            color: accent.icon,
+                            bgcolor: alpha(theme.palette[accent.tone].main, 0.18),
+                            color: theme.palette[accent.tone].main,
                             display: 'grid',
                             placeItems: 'center',
-                          }}
+                          })}
                         >
                           {index % 2 === 0 ? <SearchRoundedIcon /> : <AutoStoriesRoundedIcon />}
                         </Box>
                         <Chip
                           label={accent.label}
                           size="small"
+                          color={accent.tone}
                           sx={{
-                            bgcolor: '#d8e3fa',
-                            color: '#475265',
                             fontWeight: 700,
                             textTransform: 'uppercase',
                             letterSpacing: '0.08em',
@@ -488,9 +484,8 @@ export default function DashboardPage() {
                       <Chip
                         label={status.label}
                         size="small"
+                        color={status.color}
                         sx={{
-                          bgcolor: status.background,
-                          color: status.color,
                           fontWeight: 800,
                           textTransform: 'uppercase',
                           letterSpacing: '0.04em',
