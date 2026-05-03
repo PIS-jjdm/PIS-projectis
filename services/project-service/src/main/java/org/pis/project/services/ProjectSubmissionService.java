@@ -19,6 +19,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class ProjectSubmissionService {
 
+    private static final long DEFAULT_SUBMISSION_SIZE_LIMIT = 10L * 1024L * 1024L; // 10 MB
+
     private final ProjectSubmissionRepository submissionRepository;
     private final TeamRepository teamRepository;
 
@@ -33,8 +35,11 @@ public class ProjectSubmissionService {
                     return new ResourceNotFoundException("Team not found with id: " + teamId);
                 });
 
-        // check submission size limit
-        Long maxSubmissionSize = team.getProject().getSubmissionSizeLimit();
+        // check submission size limit (null on legacy rows where the column was added later)
+        Long limitValue = team.getProject().getSubmissionSizeLimit();
+        long maxSubmissionSize = (limitValue == null || limitValue <= 0L)
+                ? DEFAULT_SUBMISSION_SIZE_LIMIT
+                : limitValue;
         if (fileSize > maxSubmissionSize) {
             log.error("File size [{}] bytes exceeds project limit [{}] bytes for team [{}]",
                     fileSize, maxSubmissionSize, teamId);

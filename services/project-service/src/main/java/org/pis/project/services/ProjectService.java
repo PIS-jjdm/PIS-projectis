@@ -17,6 +17,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @RequiredArgsConstructor
 public class ProjectService {
+    private static final long DEFAULT_SUBMISSION_SIZE_LIMIT = 10L * 1024L * 1024L; // 10 MB
+
     private final ProjectRepository projectRepository;
     private final ProjectMapper projectMapper;
 
@@ -39,6 +41,9 @@ public class ProjectService {
         log.info("Attempting to create new project: [{}]", project.getTitle());
 
         project.setId(null);
+        if (project.getSubmissionSizeLimit() == null || project.getSubmissionSizeLimit() <= 0L) {
+            project.setSubmissionSizeLimit(DEFAULT_SUBMISSION_SIZE_LIMIT);
+        }
         project.validateDates();
 
         ProjectEntity savedProject = projectRepository.save(project);
