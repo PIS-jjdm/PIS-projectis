@@ -93,21 +93,50 @@ export default function AdminUsersPage() {
     return editingUser?.id === user?.id && form.role !== user?.role
   }
 
+  function validateUserForm() {
+    const firstname = form.firstname.trim()
+    const lastname = form.lastname.trim()
+    const email = form.email.trim()
+    if (!firstname) return 'First name is required.'
+    if (!lastname) return 'Last name is required.'
+    if (!email) return 'Email is required.'
+    // RFC 5322 simplified: local@domain with dot in domain
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return 'Email format is invalid.'
+    }
+    if (!editingUser && !form.password) return 'Password is required.'
+    if (!editingUser && form.password.length < 8) {
+      return 'Password must be at least 8 characters.'
+    }
+    return ''
+  }
+
   async function submitUser() {
     setError('')
     setSuccess('')
-    setSubmitting(true)
 
+    const validationError = validateUserForm()
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+
+    setSubmitting(true)
     try {
       const saved = editingUser
         ? await api.updateUser(session, {
             user_id: editingUser.id,
-            firstname: form.firstname,
-            lastname: form.lastname,
-            email: form.email,
+            firstname: form.firstname.trim(),
+            lastname: form.lastname.trim(),
+            email: form.email.trim(),
             role: form.role,
           })
-        : await api.createUser(session, form)
+        : await api.createUser(session, {
+            ...form,
+            firstname: form.firstname.trim(),
+            lastname: form.lastname.trim(),
+            email: form.email.trim(),
+          })
       setDialogOpen(false)
       setEditingUser(null)
       setForm(initialForm)
@@ -211,18 +240,21 @@ export default function AdminUsersPage() {
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
+              required
               label="First name"
               value={form.firstname}
               onChange={(event) => setForm((prev) => ({ ...prev, firstname: event.target.value }))}
               fullWidth
             />
             <TextField
+              required
               label="Last name"
               value={form.lastname}
               onChange={(event) => setForm((prev) => ({ ...prev, lastname: event.target.value }))}
               fullWidth
             />
             <TextField
+              required
               label="Email"
               type="email"
               value={form.email}
@@ -231,10 +263,12 @@ export default function AdminUsersPage() {
             />
             {!editingUser && (
               <TextField
+                required
                 label="Password"
                 type="password"
                 value={form.password}
                 onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
+                helperText="At least 8 characters."
                 fullWidth
               />
             )}

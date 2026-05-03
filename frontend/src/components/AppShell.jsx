@@ -777,8 +777,11 @@ export default function AppShell() {
                   fullWidth
                 />
                 <TextField
+                  id="profile-new-password"
                   label="New password"
                   type="password"
+                  autoComplete="new-password"
+                  inputProps={{ 'aria-label': 'New password' }}
                   value={passwordForm.new_password}
                   onChange={(event) =>
                     setPasswordForm((prev) => ({ ...prev, new_password: event.target.value }))
@@ -786,8 +789,11 @@ export default function AppShell() {
                   fullWidth
                 />
                 <TextField
+                  id="profile-confirm-new-password"
                   label="Confirm new password"
                   type="password"
+                  autoComplete="new-password"
+                  inputProps={{ 'aria-label': 'Confirm new password' }}
                   value={passwordForm.confirm_password}
                   onChange={(event) =>
                     setPasswordForm((prev) => ({ ...prev, confirm_password: event.target.value }))

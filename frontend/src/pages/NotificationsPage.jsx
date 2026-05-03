@@ -478,7 +478,18 @@ export default function NotificationsPage() {
     }
   }
 
+  function resetComposeForm() {
+    setForm({
+      userIdsText: '',
+      message: '',
+      triggerMode: 'now',
+      triggerAt: defaultTriggerAtValue(),
+    })
+    setError('')
+  }
+
   async function openComposeDialog() {
+    resetComposeForm()
     setDialogOpen(true)
     setSourceError('')
     await Promise.all([
@@ -487,6 +498,11 @@ export default function NotificationsPage() {
         : Promise.resolve(),
       !directoryUsers.length ? loadUserDirectory() : Promise.resolve(),
     ])
+  }
+
+  function closeComposeDialog() {
+    setDialogOpen(false)
+    resetComposeForm()
   }
 
   async function handleAddRecipientsFromSource() {
@@ -851,7 +867,7 @@ export default function NotificationsPage() {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={dialogOpen} onClose={closeComposeDialog} fullWidth maxWidth="sm">
         <DialogTitle>Compose notification</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
@@ -997,7 +1013,7 @@ export default function NotificationsPage() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
+          <Button onClick={closeComposeDialog}>Cancel</Button>
           <Button onClick={handleCreate} variant="contained">
             Save notification
           </Button>

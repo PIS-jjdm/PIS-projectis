@@ -59,6 +59,7 @@ export default function SubjectsPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [collapsedSubjects, setCollapsedSubjects] = useState({})
+  const [deleteSubjectTarget, setDeleteSubjectTarget] = useState(null)
 
   function toggleSubjectCollapsed(subjectId) {
     setCollapsedSubjects((current) => ({
@@ -130,13 +131,30 @@ export default function SubjectsPage() {
     }
   }
 
+  function validateSubjectForm() {
+    if (!subjectForm.name.trim()) return 'Subject name is required.'
+    if (!subjectForm.abbreviation.trim()) return 'Abbreviation is required.'
+    if (!subjectForm.description.trim()) return 'Description is required.'
+    return ''
+  }
+
   async function handleSaveSubject() {
+    const validationError = validateSubjectForm()
+    if (validationError) {
+      setError(validationError)
+      return
+    }
     try {
+      const payload = {
+        name: subjectForm.name.trim(),
+        abbreviation: subjectForm.abbreviation.trim(),
+        description: subjectForm.description.trim(),
+      }
       if (editingSubject) {
-        await api.updateSubject(session, editingSubject.id, subjectForm)
+        await api.updateSubject(session, editingSubject.id, payload)
         setSuccess('Subject updated.')
       } else {
-        await api.createSubject(session, subjectForm)
+        await api.createSubject(session, payload)
         setSuccess('Subject created.')
       }
       setSubjectDialogOpen(false)
@@ -148,19 +166,48 @@ export default function SubjectsPage() {
     }
   }
 
-  async function handleDeleteSubject(subjectId) {
+  async function handleDeleteSubject() {
+    if (!deleteSubjectTarget) return
     try {
-      await api.deleteSubject(session, subjectId)
+      await api.deleteSubject(session, deleteSubjectTarget.id)
       setSuccess('Subject deleted.')
+      setDeleteSubjectTarget(null)
       await loadData()
     } catch (deleteError) {
       setError(deleteError.message || 'Failed to delete subject')
     }
   }
 
+  function validateProjectForm() {
+    if (!projectForm.title.trim()) return 'Project title is required.'
+    if (!projectForm.description.trim()) return 'Project description is required.'
+    if (!projectForm.subject_id) return 'Pick a subject for the project.'
+    const max = Number(projectForm.max_students_per_team)
+    if (!Number.isFinite(max) || max < 1) {
+      return 'Max students per team must be at least 1.'
+    }
+    if (projectForm.start_date && projectForm.end_date) {
+      const start = new Date(projectForm.start_date)
+      const end = new Date(projectForm.end_date)
+      if (Number.isFinite(start.getTime()) && Number.isFinite(end.getTime()) && start > end) {
+        return 'Start date must be on or before the end date.'
+      }
+    }
+    return ''
+  }
+
   async function handleCreateProject() {
+    const validationError = validateProjectForm()
+    if (validationError) {
+      setError(validationError)
+      return
+    }
     try {
-      await api.createProject(session, projectForm)
+      await api.createProject(session, {
+        ...projectForm,
+        title: projectForm.title.trim(),
+        description: projectForm.description.trim(),
+      })
       setProjectDialogOpen(false)
       setProjectForm(initialProjectForm)
       setSuccess('Project created.')
@@ -361,7 +408,7 @@ export default function SubjectsPage() {
                               color="error"
                               variant="outlined"
                               startIcon={<DeleteRoundedIcon />}
-                              onClick={() => handleDeleteSubject(subject.id)}
+                              onClick={() => setDeleteSubjectTarget(subject)}
                             >
                               Delete
                             </Button>
@@ -542,6 +589,7 @@ export default function SubjectsPage() {
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
+              required
               label="Name"
               value={subjectForm.name}
               onChange={(event) =>
@@ -550,6 +598,7 @@ export default function SubjectsPage() {
               fullWidth
             />
             <TextField
+              required
               label="Abbreviation"
               value={subjectForm.abbreviation}
               onChange={(event) =>
@@ -558,6 +607,7 @@ export default function SubjectsPage() {
               fullWidth
             />
             <TextField
+              required
               label="Description"
               value={subjectForm.description}
               onChange={(event) =>
@@ -582,6 +632,7 @@ export default function SubjectsPage() {
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
+              required
               label="Title"
               value={projectForm.title}
               onChange={(event) =>
@@ -590,6 +641,7 @@ export default function SubjectsPage() {
               fullWidth
             />
             <TextField
+              required
               label="Description"
               value={projectForm.description}
               onChange={(event) =>
@@ -600,6 +652,7 @@ export default function SubjectsPage() {
               minRows={4}
             />
             <TextField
+              required
               select
               label="Subject"
               value={projectForm.subject_id}
@@ -615,13 +668,15 @@ export default function SubjectsPage() {
               ))}
             </TextField>
             <TextField
+              required
               label="Max students per team"
               type="number"
+              inputProps={{ min: 1 }}
               value={projectForm.max_students_per_team}
               onChange={(event) =>
                 setProjectForm((current) => ({
                   ...current,
-                  max_students_per_team: Number(event.target.value) || 1,
+                  max_students_per_team: Math.max(Number(event.target.value) || 1, 1),
                 }))
               }
               fullWidth
@@ -652,6 +707,26 @@ export default function SubjectsPage() {
           <Button onClick={() => setProjectDialogOpen(false)}>Cancel</Button>
           <Button onClick={handleCreateProject} variant="contained">
             Save project
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(deleteSubjectTarget)}
+        onClose={() => setDeleteSubjectTarget(null)}
+        maxWidth="xs"
+      >
+        <DialogTitle>Delete subject</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Delete <strong>{deleteSubjectTarget?.name}</strong>? Attached projects, teams, and
+            registrations will be removed. This cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteSubjectTarget(null)}>Cancel</Button>
+          <Button color="error" variant="contained" onClick={handleDeleteSubject}>
+            Delete subject
           </Button>
         </DialogActions>
       </Dialog>
