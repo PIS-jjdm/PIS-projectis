@@ -1,4 +1,4 @@
-mod auth
+mod auth;
 mod eval;
 mod notifications;
 mod projects;
@@ -24,13 +24,13 @@ use crate::proto::{
     },
     notification::{ListScheduledNotificationsResponse, MarkAsReadRequest, Notification},
     project::{
-        AddTeamMemberRequest, ChangeTeamLeaderRequest, DeleteJoinRequestRequest, DeleteProjectRequest,
-        GetProjectRequest, GetTeamRequest, JoinRequest, ListJoinRequestsRequest,
-        ListJoinRequestsResponse, ListProjectsRequest, ListProjectsResponse,
-        ListTeamsByProjectRequest, ListTeamsByProjectResponse, Project, RemoveTeamMemberRequest,
-        Team, TeamDetail, UpdateProjectRequest, RegisterTeamRequest, LeaveTeamRequest, CreateJoinRequestRequest,
-        ResolveJoinRequestRequest, DeleteSubmissionRequest, SubmitProjectRequest, ProjectSubmission,
-        DownloadSubmissionRequest, FileChunk
+        AddTeamMemberRequest, ChangeTeamLeaderRequest, CreateJoinRequestRequest,
+        DeleteJoinRequestRequest, DeleteProjectRequest, DeleteSubmissionRequest,
+        DownloadSubmissionRequest, FileChunk, GetProjectRequest, GetTeamRequest, JoinRequest,
+        LeaveTeamRequest, ListJoinRequestsRequest, ListJoinRequestsResponse, ListProjectsRequest,
+        ListProjectsResponse, ListTeamsByProjectRequest, ListTeamsByProjectResponse, Project,
+        ProjectSubmission, RegisterTeamRequest, RemoveTeamMemberRequest, ResolveJoinRequestRequest,
+        SubmitProjectRequest, Team, TeamDetail, UpdateProjectRequest,
     },
     subject::{
         CreateSubjectRequest, DeleteSubjectRequest, GetSubjectRequest, ListSubjectsResponse,
@@ -406,7 +406,8 @@ impl FrontendGateway for FrontendGatewayService {
         projects::submit_project(self, request).await
     }
 
-    type DownloadSubmissionStream = Pin<Box<dyn tokio_stream::Stream<Item = Result<FileChunk, Status>> + Send>>;
+    type DownloadSubmissionStream =
+        Pin<Box<dyn tokio_stream::Stream<Item = Result<FileChunk, Status>> + Send>>;
 
     async fn delete_submission(
         &self,
@@ -414,7 +415,6 @@ impl FrontendGateway for FrontendGatewayService {
     ) -> Result<Response<Ack>, Status> {
         projects::delete_submission(self, request).await
     }
-
 
     async fn download_submission(
         &self,
