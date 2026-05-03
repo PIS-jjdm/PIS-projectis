@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use config::Config;
 use grpc_auth::GrpcAuthLayer;
+use state::MAX_GRPC_MESSAGE_SIZE;
 use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
 pub use state::AppState;
 
@@ -100,7 +101,9 @@ async fn main() -> anyhow::Result<()> {
         .layer(GrpcAuthLayer::new(state.clone()).layer(
             frontend_gateway_server::FrontendGatewayServer::new(
                 gateway::FrontendGatewayService::new(state.clone()),
-            ),
+            )
+            .max_decoding_message_size(MAX_GRPC_MESSAGE_SIZE)
+            .max_encoding_message_size(MAX_GRPC_MESSAGE_SIZE),
         )),
     );
 

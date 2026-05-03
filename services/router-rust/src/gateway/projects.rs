@@ -4,7 +4,8 @@ use std::pin::Pin;
 
 type DownloadStream = Pin<Box<dyn Stream<Item = Result<FileChunk, Status>> + Send>>;
 
-use crate::proto::common::Ack;
+use crate::auth_context::CurrentUser;
+use crate::proto::common::{Ack, UserRole};
 
 use crate::proto::gateway::{CreateProjectGatewayRequest, ListTeamsByProjectGatewayResponse};
 
@@ -19,6 +20,36 @@ use crate::proto::project::{
 };
 
 use crate::gateway::{ForwardContext, FrontendGatewayService};
+
+async fn ensure_student_can_view_team(
+    service: &FrontendGatewayService,
+    ctx: &ForwardContext,
+    current_user: &CurrentUser,
+    team_id: &str,
+) -> Result<TeamDetail, Status> {
+    let detail = service
+        .state
+        .project_client()
+        .get_team(ctx.clone().into_request(GetTeamRequest {
+            team_id: team_id.to_string(),
+        })?)
+        .await?
+        .into_inner();
+
+    let belongs = detail.leader_student_id == current_user.user_id
+        || detail
+            .students
+            .iter()
+            .any(|user| user.id == current_user.user_id);
+
+    if !belongs {
+        return Err(Status::permission_denied(
+            "students can only access their own team",
+        ));
+    }
+
+    Ok(detail)
+}
 
 pub(super) async fn list_projects(
     service: &FrontendGatewayService,
@@ -135,10 +166,21 @@ pub(super) async fn get_team(
     service: &FrontendGatewayService,
     request: Request<GetTeamRequest>,
 ) -> Result<Response<TeamDetail>, Status> {
+    let current_user = FrontendGatewayService::current_user(&request)?;
+    let ctx = ForwardContext::from_request(&request);
+    let body = request.into_inner();
+    FrontendGatewayService::require_non_empty(&body.team_id, "team id")?;
+
+    if current_user.role == UserRole::Student {
+        let detail =
+            ensure_student_can_view_team(service, &ctx, &current_user, &body.team_id).await?;
+        return Ok(Response::new(detail));
+    }
+
     let response = service
         .state
         .project_client()
-        .get_team(request)
+        .get_team(ctx.into_request(body)?)
         .await?
         .into_inner();
 
@@ -349,10 +391,19 @@ pub(super) async fn submit_project(
     service: &FrontendGatewayService,
     request: Request<SubmitProjectRequest>,
 ) -> Result<Response<ProjectSubmission>, Status> {
+    let current_user = FrontendGatewayService::current_user(&request)?;
+    let ctx = ForwardContext::from_request(&request);
+    let body = request.into_inner();
+    FrontendGatewayService::require_non_empty(&body.team_id, "team id")?;
+
+    if current_user.role == UserRole::Student {
+        ensure_student_can_view_team(service, &ctx, &current_user, &body.team_id).await?;
+    }
+
     let response = service
         .state
         .project_client()
-        .submit_project(request)
+        .submit_project(ctx.into_request(body)?)
         .await?
         .into_inner();
 
@@ -363,10 +414,19 @@ pub(super) async fn delete_submission(
     service: &FrontendGatewayService,
     request: Request<DeleteSubmissionRequest>,
 ) -> Result<Response<Ack>, Status> {
+    let current_user = FrontendGatewayService::current_user(&request)?;
+    let ctx = ForwardContext::from_request(&request);
+    let body = request.into_inner();
+    FrontendGatewayService::require_non_empty(&body.team_id, "team id")?;
+
+    if current_user.role == UserRole::Student {
+        ensure_student_can_view_team(service, &ctx, &current_user, &body.team_id).await?;
+    }
+
     let response = service
         .state
         .project_client()
-        .delete_submission(request)
+        .delete_submission(ctx.into_request(body)?)
         .await?
         .into_inner();
 
@@ -377,10 +437,19 @@ pub(super) async fn download_submission(
     service: &FrontendGatewayService,
     request: Request<DownloadSubmissionRequest>,
 ) -> Result<Response<DownloadStream>, Status> {
+    let current_user = FrontendGatewayService::current_user(&request)?;
+    let ctx = ForwardContext::from_request(&request);
+    let body = request.into_inner();
+    FrontendGatewayService::require_non_empty(&body.team_id, "team id")?;
+
+    if current_user.role == UserRole::Student {
+        ensure_student_can_view_team(service, &ctx, &current_user, &body.team_id).await?;
+    }
+
     let stream = service
         .state
         .project_client()
-        .download_submission(request)
+        .download_submission(ctx.into_request(body)?)
         .await?
         .into_inner();
 

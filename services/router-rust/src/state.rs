@@ -10,6 +10,9 @@ use tonic::transport::Endpoint;
 // instead of just retrying blindly...
 const RETRY_ATTEMPTS: usize = 20;
 
+// 12 MiB: leaves headroom on top of the 10 MB user-facing submission size cap for protobuf framing.
+pub const MAX_GRPC_MESSAGE_SIZE: usize = 12 * 1024 * 1024;
+
 #[derive(Clone)]
 pub struct AppState {
     pub auth_grpc_client: Channel,
@@ -92,6 +95,8 @@ impl AppState {
 
     pub fn project_client(&self) -> project::project_service_client::ProjectServiceClient<Channel> {
         project::project_service_client::ProjectServiceClient::new(self.project_grpc_client.clone())
+            .max_decoding_message_size(MAX_GRPC_MESSAGE_SIZE)
+            .max_encoding_message_size(MAX_GRPC_MESSAGE_SIZE)
     }
 
     pub fn eval_client(&self) -> eval::evaluation_service_client::EvaluationServiceClient<Channel> {
