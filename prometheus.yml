@@ -56,3 +56,15 @@ scrape_configs:
           service: router
           check: liveness
     relabel_configs: *blackbox_relabel
+
+  - job_name: "blackbox-auth-service-health"
+    metrics_path: /probe
+    params:
+      module: [grpc_health]
+    static_configs:
+      - targets:
+          - auth-service:50051
+        labels:
+            service: auth-service
+            check: grpc-health
+    relabel_configs: *blackbox_relabel
