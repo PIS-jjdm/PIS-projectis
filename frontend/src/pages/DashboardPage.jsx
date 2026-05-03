@@ -143,17 +143,17 @@ export default function DashboardPage() {
 
     return [
       {
-        icon: <PendingActionsRoundedIcon sx={{ color: '#455f88' }} />,
+        icon: <PendingActionsRoundedIcon sx={{ color: 'primary.main' }} />,
         value: `${summary?.projects ?? 0}`,
         label: 'Active Tasks',
       },
       {
-        icon: <RuleFolderRoundedIcon sx={{ color: '#1a61a4' }} />,
+        icon: <RuleFolderRoundedIcon sx={{ color: 'primary.main' }} />,
         value: String(summary?.unreadNotifications ?? 0).padStart(2, '0'),
         label: 'Pending Reviews',
       },
       {
-        icon: <ScheduleRoundedIcon sx={{ color: '#546073' }} />,
+        icon: <ScheduleRoundedIcon sx={{ color: 'text.secondary' }} />,
         value: nextDeadlineDays == null ? '—' : `${Math.max(nextDeadlineDays, 0)}d`,
         label: 'Next Deadline',
       },
@@ -286,7 +286,7 @@ export default function DashboardPage() {
                   flexDirection: 'column',
                   justifyContent: 'space-between',
                   boxShadow: 'none',
-                  bgcolor: '#eff4f7',
+                  bgcolor: 'action.hover',
                 }}
               >
                 {item.icon}
@@ -379,13 +379,40 @@ export default function DashboardPage() {
                       </Typography>
                       <Stack direction="row" justifyContent="space-between" alignItems="center">
                         <Stack direction="row" spacing={-0.75}>
-                          <Avatar sx={{ width: 24, height: 24, fontSize: 10, border: '2px solid #fff', bgcolor: '#d6e3ff', color: '#38527b' }}>
+                          <Avatar
+                            sx={(theme) => ({
+                              width: 24,
+                              height: 24,
+                              fontSize: 10,
+                              border: `2px solid ${theme.palette.background.paper}`,
+                              bgcolor: '#d6e3ff',
+                              color: '#38527b',
+                            })}
+                          >
                             {subject.abbreviation?.[0] || 'S'}
                           </Avatar>
-                          <Avatar sx={{ width: 24, height: 24, fontSize: 10, border: '2px solid #fff', bgcolor: '#d8e3fa', color: '#475265' }}>
+                          <Avatar
+                            sx={(theme) => ({
+                              width: 24,
+                              height: 24,
+                              fontSize: 10,
+                              border: `2px solid ${theme.palette.background.paper}`,
+                              bgcolor: '#d8e3fa',
+                              color: '#475265',
+                            })}
+                          >
                             {user?.firstname?.[0] || 'U'}
                           </Avatar>
-                          <Avatar sx={{ width: 24, height: 24, fontSize: 10, border: '2px solid #fff', bgcolor: '#eff4f7', color: '#283439' }}>
+                          <Avatar
+                            sx={(theme) => ({
+                              width: 24,
+                              height: 24,
+                              fontSize: 10,
+                              border: `2px solid ${theme.palette.background.paper}`,
+                              bgcolor: '#d8e3fa',
+                              color: '#283439',
+                            })}
+                          >
                             +{Math.max((summary?.registeredSubjects ?? 0) + index + 1, 1)}
                           </Avatar>
                         </Stack>
@@ -410,7 +437,7 @@ export default function DashboardPage() {
                   gridTemplateColumns: 'repeat(12, minmax(0, 1fr))',
                   px: 3,
                   py: 2,
-                  bgcolor: '#eff4f7',
+                  bgcolor: 'action.hover',
                 }}
               >
                 <Typography sx={{ gridColumn: 'span 6', fontSize: 11, fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.16em' }}>
@@ -442,8 +469,8 @@ export default function DashboardPage() {
                       px: 3,
                       py: 2.5,
                       alignItems: 'center',
-                      borderTop: '1px solid rgba(231, 239, 243, 1)',
-                      '&:hover': { bgcolor: '#dfeaef' },
+                      borderTop: (theme) => `1px solid ${theme.palette.divider}`,
+                      '&:hover': { bgcolor: 'action.hover' },
                     }}
                   >
                     <Box sx={{ gridColumn: { xs: '1 / -1', md: 'span 6' }, mb: { xs: 1.5, md: 0 } }}>
@@ -454,7 +481,7 @@ export default function DashboardPage() {
                         {project.description || 'Project workspace milestone'}
                       </Typography>
                     </Box>
-                    <Typography sx={{ gridColumn: { xs: 'span 6', md: 'span 3' }, color: '#546073', fontWeight: 500, fontSize: 14 }}>
+                    <Typography sx={{ gridColumn: { xs: 'span 6', md: 'span 3' }, color: 'text.secondary', fontWeight: 500, fontSize: 14 }}>
                       {project.end_date ? formatDateOnly(project.end_date) : 'TBD'}
                     </Typography>
                     <Box sx={{ gridColumn: { xs: 'span 6', md: 'span 3' }, textAlign: 'right' }}>
