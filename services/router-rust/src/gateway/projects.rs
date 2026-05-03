@@ -4,7 +4,7 @@ use std::pin::Pin;
 
 type DownloadStream = Pin<Box<dyn Stream<Item = Result<FileChunk, Status>> + Send>>;
 
-use crate::proto::common::{Ack, UserRole};
+use crate::proto::common::Ack;
 
 use crate::proto::gateway::{CreateProjectGatewayRequest, ListTeamsByProjectGatewayResponse};
 
@@ -53,7 +53,6 @@ pub(super) async fn create_project(
     request: Request<CreateProjectGatewayRequest>,
 ) -> Result<Response<Project>, Status> {
     let current_user = FrontendGatewayService::current_user(&request)?;
-    FrontendGatewayService::require_roles(&current_user, &[UserRole::Teacher, UserRole::Admin])?;
 
     let ctx = ForwardContext::from_request(&request);
     let body = request.into_inner();
@@ -84,9 +83,6 @@ pub(super) async fn update_project(
     service: &FrontendGatewayService,
     request: Request<UpdateProjectRequest>,
 ) -> Result<Response<Project>, Status> {
-    let current_user = FrontendGatewayService::current_user(&request)?;
-    FrontendGatewayService::require_roles(&current_user, &[UserRole::Teacher, UserRole::Admin])?;
-
     let response = service
         .state
         .project_client()
@@ -101,9 +97,6 @@ pub(super) async fn delete_project(
     service: &FrontendGatewayService,
     request: Request<DeleteProjectRequest>,
 ) -> Result<Response<Ack>, Status> {
-    let current_user = FrontendGatewayService::current_user(&request)?;
-    FrontendGatewayService::require_roles(&current_user, &[UserRole::Teacher, UserRole::Admin])?;
-
     let response = service
         .state
         .project_client()
@@ -356,9 +349,6 @@ pub(super) async fn submit_project(
     service: &FrontendGatewayService,
     request: Request<SubmitProjectRequest>,
 ) -> Result<Response<ProjectSubmission>, Status> {
-    let current_user = FrontendGatewayService::current_user(&request)?;
-    FrontendGatewayService::require_roles(&current_user, &[UserRole::Student, UserRole::Admin])?;
-
     let response = service
         .state
         .project_client()
@@ -373,9 +363,6 @@ pub(super) async fn delete_submission(
     service: &FrontendGatewayService,
     request: Request<DeleteSubmissionRequest>,
 ) -> Result<Response<Ack>, Status> {
-    let current_user = FrontendGatewayService::current_user(&request)?;
-    FrontendGatewayService::require_roles(&current_user, &[UserRole::Student, UserRole::Teacher, UserRole::Admin])?;
-
     let response = service
         .state
         .project_client()
@@ -390,9 +377,6 @@ pub(super) async fn download_submission(
     service: &FrontendGatewayService,
     request: Request<DownloadSubmissionRequest>,
 ) -> Result<Response<DownloadStream>, Status> {
-    let current_user = FrontendGatewayService::current_user(&request)?;
-    FrontendGatewayService::require_roles(&current_user, &[UserRole::Student, UserRole::Teacher, UserRole::Admin])?;
-
     let stream = service
         .state
         .project_client()

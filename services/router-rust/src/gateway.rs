@@ -100,16 +100,6 @@ impl FrontendGatewayService {
             .ok_or_else(|| Status::unauthenticated("missing auth token"))
     }
 
-    fn require_roles(user: &CurrentUser, allowed_roles: &[UserRole]) -> Result<(), Status> {
-        if allowed_roles.contains(&user.role) {
-            return Ok(());
-        }
-
-        Err(Status::permission_denied(
-            "user role does not have permission to access this resource",
-        ))
-    }
-
     fn require_non_empty(value: &str, name: &str) -> Result<(), Status> {
         if value.trim().is_empty() {
             return Err(Status::invalid_argument(format!("missing {name}")));

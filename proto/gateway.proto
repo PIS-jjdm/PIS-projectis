@@ -90,8 +90,6 @@ message CreateProjectGatewayRequest {
   string subject_id = 7;
 }
 
-message RegisterTeamGatewayRequest { string project_id = 1; }
-
 message CreateNotificationGatewayRequest {
   repeated string user_ids = 1;
   string message = 2;

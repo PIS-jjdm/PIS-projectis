@@ -40,8 +40,6 @@ pub(super) async fn create_subject(
     service: &FrontendGatewayService,
     request: Request<CreateSubjectRequest>,
 ) -> Result<Response<Subject>, Status> {
-    let current_user = FrontendGatewayService::current_user(&request)?;
-    FrontendGatewayService::require_roles(&current_user, &[UserRole::Admin])?;
 
     let response = service
         .state
@@ -57,8 +55,6 @@ pub(super) async fn update_subject(
     service: &FrontendGatewayService,
     request: Request<UpdateSubjectRequest>,
 ) -> Result<Response<Subject>, Status> {
-    let current_user = FrontendGatewayService::current_user(&request)?;
-    FrontendGatewayService::require_roles(&current_user, &[UserRole::Admin])?;
 
     let response = service
         .state
@@ -74,8 +70,6 @@ pub(super) async fn delete_subject(
     service: &FrontendGatewayService,
     request: Request<DeleteSubjectRequest>,
 ) -> Result<Response<Ack>, Status> {
-    let current_user = FrontendGatewayService::current_user(&request)?;
-    FrontendGatewayService::require_roles(&current_user, &[UserRole::Admin])?;
 
     let response = service
         .state
@@ -91,8 +85,6 @@ pub(super) async fn add_student_to_subject(
     service: &FrontendGatewayService,
     request: Request<UserSubjectRequest>,
 ) -> Result<Response<Ack>, Status> {
-    let current_user = FrontendGatewayService::current_user(&request)?;
-    FrontendGatewayService::require_roles(&current_user, &[UserRole::Admin])?;
 
     let ctx = ForwardContext::from_request(&request);
     let body = request.into_inner();
@@ -125,8 +117,6 @@ pub(super) async fn remove_student_from_subject(
     service: &FrontendGatewayService,
     request: Request<UserSubjectRequest>,
 ) -> Result<Response<Ack>, Status> {
-    let current_user = FrontendGatewayService::current_user(&request)?;
-    FrontendGatewayService::require_roles(&current_user, &[UserRole::Admin])?;
 
     let ctx = ForwardContext::from_request(&request);
     let body = request.into_inner();
@@ -147,8 +137,6 @@ pub(super) async fn assign_teacher_to_subject(
     service: &FrontendGatewayService,
     request: Request<TeacherSubjectRequest>,
 ) -> Result<Response<Subject>, Status> {
-    let current_user = FrontendGatewayService::current_user(&request)?;
-    FrontendGatewayService::require_roles(&current_user, &[UserRole::Admin])?;
 
     let ctx = ForwardContext::from_request(&request);
     let body = request.into_inner();
@@ -169,8 +157,6 @@ pub(super) async fn remove_teacher_from_subject(
     service: &FrontendGatewayService,
     request: Request<TeacherSubjectRequest>,
 ) -> Result<Response<Subject>, Status> {
-    let current_user = FrontendGatewayService::current_user(&request)?;
-    FrontendGatewayService::require_roles(&current_user, &[UserRole::Admin])?;
 
     let ctx = ForwardContext::from_request(&request);
     let body = request.into_inner();
@@ -192,8 +178,6 @@ pub(super) async fn register_subject(
     request: Request<RegisterSubjectGatewayRequest>,
 ) -> Result<Response<Ack>, Status> {
     let current_user = FrontendGatewayService::current_user(&request)?;
-    FrontendGatewayService::require_roles(&current_user, &[UserRole::Student])?;
-
     let ctx = ForwardContext::from_request(&request);
     let body = request.into_inner();
     FrontendGatewayService::require_non_empty(&body.subject_id, "subject id")?;
