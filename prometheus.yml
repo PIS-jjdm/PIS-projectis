@@ -44,3 +44,15 @@ scrape_configs:
             service: evaluation-service
             check: grpc-health
     relabel_configs: *blackbox_relabel
+
+  - job_name: "blackbox-router-health"
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - http://router:8081/health
+        labels:
+          service: router
+          check: liveness
+    relabel_configs: *blackbox_relabel

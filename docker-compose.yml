@@ -209,6 +209,7 @@ services:
       EVAL_GRPC_ENDPOINT: http://evaluation-service:50055
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_SERVICE_NAME: router
+      OTEL_METRIC_EXPORT_INTERVAL: 5000   # milliseconds
       RUST_LOG: info,tower_http=info
     depends_on:
       - auth-service
