@@ -30,16 +30,19 @@ import MenuBookRoundedIcon from '@mui/icons-material/MenuBookRounded'
 import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
 import NotificationsRoundedIcon from '@mui/icons-material/NotificationsRounded'
 import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded'
+import DarkModeRoundedIcon from '@mui/icons-material/DarkModeRounded'
 import HelpOutlineRoundedIcon from '@mui/icons-material/HelpOutlineRounded'
+import LightModeRoundedIcon from '@mui/icons-material/LightModeRounded'
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded'
 import SchoolRoundedIcon from '@mui/icons-material/SchoolRounded'
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded'
 import AccountCircleRoundedIcon from '@mui/icons-material/AccountCircleRounded'
 import KeyRoundedIcon from '@mui/icons-material/KeyRounded'
-import { useTheme } from '@mui/material/styles'
+import { alpha, useTheme } from '@mui/material/styles'
 import { Outlet, useLocation, useNavigate } from 'react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { useThemeMode } from '../contexts/ThemeModeContext'
 import { api } from '../lib/api'
 import UserAvatar from './UserAvatar'
 
@@ -131,6 +134,7 @@ export default function AppShell() {
   const location = useLocation()
   const navigate = useNavigate()
   const { logout, user, token } = useAuth()
+  const { mode, toggleMode } = useThemeMode()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const [accountAnchorEl, setAccountAnchorEl] = useState(null)
@@ -428,7 +432,7 @@ export default function AppShell() {
           <SchoolRoundedIcon fontSize="small" />
         </Box>
         <Box>
-          <Typography variant="h6" sx={{ fontSize: 18, lineHeight: 1.1, color: '#1e3a5f' }}>
+          <Typography variant="h6" sx={{ fontSize: 18, lineHeight: 1.1, color: 'text.primary' }}>
             Scholarly Curator
           </Typography>
           <Typography
@@ -451,20 +455,25 @@ export default function AppShell() {
                 navigate(item.path)
                 setDrawerOpen(false)
               }}
-              sx={{
+              sx={(theme) => ({
                 gap: 1.5,
                 borderRadius: 2,
                 mb: 0.5,
                 px: 1.5,
                 py: 1.2,
-                color: active ? '#1e3a5f' : '#546166',
-                bgcolor: active ? 'rgba(214, 227, 255, 0.7)' : 'transparent',
+                color: active ? theme.palette.primary.main : theme.palette.text.secondary,
+                bgcolor: active
+                  ? alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.22 : 0.12)
+                  : 'transparent',
                 '&:hover': {
-                  bgcolor: active ? 'rgba(214, 227, 255, 0.86)' : 'rgba(239, 244, 247, 0.9)',
+                  bgcolor: alpha(
+                    theme.palette.primary.main,
+                    active ? (theme.palette.mode === 'dark' ? 0.3 : 0.18) : 0.08,
+                  ),
                   transform: 'translateX(4px)',
                 },
                 transition: 'background-color 0.2s ease, transform 0.2s ease',
-              }}
+              })}
             >
               <ListItemIcon sx={{ minWidth: 32, color: 'inherit' }}>
                 {item.badge ? (
@@ -487,13 +496,16 @@ export default function AppShell() {
       </List>
 
       <Box
-        sx={{
+        sx={(theme) => ({
           mt: 'auto',
           p: 2,
           borderRadius: 3,
-          bgcolor: '#eff4f7',
+          bgcolor:
+            theme.palette.mode === 'dark'
+              ? alpha(theme.palette.common.white, 0.04)
+              : '#eff4f7',
           fontFamily: 'Inter, sans-serif',
-        }}
+        })}
       >
         <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary' }}>
           QUICK HELP
@@ -547,7 +559,7 @@ export default function AppShell() {
               </IconButton>
             )}
             <Stack direction="row" spacing={4} alignItems="center" sx={{ flexGrow: 1 }}>
-              <Typography variant="h6" sx={{ fontSize: 20, color: '#455f88' }}>
+              <Typography variant="h6" sx={{ fontSize: 20, color: 'primary.main' }}>
                 Scholarly Curator
               </Typography>
               <Stack
@@ -569,8 +581,9 @@ export default function AppShell() {
                         border: 0,
                         cursor: 'pointer',
                         pb: 0.75,
-                        color: active ? '#455f88' : '#546166',
-                        borderBottom: active ? '2px solid #455f88' : '2px solid transparent',
+                        color: active ? 'primary.main' : 'text.secondary',
+                        borderBottom: (theme) =>
+                          `2px solid ${active ? theme.palette.primary.main : 'transparent'}`,
                         fontWeight: active ? 700 : 500,
                         fontFamily: 'inherit',
                       }}
@@ -583,6 +596,15 @@ export default function AppShell() {
             </Stack>
 
             <Stack direction="row" spacing={1.5} alignItems="center">
+              <Tooltip title={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
+                <IconButton onClick={toggleMode} aria-label="Toggle theme">
+                  {mode === 'dark' ? (
+                    <LightModeRoundedIcon sx={{ color: 'text.secondary' }} />
+                  ) : (
+                    <DarkModeRoundedIcon sx={{ color: 'text.secondary' }} />
+                  )}
+                </IconButton>
+              </Tooltip>
               <Tooltip title="Notifications">
                 <IconButton onClick={() => navigate('/notifications')}>
                   <Badge color="error" badgeContent={unreadCount}>
