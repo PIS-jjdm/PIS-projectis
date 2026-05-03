@@ -1,4 +1,4 @@
-mod auth;
+mod auth
 mod eval;
 mod notifications;
 mod projects;
@@ -18,9 +18,9 @@ use crate::proto::{
     gateway::{
         frontend_gateway_server::FrontendGateway, CancelScheduledNotificationGatewayRequest,
         ChangePasswordGatewayRequest, CreateNotificationGatewayRequest,
-        CreateNotificationGatewayResponse, ListNotificationsGatewayResponse, 
-        NotificationWithSender, RegisterSubjectGatewayRequest,
-        RescheduleScheduledNotificationGatewayRequest, CreateProjectGatewayRequest
+        CreateNotificationGatewayResponse, CreateProjectGatewayRequest,
+        ListNotificationsGatewayResponse, NotificationWithSender, RegisterSubjectGatewayRequest,
+        RescheduleScheduledNotificationGatewayRequest,
     },
     notification::{ListScheduledNotificationsResponse, MarkAsReadRequest, Notification},
     project::{
@@ -28,13 +28,13 @@ use crate::proto::{
         GetProjectRequest, GetTeamRequest, JoinRequest, ListJoinRequestsRequest,
         ListJoinRequestsResponse, ListProjectsRequest, ListProjectsResponse,
         ListTeamsByProjectRequest, ListTeamsByProjectResponse, Project, RemoveTeamMemberRequest,
-        Team, TeamDetail, UpdateProjectRequest, RegisterTeamRequest, LeaveTeamRequest, CreateJoinRequestRequest, 
+        Team, TeamDetail, UpdateProjectRequest, RegisterTeamRequest, LeaveTeamRequest, CreateJoinRequestRequest,
         ResolveJoinRequestRequest, DeleteSubmissionRequest, SubmitProjectRequest, ProjectSubmission,
         DownloadSubmissionRequest, FileChunk
     },
     subject::{
-        CreateSubjectRequest, DeleteSubjectRequest, ListSubjectsResponse, Subject,
-        TeacherSubjectRequest, UpdateSubjectRequest,
+        CreateSubjectRequest, DeleteSubjectRequest, GetSubjectRequest, ListSubjectsResponse,
+        Subject, TeacherSubjectRequest, UpdateSubjectRequest, UserSubjectRequest,
     },
 };
 use crate::AppState;
@@ -224,6 +224,13 @@ impl FrontendGateway for FrontendGatewayService {
         subjects::list_subjects(self, request).await
     }
 
+    async fn get_subject(
+        &self,
+        request: Request<GetSubjectRequest>,
+    ) -> Result<Response<Subject>, Status> {
+        subjects::get_subject(self, request).await
+    }
+
     async fn create_subject(
         &self,
         request: Request<CreateSubjectRequest>,
@@ -250,6 +257,20 @@ impl FrontendGateway for FrontendGatewayService {
         request: Request<RegisterSubjectGatewayRequest>,
     ) -> Result<Response<Ack>, Status> {
         subjects::register_subject(self, request).await
+    }
+
+    async fn add_student_to_subject(
+        &self,
+        request: Request<UserSubjectRequest>,
+    ) -> Result<Response<Ack>, Status> {
+        subjects::add_student_to_subject(self, request).await
+    }
+
+    async fn remove_student_from_subject(
+        &self,
+        request: Request<UserSubjectRequest>,
+    ) -> Result<Response<Ack>, Status> {
+        subjects::remove_student_from_subject(self, request).await
     }
 
     async fn assign_teacher_to_subject(

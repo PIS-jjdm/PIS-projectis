@@ -302,9 +302,15 @@ export const api = {
     )
   },
 
+  async getSubject(session, subjectId) {
+    return tryLive(
+      async () => normalizeSubject(await gatewayClient.getSubject(accessToken(session), subjectId)),
+      () => mockApi.getSubject(subjectId),
+    )
+  },
+
   async getSubjectNotificationRecipients(session, subjectId) {
-    const subjects = await api.listSubjects(session)
-    const subject = subjects.find((item) => item.id === subjectId)
+    const subject = await api.getSubject(session, subjectId)
     if (!subject) {
       throw new Error('Subject not found')
     }
@@ -339,6 +345,38 @@ export const api = {
     return tryLive(
       async () => gatewayClient.registerSubject(accessToken(session), subjectId),
       () => mockApi.registerSubject(session, subjectId),
+    )
+  },
+
+  async addStudentToSubject(session, subjectId, userId) {
+    return tryLive(
+      async () => gatewayClient.addStudentToSubject(accessToken(session), subjectId, userId),
+      () => mockApi.addStudentToSubject(session, subjectId, userId),
+    )
+  },
+
+  async removeStudentFromSubject(session, subjectId, userId) {
+    return tryLive(
+      async () => gatewayClient.removeStudentFromSubject(accessToken(session), subjectId, userId),
+      () => mockApi.removeStudentFromSubject(session, subjectId, userId),
+    )
+  },
+
+  async assignTeacherToSubject(session, subjectId, teacherUserId) {
+    return tryLive(
+      async () => normalizeSubject(
+        await gatewayClient.assignTeacherToSubject(accessToken(session), subjectId, teacherUserId),
+      ),
+      () => mockApi.assignTeacherToSubject(session, subjectId, teacherUserId),
+    )
+  },
+
+  async removeTeacherFromSubject(session, subjectId, teacherUserId) {
+    return tryLive(
+      async () => normalizeSubject(
+        await gatewayClient.removeTeacherFromSubject(accessToken(session), subjectId, teacherUserId),
+      ),
+      () => mockApi.removeTeacherFromSubject(session, subjectId, teacherUserId),
     )
   },
 
@@ -468,7 +506,17 @@ export const api = {
   },
 
   async listKnownUsers(session) {
-    return mockApi.listKnownUsers(session)
+    if (!['teacher', 'admin'].includes(session?.user?.role)) {
+      return mockApi.listKnownUsers(session)
+    }
+
+    return tryLive(
+      async () => {
+        const response = await gatewayClient.listUsers(accessToken(session))
+        return response.getUsersList().map(normalizeUser)
+      },
+      () => mockApi.listKnownUsers(session),
+    )
   },
 
   async listSubmissionFiles(session, projectId) {

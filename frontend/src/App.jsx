@@ -4,6 +4,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import LoginPage from './pages/auth/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import SubjectsPage from './pages/SubjectsPage'
+import SubjectDetailPage from './pages/SubjectDetailPage'
 import ProjectsPage from './pages/ProjectsPage'
 import ProjectDetailPage from './pages/ProjectDetailPage'
 import NotificationsPage from './pages/NotificationsPage'
@@ -25,6 +26,7 @@ export default function App() {
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<DashboardPage />} />
         <Route path="subjects" element={<SubjectsPage />} />
+        <Route path="subjects/:subjectId" element={<SubjectDetailPage />} />
         <Route path="projects" element={<ProjectsPage />} />
         <Route path="projects/:projectId" element={<ProjectDetailPage />} />
         <Route path="notifications" element={<NotificationsPage />} />

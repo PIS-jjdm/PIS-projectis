@@ -111,10 +111,10 @@ fn route_auth_policy(path: &str) -> RouteAuthPolicy {
         "/gateway.FrontendGateway/CreateSubject"
         | "/gateway.FrontendGateway/UpdateSubject"
         | "/gateway.FrontendGateway/DeleteSubject"
+        | "/gateway.FrontendGateway/AddStudentToSubject"
+        | "/gateway.FrontendGateway/RemoveStudentFromSubject"
         | "/gateway.FrontendGateway/AssignTeacherToSubject"
-        | "/gateway.FrontendGateway/RemoveTeacherFromSubject" => {
-            RouteAuthPolicy::Roles(ADMIN_ONLY)
-        }
+        | "/gateway.FrontendGateway/RemoveTeacherFromSubject" => RouteAuthPolicy::Roles(ADMIN_ONLY),
         "/gateway.FrontendGateway/CreateProject"
         | "/gateway.FrontendGateway/CreateNotification"
         | "/gateway.FrontendGateway/ListScheduledNotifications"
