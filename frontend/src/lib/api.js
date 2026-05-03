@@ -35,15 +35,17 @@ async function tryLive(fn, fallback) {
   try {
     return await fn()
   } catch (error) {
-    if (handleAuthenticationFailure(error)) {
-      throw error
-    }
-
     if (isHybridMode()) {
       return fallback(error)
     }
     throw error
   }
+}
+
+// Auth-sensitive callers (e.g. session hydration) opt in to the
+// session-clear behaviour by invoking this directly on UNAUTHENTICATED.
+export function reportAuthFailure(error) {
+  return handleAuthenticationFailure(error)
 }
 
 function normalizeAuthResponse(data) {
@@ -120,9 +122,9 @@ function normalizeSubject(subject) {
 
 function normalizeProject(project) {
   if (!project) return null
-  if (typeof project.getId === 'function') {
+  if (typeof project.getProjectId === 'function') {
     return {
-      id: project.getId(),
+      id: project.getProjectId(),
       title: project.getTitle(),
       description: project.getDescription(),
       teacher_id: project.getTeacherId(),
@@ -137,13 +139,13 @@ function normalizeProject(project) {
 
 function normalizeTeam(team) {
   if (!team) return null
-  if (typeof team.getId === 'function') {
+  if (typeof team.getTeamId === 'function') {
     return {
-      id: team.getId(),
+      id: team.getTeamId(),
       project_id: team.getProjectId(),
       name: team.getName(),
       leader_student_id: team.getLeaderStudentId(),
-      student_ids: team.getStudentIdsList(),
+      student_ids: team.getStudentIdsList?.() || [],
     }
   }
   return team
@@ -380,11 +382,23 @@ export const api = {
     )
   },
 
-  async listProjects(session) {
+  async listProjects(session, subjectId) {
     return tryLive(
       async () => {
-        const response = await gatewayClient.listProjects(accessToken(session))
-        return response.getProjectsList().map(normalizeProject)
+        if (subjectId) {
+          const response = await gatewayClient.listProjects(accessToken(session), subjectId)
+          return response.getProjectsList().map(normalizeProject)
+        }
+
+        const subjectsResponse = await gatewayClient.listSubjects(accessToken(session))
+        const subjects = subjectsResponse.getSubjectsList().map(normalizeSubject)
+        const perSubject = await Promise.all(
+          subjects.map(async (subject) => {
+            const response = await gatewayClient.listProjects(accessToken(session), subject.id)
+            return response.getProjectsList().map(normalizeProject)
+          }),
+        )
+        return perSubject.flat()
       },
       () => mockApi.listProjects(session),
     )
@@ -416,9 +430,15 @@ export const api = {
     )
   },
 
-  async registerTeam(session, projectId) {
+  async registerTeam(session, projectId, teamName) {
+    const resolvedName =
+      (teamName && teamName.trim()) ||
+      `${session?.user?.firstname || 'Team'}'s team`
     return tryLive(
-      async () => normalizeTeam(await gatewayClient.registerTeam(accessToken(session), projectId)),
+      async () =>
+        normalizeTeam(
+          await gatewayClient.registerTeam(accessToken(session), projectId, resolvedName),
+        ),
       () => mockApi.registerTeam(session, projectId),
     )
   },

@@ -317,11 +317,15 @@ export default function SubjectsPage() {
                         >
                           Open details
                         </Button>
-                        {user?.role === 'student' && (
-                          <Button variant="outlined" onClick={() => handleRegisterSubject(subject.id)}>
-                            Register to subject
-                          </Button>
-                        )}
+                        {user?.role === 'student' &&
+                          !(subject.user_ids || []).includes(user?.id) && (
+                            <Button
+                              variant="outlined"
+                              onClick={() => handleRegisterSubject(subject.id)}
+                            >
+                              Register to subject
+                            </Button>
+                          )}
                         {['teacher', 'admin'].includes(user?.role) && (
                           <Button
                             variant="contained"

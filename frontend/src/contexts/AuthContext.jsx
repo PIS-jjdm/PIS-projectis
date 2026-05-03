@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
-import { api } from '../lib/api'
+import { api, reportAuthFailure } from '../lib/api'
 
 const AuthContext = createContext(null)
 const STORAGE_KEY = 'project-registration-auth'
@@ -44,8 +44,10 @@ export function AuthProvider({ children }) {
         if (active && user) {
           setSession((previous) => ({ ...previous, user }))
         }
-      } catch {
-        // keep last successful session snapshot when backend route is not ready
+      } catch (error) {
+        // Only treat UNAUTHENTICATED on the auth check itself as session expiry.
+        // Other failures (e.g. backend not ready yet) should keep the existing session.
+        reportAuthFailure(error)
       } finally {
         if (active) setInitializing(false)
       }

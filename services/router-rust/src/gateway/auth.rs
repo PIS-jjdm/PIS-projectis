@@ -126,11 +126,8 @@ pub(super) async fn get_user(
 
 pub(super) async fn list_users(
     service: &FrontendGatewayService,
-    request: Request<Empty>,
+    _request: Request<Empty>,
 ) -> Result<Response<ListUsersResponse>, Status> {
-    let current_user = FrontendGatewayService::current_user(&request)?;
-    FrontendGatewayService::require_roles(&current_user, &[UserRole::Teacher, UserRole::Admin])?;
-
     let response = service
         .state
         .auth_client()

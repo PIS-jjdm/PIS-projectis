@@ -201,7 +201,7 @@ const methods = {
   ),
   listProjects: unaryDescriptor(
     '/gateway.FrontendGateway/ListProjects',
-    commonPb.Empty,
+    projectPb.ListProjectsRequest,
     projectPb.ListProjectsResponse,
   ),
   createProject: unaryDescriptor(
@@ -216,7 +216,7 @@ const methods = {
   ),
   registerTeam: unaryDescriptor(
     '/gateway.FrontendGateway/RegisterTeam',
-    gatewayPb.RegisterTeamGatewayRequest,
+    projectPb.RegisterTeamRequest,
     projectPb.Team,
   ),
   listTeamsByProject: unaryDescriptor(
@@ -410,8 +410,10 @@ export const gatewayClient = {
     return client.unary(methods.removeTeacherFromSubject, request, accessToken)
   },
 
-  listProjects(accessToken) {
-    return client.unary(methods.listProjects, new commonPb.Empty(), accessToken)
+  listProjects(accessToken, subjectId) {
+    const request = new projectPb.ListProjectsRequest()
+    request.setSubjectId(subjectId || '')
+    return client.unary(methods.listProjects, request, accessToken)
   },
 
   createProject(accessToken, payload) {
@@ -436,9 +438,10 @@ export const gatewayClient = {
     return client.unary(methods.getProject, request, accessToken)
   },
 
-  registerTeam(accessToken, projectId) {
-    const request = new gatewayPb.RegisterTeamGatewayRequest()
+  registerTeam(accessToken, projectId, teamName) {
+    const request = new projectPb.RegisterTeamRequest()
     request.setProjectId(projectId || '')
+    request.setTeamName(teamName || '')
     return client.unary(methods.registerTeam, request, accessToken)
   },
 
