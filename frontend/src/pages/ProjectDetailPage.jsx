@@ -15,9 +15,11 @@ import {
   Typography,
 } from '@mui/material'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
+import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
 import GroupRoundedIcon from '@mui/icons-material/GroupRounded'
 import InsertDriveFileRoundedIcon from '@mui/icons-material/InsertDriveFileRounded'
 import PersonAddRoundedIcon from '@mui/icons-material/PersonAddRounded'
+import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router'
 import LoadingState from '../components/LoadingState'
@@ -33,6 +35,8 @@ import {
 import { formatDateOnly } from '../utils/date'
 
 const validTabs = new Set(['overview', 'team', 'files'])
+const MAX_SUBMISSION_MB = 10
+const MAX_SUBMISSION_BYTES = MAX_SUBMISSION_MB * 1024 * 1024
 
 export default function ProjectDetailPage() {
   const navigate = useNavigate()
@@ -44,11 +48,19 @@ export default function ProjectDetailPage() {
   const [subject, setSubject] = useState(null)
   const [teams, setTeams] = useState([])
   const [knownUsers, setKnownUsers] = useState([])
-  const [submissionFiles, setSubmissionFiles] = useState([])
+  const [teamDetails, setTeamDetails] = useState({})
+  const [evaluationDrafts, setEvaluationDrafts] = useState({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [memberStudentId, setMemberStudentId] = useState('')
+  const [savingEvaluation, setSavingEvaluation] = useState(false)
+  const [downloading, setDownloading] = useState(false)
+  const [submittingFile, setSubmittingFile] = useState(false)
+
+  const isProjectTeacher =
+    !!project && (user?.role === 'admin' || project.teacher_id === user?.id)
+  const isStudent = user?.role === 'student'
 
   const activeTab = validTabs.has(searchParams.get('tab')) ? searchParams.get('tab') : 'overview'
   const knownUsersById = useMemo(
@@ -65,6 +77,10 @@ export default function ProjectDetailPage() {
     !!effectiveUser &&
     ownTeam.leader_student_id === effectiveUser.id &&
     effectiveUser.role === 'student'
+  const visibleTeams = useMemo(
+    () => (isStudent ? (ownTeam ? [ownTeam] : []) : teams),
+    [isStudent, ownTeam, teams],
+  )
 
   const candidateStudents = useMemo(() => {
     const projectMemberIds = new Set(
@@ -98,25 +114,185 @@ export default function ProjectDetailPage() {
     setLoading(true)
     setError('')
     try {
-      const [projectData, subjectData, teamData, userData, fileData] = await Promise.all([
+      const [projectData, subjectData, teamData, userData] = await Promise.all([
         api.getProject(session, projectId),
         api.listSubjects(session),
         api.listTeamsByProject(session, projectId),
         api.listKnownUsers(session),
-        api.listSubmissionFiles(session, projectId),
       ])
 
       const subjects = Array.isArray(subjectData) ? subjectData : subjectData.subjects || []
       const nextProject = Array.isArray(projectData) ? projectData[0] : projectData
+      const nextTeams = Array.isArray(teamData) ? teamData : teamData.teams || []
+
       setProject(nextProject)
       setSubject(subjects.find((item) => item.id === nextProject?.subject_id) || null)
-      setTeams(Array.isArray(teamData) ? teamData : teamData.teams || [])
+      setTeams(nextTeams)
       setKnownUsers(Array.isArray(userData) ? userData : [])
-      setSubmissionFiles(Array.isArray(fileData) ? fileData : [])
+
+      const role = String(user?.role || '').toLowerCase()
+      const detailFetchTeams =
+        role === 'student'
+          ? nextTeams.filter((team) => (team.student_ids || []).includes(user?.id))
+          : nextTeams
+      const detailEntries = await Promise.all(
+        detailFetchTeams.map(async (team) => {
+          try {
+            const detail = await api.getTeam(session, team.id)
+            return [team.id, detail]
+          } catch {
+            return [team.id, null]
+          }
+        }),
+      )
+      const nextDetails = Object.fromEntries(detailEntries)
+      setTeamDetails(nextDetails)
+      setEvaluationDrafts(
+        Object.fromEntries(
+          detailEntries.map(([teamId, detail]) => [
+            teamId,
+            {
+              evaluation_id: detail?.evaluation?.id || null,
+              score:
+                detail?.evaluation?.total_score !== undefined &&
+                detail?.evaluation?.total_score !== null
+                  ? String(detail.evaluation.total_score)
+                  : '',
+              feedback: detail?.evaluation?.feedback || '',
+              dirty: false,
+            },
+          ]),
+        ),
+      )
     } catch (loadError) {
       setError(loadError.message || 'Failed to load project details')
     } finally {
       setLoading(false)
+    }
+  }
+
+  function setEvaluationField(teamId, field, value) {
+    setEvaluationDrafts((current) => ({
+      ...current,
+      [teamId]: { ...(current[teamId] || {}), [field]: value, dirty: true },
+    }))
+  }
+
+  async function saveEvaluationOne(teamId) {
+    const draft = evaluationDrafts[teamId]
+    if (!draft) return
+    const score = Number(draft.score)
+    if (!Number.isFinite(score)) {
+      throw new Error('Score must be a number')
+    }
+    if (draft.evaluation_id) {
+      await api.updateProjectEvaluation(session, {
+        evaluation_id: draft.evaluation_id,
+        total_score: score,
+        feedback: draft.feedback || '',
+      })
+    } else {
+      await api.createProjectEvaluation(session, {
+        subject_id: project?.subject_id || '',
+        project_id: project?.id || '',
+        team_id: teamId,
+        total_score: score,
+        feedback: draft.feedback || '',
+      })
+    }
+  }
+
+  async function handleSaveEvaluation(teamId) {
+    setError('')
+    setSavingEvaluation(true)
+    try {
+      await saveEvaluationOne(teamId)
+      setSuccess('Evaluation saved.')
+      await loadData()
+    } catch (saveError) {
+      setError(saveError.message || 'Failed to save evaluation')
+    } finally {
+      setSavingEvaluation(false)
+    }
+  }
+
+  async function handleSaveAllEvaluations() {
+    const dirty = Object.entries(evaluationDrafts).filter(([, draft]) => draft.dirty)
+    if (!dirty.length) return
+    setError('')
+    setSavingEvaluation(true)
+    try {
+      for (const [teamId] of dirty) {
+        await saveEvaluationOne(teamId)
+      }
+      setSuccess(`Saved ${dirty.length} evaluation${dirty.length === 1 ? '' : 's'}.`)
+      await loadData()
+    } catch (saveError) {
+      setError(saveError.message || 'Failed to save some evaluations')
+    } finally {
+      setSavingEvaluation(false)
+    }
+  }
+
+  async function downloadOne(teamId) {
+    const result = await api.downloadSubmission(session, teamId)
+    const url = URL.createObjectURL(result.blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = result.fileName || `submission-${teamId}.bin`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
+  async function handleDownload(teamId) {
+    setError('')
+    setDownloading(true)
+    try {
+      await downloadOne(teamId)
+    } catch (downloadError) {
+      setError(downloadError.message || 'Failed to download submission')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  async function handleDownloadAll() {
+    setError('')
+    setDownloading(true)
+    try {
+      const ids = visibleTeams
+        .filter((team) => teamDetails[team.id]?.submission)
+        .map((team) => team.id)
+      for (const teamId of ids) {
+        await downloadOne(teamId)
+      }
+    } catch (downloadError) {
+      setError(downloadError.message || 'Failed to download submissions')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
+  async function handleSubmitFile(teamId, file) {
+    if (!file) return
+    setError('')
+    if (file.size > MAX_SUBMISSION_BYTES) {
+      setError(
+        `"${file.name}" is ${(file.size / (1024 * 1024)).toFixed(1)} MB; the limit is ${MAX_SUBMISSION_MB} MB.`,
+      )
+      return
+    }
+    setSubmittingFile(true)
+    try {
+      await api.submitProject(session, teamId, file)
+      setSuccess(`Submitted "${file.name}" for the team.`)
+      await loadData()
+    } catch (submitError) {
+      setError(submitError.message || 'Failed to submit file')
+    } finally {
+      setSubmittingFile(false)
     }
   }
 
@@ -256,7 +432,9 @@ export default function ProjectDetailPage() {
                       variant="outlined"
                     />
                     <Chip
-                      label={`${submissionFiles.length} submission file${submissionFiles.length === 1 ? '' : 's'}`}
+                      label={`${
+                        teams.filter((team) => teamDetails[team.id]?.submission).length
+                      } / ${teams.length} team${teams.length === 1 ? '' : 's'} submitted`}
                       variant="outlined"
                     />
                     {ownTeam && (
@@ -435,43 +613,252 @@ export default function ProjectDetailPage() {
           )}
 
           {activeTab === 'files' && (
-            <Stack spacing={1.5}>
-              {submissionFiles.length === 0 ? (
+            <Stack spacing={2}>
+              {(() => {
+                const teamsWithSubmission = visibleTeams.filter(
+                  (team) => teamDetails[team.id]?.submission,
+                )
+                const dirtyCount = Object.values(evaluationDrafts).filter(
+                  (draft) => draft.dirty,
+                ).length
+                return (
+                  <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1}
+                    justifyContent="space-between"
+                    alignItems={{ xs: 'flex-start', sm: 'center' }}
+                  >
+                    <Typography color="text.secondary">
+                      {isStudent
+                        ? ownTeam
+                          ? teamsWithSubmission.length === 1
+                            ? 'Your team has submitted.'
+                            : 'Your team has not submitted yet.'
+                          : 'Join or create a team to submit a file.'
+                        : `${teamsWithSubmission.length} of ${visibleTeams.length} team${visibleTeams.length === 1 ? '' : 's'} submitted`}
+                    </Typography>
+                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                      {!isStudent && (
+                        <Button
+                          variant="outlined"
+                          startIcon={<DownloadRoundedIcon />}
+                          onClick={handleDownloadAll}
+                          disabled={teamsWithSubmission.length === 0 || downloading}
+                        >
+                          Download all
+                        </Button>
+                      )}
+                      {isProjectTeacher && (
+                        <Button
+                          variant="contained"
+                          onClick={handleSaveAllEvaluations}
+                          disabled={dirtyCount === 0 || savingEvaluation}
+                        >
+                          {savingEvaluation
+                            ? 'Saving…'
+                            : `Save all evaluations${dirtyCount ? ` (${dirtyCount})` : ''}`}
+                        </Button>
+                      )}
+                    </Stack>
+                  </Stack>
+                )
+              })()}
+
+              {visibleTeams.length === 0 ? (
                 <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
                   <Typography color="text.secondary">
-                    No submission files have been recorded for this project yet.
+                    {isStudent
+                      ? 'You are not in a team for this project yet. Join or create a team from the Team tab to submit a file.'
+                      : 'No teams have been formed for this project yet.'}
                   </Typography>
                 </Paper>
               ) : (
-                submissionFiles.map((file) => (
-                  <Paper key={file.id} variant="outlined" sx={{ p: 2.25, borderRadius: 3 }}>
-                    <Stack
-                      direction={{ xs: 'column', md: 'row' }}
-                      spacing={1.25}
-                      justifyContent="space-between"
+                visibleTeams.map((team) => {
+                  const detail = teamDetails[team.id]
+                  const submission = detail?.submission
+                  const isOwnTeam = ownTeam?.id === team.id
+                  const canSubmit = isStudent && isOwnTeam
+                  const draft = evaluationDrafts[team.id] || {
+                    score: '',
+                    feedback: '',
+                    dirty: false,
+                  }
+                  return (
+                    <Paper
+                      key={team.id}
+                      variant="outlined"
+                      sx={{ p: 2.5, borderRadius: 3 }}
                     >
-                      <Stack direction="row" spacing={1.25} alignItems="flex-start">
-                        <InsertDriveFileRoundedIcon sx={{ mt: 0.25, color: 'primary.main' }} />
-                        <Box>
-                          <Typography variant="subtitle1">{file.filename}</Typography>
-                          <Typography color="text.secondary" sx={{ fontSize: 14, mt: 0.5 }}>
-                            Uploaded by {displayUserName(file.uploader)} on {formatDateOnly(file.uploaded_at)}
+                      <Stack spacing={1.5}>
+                        <Stack
+                          direction={{ xs: 'column', sm: 'row' }}
+                          spacing={1}
+                          justifyContent="space-between"
+                          alignItems={{ xs: 'flex-start', sm: 'center' }}
+                        >
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography variant="h6">{team.name}</Typography>
+                            <Stack
+                              direction="row"
+                              spacing={0.75}
+                              flexWrap="wrap"
+                              useFlexGap
+                              sx={{ mt: 0.5 }}
+                            >
+                              {(team.student_ids || []).map((studentId) => (
+                                <Chip
+                                  key={studentId}
+                                  label={displayUserName(knownUsersById.get(studentId))}
+                                  size="small"
+                                  color={
+                                    studentId === team.leader_student_id ? 'primary' : 'default'
+                                  }
+                                  variant={
+                                    studentId === team.leader_student_id ? 'filled' : 'outlined'
+                                  }
+                                />
+                              ))}
+                            </Stack>
+                          </Box>
+                          {submission && (
+                            <Button
+                              variant="outlined"
+                              startIcon={<DownloadRoundedIcon />}
+                              onClick={() => handleDownload(team.id)}
+                              disabled={downloading}
+                            >
+                              Download
+                            </Button>
+                          )}
+                        </Stack>
+
+                        {submission ? (
+                          <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
+                            <Stack
+                              direction={{ xs: 'column', sm: 'row' }}
+                              spacing={1}
+                              justifyContent="space-between"
+                              alignItems={{ xs: 'flex-start', sm: 'center' }}
+                            >
+                              <Stack direction="row" spacing={1.25} alignItems="flex-start">
+                                <InsertDriveFileRoundedIcon
+                                  sx={{ color: 'primary.main', mt: 0.25 }}
+                                />
+                                <Box>
+                                  <Typography variant="subtitle1">
+                                    {submission.file_name || 'submission'}
+                                  </Typography>
+                                  {submission.submitted_at && (
+                                    <Typography
+                                      color="text.secondary"
+                                      sx={{ fontSize: 14, mt: 0.25 }}
+                                    >
+                                      Submitted {formatDateOnly(submission.submitted_at)}
+                                    </Typography>
+                                  )}
+                                </Box>
+                              </Stack>
+                              <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                <Chip
+                                  label={formatFileSize(submission.file_size)}
+                                  size="small"
+                                  variant="outlined"
+                                />
+                                {submission.content_type && (
+                                  <Chip
+                                    label={submission.content_type}
+                                    size="small"
+                                    variant="outlined"
+                                  />
+                                )}
+                              </Stack>
+                            </Stack>
+                          </Paper>
+                        ) : (
+                          <Typography color="text.secondary" sx={{ pl: 0.5 }}>
+                            No submission yet.
                           </Typography>
-                        </Box>
-                      </Stack>
-                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                        <Chip label={formatFileSize(file.size_bytes)} size="small" variant="outlined" />
-                        {file.team_id && (
-                          <Chip
-                            label={teams.find((team) => team.id === file.team_id)?.name || file.team_id}
-                            size="small"
-                            variant="outlined"
-                          />
+                        )}
+
+                        {canSubmit && (
+                          <Stack
+                            direction={{ xs: 'column', sm: 'row' }}
+                            spacing={1}
+                            alignItems={{ xs: 'stretch', sm: 'center' }}
+                          >
+                            <Button
+                              component="label"
+                              variant={submission ? 'outlined' : 'contained'}
+                              startIcon={<UploadFileRoundedIcon />}
+                              disabled={submittingFile}
+                            >
+                              {submittingFile
+                                ? 'Submitting…'
+                                : submission
+                                  ? 'Replace submission'
+                                  : 'Submit a file'}
+                              <input
+                                type="file"
+                                hidden
+                                onChange={(event) => {
+                                  const file = event.target.files?.[0]
+                                  event.target.value = ''
+                                  if (file) handleSubmitFile(team.id, file)
+                                }}
+                              />
+                            </Button>
+                            <Typography color="text.secondary" sx={{ fontSize: 13 }}>
+                              {submission
+                                ? `Max ${MAX_SUBMISSION_MB} MB. Uploading a new file replaces the current one.`
+                                : `Max ${MAX_SUBMISSION_MB} MB.`}
+                            </Typography>
+                          </Stack>
+                        )}
+
+                        {isProjectTeacher && (
+                          <Stack
+                            direction={{ xs: 'column', md: 'row' }}
+                            spacing={1.25}
+                            alignItems={{ xs: 'stretch', md: 'flex-start' }}
+                          >
+                            <TextField
+                              label="Score"
+                              type="number"
+                              inputProps={{ step: 0.5, min: 0 }}
+                              size="small"
+                              value={draft.score ?? ''}
+                              onChange={(event) =>
+                                setEvaluationField(team.id, 'score', event.target.value)
+                              }
+                              sx={{ width: { xs: '100%', md: 140 } }}
+                              disabled={savingEvaluation}
+                            />
+                            <TextField
+                              label="Feedback"
+                              size="small"
+                              fullWidth
+                              multiline
+                              minRows={1}
+                              value={draft.feedback ?? ''}
+                              onChange={(event) =>
+                                setEvaluationField(team.id, 'feedback', event.target.value)
+                              }
+                              disabled={savingEvaluation}
+                            />
+                            <Button
+                              variant="contained"
+                              onClick={() => handleSaveEvaluation(team.id)}
+                              disabled={!draft.dirty || savingEvaluation}
+                              sx={{ minWidth: 100 }}
+                            >
+                              Save
+                            </Button>
+                          </Stack>
                         )}
                       </Stack>
-                    </Stack>
-                  </Paper>
-                ))
+                    </Paper>
+                  )
+                })
               )}
             </Stack>
           )}

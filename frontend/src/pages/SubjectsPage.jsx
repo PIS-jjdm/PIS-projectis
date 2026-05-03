@@ -72,6 +72,10 @@ export default function SubjectsPage() {
   const [editingSubject, setEditingSubject] = useState(null)
   const [subjectForm, setSubjectForm] = useState(initialSubjectForm)
   const [projectForm, setProjectForm] = useState(initialProjectForm)
+  const [subjectFormError, setSubjectFormError] = useState('')
+  const [projectFormError, setProjectFormError] = useState('')
+  const [subjectSubmitting, setSubjectSubmitting] = useState(false)
+  const [projectSubmitting, setProjectSubmitting] = useState(false)
 
   const knownUsersById = useMemo(
     () => new Map(knownUsers.map((knownUser) => [knownUser.id, knownUser])),
@@ -138,12 +142,21 @@ export default function SubjectsPage() {
     return ''
   }
 
+  function closeSubjectDialog() {
+    setSubjectDialogOpen(false)
+    setEditingSubject(null)
+    setSubjectForm(initialSubjectForm)
+    setSubjectFormError('')
+  }
+
   async function handleSaveSubject() {
+    setSubjectFormError('')
     const validationError = validateSubjectForm()
     if (validationError) {
-      setError(validationError)
+      setSubjectFormError(validationError)
       return
     }
+    setSubjectSubmitting(true)
     try {
       const payload = {
         name: subjectForm.name.trim(),
@@ -157,12 +170,15 @@ export default function SubjectsPage() {
         await api.createSubject(session, payload)
         setSuccess('Subject created.')
       }
-      setSubjectDialogOpen(false)
-      setEditingSubject(null)
-      setSubjectForm(initialSubjectForm)
+      closeSubjectDialog()
       await loadData()
     } catch (saveError) {
-      setError(saveError.message || 'Failed to save subject')
+      setSubjectFormError(
+        saveError.message ||
+          (editingSubject ? 'Failed to update subject.' : 'Subject was not created.'),
+      )
+    } finally {
+      setSubjectSubmitting(false)
     }
   }
 
@@ -196,24 +212,33 @@ export default function SubjectsPage() {
     return ''
   }
 
+  function closeProjectDialog() {
+    setProjectDialogOpen(false)
+    setProjectForm(initialProjectForm)
+    setProjectFormError('')
+  }
+
   async function handleCreateProject() {
+    setProjectFormError('')
     const validationError = validateProjectForm()
     if (validationError) {
-      setError(validationError)
+      setProjectFormError(validationError)
       return
     }
+    setProjectSubmitting(true)
     try {
       await api.createProject(session, {
         ...projectForm,
         title: projectForm.title.trim(),
         description: projectForm.description.trim(),
       })
-      setProjectDialogOpen(false)
-      setProjectForm(initialProjectForm)
+      closeProjectDialog()
       setSuccess('Project created.')
       await loadData()
     } catch (createError) {
-      setError(createError.message || 'Failed to create project')
+      setProjectFormError(createError.message || 'Project was not created.')
+    } finally {
+      setProjectSubmitting(false)
     }
   }
 
@@ -229,6 +254,7 @@ export default function SubjectsPage() {
   }
 
   function openSubjectEditor(subject) {
+    setSubjectFormError('')
     setEditingSubject(subject)
     setSubjectForm(
       subject
@@ -243,6 +269,7 @@ export default function SubjectsPage() {
   }
 
   function openProjectCreator(subjectId = '') {
+    setProjectFormError('')
     setProjectForm({
       ...initialProjectForm,
       subject_id: subjectId || subjects[0]?.id || '',
@@ -455,17 +482,7 @@ export default function SubjectsPage() {
                             No projects have been attached to this subject yet.
                           </Paper>
                         ) : (
-                          <Box
-                            sx={{
-                              mt: 1.5,
-                              display: 'grid',
-                              gridTemplateColumns: {
-                                xs: '1fr',
-                                md: 'repeat(2, minmax(0, 1fr))',
-                              },
-                              gap: 1.5,
-                            }}
-                          >
+                          <Stack spacing={1.5} sx={{ mt: 1.5 }}>
                             {subjectProjects.map((project) => {
                               const projectTeams = teamsByProject[project.id] || []
                               const ownTeam = effectiveUser
@@ -481,56 +498,69 @@ export default function SubjectsPage() {
                                     borderRadius: 3,
                                     display: 'flex',
                                     flexDirection: 'column',
-                                    gap: 1.25,
+                                    gap: 1.5,
                                   }}
                                 >
-                                  <Box>
-                                    <Typography variant="h6">{project.title}</Typography>
-                                    <Typography color="text.secondary" sx={{ mt: 0.75 }}>
-                                      {project.description}
-                                    </Typography>
-                                  </Box>
-                                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                                    <Chip
-                                      icon={<GroupRoundedIcon />}
-                                      label={`${projectTeams.length} team${projectTeams.length === 1 ? '' : 's'}`}
-                                      variant="outlined"
-                                      size="small"
-                                    />
-                                    <Chip
-                                      label={`Teacher: ${displayUserName(knownUsersById.get(project.teacher_id))}`}
-                                      variant="outlined"
-                                      size="small"
-                                    />
-                                    <Chip
-                                      label={`Max ${project.max_students_per_team} / team`}
-                                      variant="outlined"
-                                      size="small"
-                                    />
-                                  </Stack>
-                                  {(project.start_date || project.end_date) && (
+                                  <Box
+                                    sx={{
+                                      display: 'grid',
+                                      gridTemplateColumns: {
+                                        xs: '1fr',
+                                        sm: 'minmax(0, 1fr) 240px',
+                                      },
+                                      columnGap: 2.5,
+                                      rowGap: 1.5,
+                                      alignItems: 'start',
+                                    }}
+                                  >
+                                    <Box sx={{ minWidth: 0 }}>
+                                      <Typography variant="h6">{project.title}</Typography>
+                                      <Typography color="text.secondary" sx={{ mt: 0.75 }}>
+                                        {project.description}
+                                      </Typography>
+                                    </Box>
                                     <Stack
-                                      direction="row"
                                       spacing={1}
-                                      useFlexGap
-                                      flexWrap="nowrap"
+                                      sx={{
+                                        alignItems: { xs: 'flex-start', sm: 'flex-end' },
+                                      }}
                                     >
-                                      {project.start_date && (
-                                        <Chip
-                                          label={`Start ${formatDateOnly(project.start_date)}`}
-                                          variant="outlined"
-                                          size="small"
-                                        />
-                                      )}
-                                      {project.end_date && (
-                                        <Chip
-                                          label={`End ${formatDateOnly(project.end_date)}`}
-                                          variant="outlined"
-                                          size="small"
-                                        />
+                                      <Chip
+                                        icon={<GroupRoundedIcon />}
+                                        label={`${projectTeams.length} team${projectTeams.length === 1 ? '' : 's'}`}
+                                        variant="outlined"
+                                        size="small"
+                                      />
+                                      <Chip
+                                        label={`Teacher: ${displayUserName(knownUsersById.get(project.teacher_id))}`}
+                                        variant="outlined"
+                                        size="small"
+                                      />
+                                      <Chip
+                                        label={`Max ${project.max_students_per_team} / team`}
+                                        variant="outlined"
+                                        size="small"
+                                      />
+                                      {(project.start_date || project.end_date) && (
+                                        <Stack direction="row" spacing={1} useFlexGap flexWrap="nowrap">
+                                          {project.start_date && (
+                                            <Chip
+                                              label={`Start ${formatDateOnly(project.start_date)}`}
+                                              variant="outlined"
+                                              size="small"
+                                            />
+                                          )}
+                                          {project.end_date && (
+                                            <Chip
+                                              label={`End ${formatDateOnly(project.end_date)}`}
+                                              variant="outlined"
+                                              size="small"
+                                            />
+                                          )}
+                                        </Stack>
                                       )}
                                     </Stack>
-                                  )}
+                                  </Box>
 
                                   <Stack
                                     direction="row"
@@ -572,7 +602,7 @@ export default function SubjectsPage() {
                                 </Paper>
                               )
                             })}
-                          </Box>
+                          </Stack>
                         )}
                       </Collapse>
                     </Box>
@@ -584,10 +614,15 @@ export default function SubjectsPage() {
         </Stack>
       )}
 
-      <Dialog open={subjectDialogOpen} onClose={() => setSubjectDialogOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={subjectDialogOpen} onClose={closeSubjectDialog} fullWidth maxWidth="sm">
         <DialogTitle>{editingSubject ? 'Edit subject' : 'Create subject'}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
+            {subjectFormError && (
+              <Alert severity="error" onClose={() => setSubjectFormError('')}>
+                {subjectFormError}
+              </Alert>
+            )}
             <TextField
               required
               label="Name"
@@ -620,17 +655,24 @@ export default function SubjectsPage() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setSubjectDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleSaveSubject} variant="contained">
-            Save
+          <Button onClick={closeSubjectDialog} disabled={subjectSubmitting}>
+            Cancel
+          </Button>
+          <Button onClick={handleSaveSubject} variant="contained" disabled={subjectSubmitting}>
+            {subjectSubmitting ? 'Saving…' : 'Save'}
           </Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={projectDialogOpen} onClose={() => setProjectDialogOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={projectDialogOpen} onClose={closeProjectDialog} fullWidth maxWidth="sm">
         <DialogTitle>Create project</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
+            {projectFormError && (
+              <Alert severity="error" onClose={() => setProjectFormError('')}>
+                {projectFormError}
+              </Alert>
+            )}
             <TextField
               required
               label="Title"
@@ -704,9 +746,11 @@ export default function SubjectsPage() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setProjectDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleCreateProject} variant="contained">
-            Save project
+          <Button onClick={closeProjectDialog} disabled={projectSubmitting}>
+            Cancel
+          </Button>
+          <Button onClick={handleCreateProject} variant="contained" disabled={projectSubmitting}>
+            {projectSubmitting ? 'Creating…' : 'Save project'}
           </Button>
         </DialogActions>
       </Dialog>

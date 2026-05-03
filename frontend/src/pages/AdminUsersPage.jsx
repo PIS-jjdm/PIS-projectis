@@ -45,6 +45,7 @@ export default function AdminUsersPage() {
   const [submitting, setSubmitting] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
   const [form, setForm] = useState(initialForm)
+  const [formError, setFormError] = useState('')
 
   const loadUsers = useCallback(async () => {
     setError('')
@@ -74,6 +75,7 @@ export default function AdminUsersPage() {
   function openCreateDialog() {
     setEditingUser(null)
     setForm(initialForm)
+    setFormError('')
     setDialogOpen(true)
   }
 
@@ -86,7 +88,15 @@ export default function AdminUsersPage() {
       password: '',
       role: targetUser.role || 'student',
     })
+    setFormError('')
     setDialogOpen(true)
+  }
+
+  function closeDialog() {
+    setDialogOpen(false)
+    setEditingUser(null)
+    setForm(initialForm)
+    setFormError('')
   }
 
   function isSelfRoleChange() {
@@ -112,12 +122,12 @@ export default function AdminUsersPage() {
   }
 
   async function submitUser() {
-    setError('')
+    setFormError('')
     setSuccess('')
 
     const validationError = validateUserForm()
     if (validationError) {
-      setError(validationError)
+      setFormError(validationError)
       return
     }
 
@@ -137,9 +147,7 @@ export default function AdminUsersPage() {
             lastname: form.lastname.trim(),
             email: form.email.trim(),
           })
-      setDialogOpen(false)
-      setEditingUser(null)
-      setForm(initialForm)
+      closeDialog()
       await loadUsers()
       setSuccess(
         editingUser
@@ -147,7 +155,9 @@ export default function AdminUsersPage() {
           : `Created user ${saved.firstname} ${saved.lastname}.`,
       )
     } catch (err) {
-      setError(err.message || (editingUser ? 'Failed to update user' : 'Failed to create user'))
+      setFormError(
+        err.message || (editingUser ? 'Failed to update user.' : 'User was not created.'),
+      )
     } finally {
       setSubmitting(false)
     }
@@ -235,10 +245,15 @@ export default function AdminUsersPage() {
         </Box>
       )}
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={dialogOpen} onClose={closeDialog} fullWidth maxWidth="sm">
         <DialogTitle>{editingUser ? 'Edit user' : 'Create user'}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
+            {formError && (
+              <Alert severity="error" onClose={() => setFormError('')}>
+                {formError}
+              </Alert>
+            )}
             <TextField
               required
               label="First name"
@@ -286,7 +301,9 @@ export default function AdminUsersPage() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
+          <Button onClick={closeDialog} disabled={submitting}>
+            Cancel
+          </Button>
           <Button onClick={handleSubmitUser} variant="contained" disabled={submitting}>
             {submitting ? (editingUser ? 'Saving...' : 'Creating...') : (editingUser ? 'Save changes' : 'Create user')}
           </Button>

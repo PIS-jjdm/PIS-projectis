@@ -105,6 +105,9 @@ export default function SubjectDetailPage() {
   const [projectsExpanded, setProjectsExpanded] = useState(true)
 
   const isAdmin = user?.role === 'admin'
+  const isAssignedTeacher =
+    user?.role === 'teacher' && (subject?.teacher_ids || []).includes(user?.id)
+  const canManageStudents = isAdmin || isAssignedTeacher
   const knownUsersById = useMemo(
     () => new Map(knownUsers.map((knownUser) => [knownUser.id, knownUser])),
     [knownUsers],
@@ -345,7 +348,7 @@ export default function SubjectDetailPage() {
                 }
                 maxVisible={20}
                 users={filteredStudents}
-                removable={isAdmin}
+                removable={canManageStudents}
                 onRemove={handleRemoveStudent}
               />
             </Stack>
@@ -417,13 +420,7 @@ export default function SubjectDetailPage() {
                   description="Projects attached to this subject will appear here."
                 />
               ) : (
-                <Box
-                  sx={{
-                    display: 'grid',
-                    gridTemplateColumns: { xs: '1fr', md: 'repeat(2, minmax(0, 1fr))' },
-                    gap: 1.5,
-                  }}
-                >
+                <Stack spacing={1.5}>
                   {subjectProjects.map((project) => (
                     <Paper
                       key={project.id}
@@ -433,47 +430,63 @@ export default function SubjectDetailPage() {
                         borderRadius: 2,
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: 1.25,
+                        gap: 1.5,
                       }}
                     >
-                      <Box>
-                        <Typography variant="subtitle1" fontWeight={700}>
-                          {project.title}
-                        </Typography>
-                        <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-                          {project.description}
-                        </Typography>
-                      </Box>
-                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                        <Chip
-                          label={`Teacher: ${userLabel(knownUsersById.get(project.teacher_id))}`}
-                          variant="outlined"
-                          size="small"
-                        />
-                        <Chip
-                          label={`Max ${project.max_students_per_team} / team`}
-                          variant="outlined"
-                          size="small"
-                        />
-                      </Stack>
-                      {(project.start_date || project.end_date) && (
-                        <Stack direction="row" spacing={1} useFlexGap flexWrap="nowrap">
-                          {project.start_date && (
-                            <Chip
-                              label={`Start ${formatDateOnly(project.start_date)}`}
-                              variant="outlined"
-                              size="small"
-                            />
-                          )}
-                          {project.end_date && (
-                            <Chip
-                              label={`End ${formatDateOnly(project.end_date)}`}
-                              variant="outlined"
-                              size="small"
-                            />
+                      <Box
+                        sx={{
+                          display: 'grid',
+                          gridTemplateColumns: {
+                            xs: '1fr',
+                            sm: 'minmax(0, 1fr) 240px',
+                          },
+                          columnGap: 2.5,
+                          rowGap: 1.5,
+                          alignItems: 'start',
+                        }}
+                      >
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography variant="subtitle1" fontWeight={700}>
+                            {project.title}
+                          </Typography>
+                          <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+                            {project.description}
+                          </Typography>
+                        </Box>
+                        <Stack
+                          spacing={1}
+                          sx={{ alignItems: { xs: 'flex-start', sm: 'flex-end' } }}
+                        >
+                          <Chip
+                            label={`Teacher: ${userLabel(knownUsersById.get(project.teacher_id))}`}
+                            variant="outlined"
+                            size="small"
+                          />
+                          <Chip
+                            label={`Max ${project.max_students_per_team} / team`}
+                            variant="outlined"
+                            size="small"
+                          />
+                          {(project.start_date || project.end_date) && (
+                            <Stack direction="row" spacing={1} useFlexGap flexWrap="nowrap">
+                              {project.start_date && (
+                                <Chip
+                                  label={`Start ${formatDateOnly(project.start_date)}`}
+                                  variant="outlined"
+                                  size="small"
+                                />
+                              )}
+                              {project.end_date && (
+                                <Chip
+                                  label={`End ${formatDateOnly(project.end_date)}`}
+                                  variant="outlined"
+                                  size="small"
+                                />
+                              )}
+                            </Stack>
                           )}
                         </Stack>
-                      )}
+                      </Box>
                       <Button
                         variant="outlined"
                         startIcon={<LaunchRoundedIcon />}
@@ -484,7 +497,7 @@ export default function SubjectDetailPage() {
                       </Button>
                     </Paper>
                   ))}
-                </Box>
+                </Stack>
               )}
             </Collapse>
           </Stack>

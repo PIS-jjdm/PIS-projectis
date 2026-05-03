@@ -20,15 +20,16 @@ export function formatFileSize(bytes) {
 }
 
 export function resolveKnownUser(knownUsers, sessionUser) {
-  const userId = String(sessionUser?.id || '').trim()
-  const email = String(sessionUser?.email || '').trim().toLowerCase()
-  const role = String(sessionUser?.role || '').trim().toLowerCase()
+  if (!sessionUser) return null
+  const userId = String(sessionUser.id || '').trim()
+  const email = String(sessionUser.email || '').trim().toLowerCase()
 
   return (
     knownUsers.find((knownUser) => knownUser.id === userId) ||
-    knownUsers.find((knownUser) => knownUser.email.toLowerCase() === email) ||
-    knownUsers.find((knownUser) => knownUser.role === role) ||
-    null
+    (email
+      ? knownUsers.find((knownUser) => (knownUser.email || '').toLowerCase() === email)
+      : null) ||
+    sessionUser
   )
 }
 

@@ -139,6 +139,10 @@ export default function NotificationsPage() {
     triggerMode: 'now',
     triggerAt: defaultTriggerAtValue(),
   })
+  const [composeError, setComposeError] = useState('')
+  const [composeSubmitting, setComposeSubmitting] = useState(false)
+  const [rescheduleError, setRescheduleError] = useState('')
+  const [rescheduleSubmitting, setRescheduleSubmitting] = useState(false)
   const selectedRecipientIds = useMemo(() => parseUserIds(form.userIdsText), [form.userIdsText])
   const searchableDirectoryUsers = useMemo(
     () => directoryUsers.filter((item) => item.id !== user?.id),
@@ -307,28 +311,28 @@ export default function NotificationsPage() {
   }
 
   async function handleCreate() {
-    setError('')
+    setComposeError('')
     setSuccess('')
 
     const userIds = parseUserIds(form.userIdsText)
     if (!userIds.length) {
-      setError('Provide at least one recipient user ID')
+      setComposeError('Provide at least one recipient user ID')
       return
     }
 
     if (!form.message.trim()) {
-      setError('Notification message is required')
+      setComposeError('Notification message is required')
       return
     }
 
     if (form.triggerMode === 'date') {
       const scheduledAt = new Date(form.triggerAt)
       if (Number.isNaN(scheduledAt.getTime())) {
-        setError('Choose a valid scheduled date.')
+        setComposeError('Choose a valid scheduled date.')
         return
       }
       if (scheduledAt <= new Date()) {
-        setError('Scheduled notification time must be in the future.')
+        setComposeError('Scheduled notification time must be in the future.')
         return
       }
     }
@@ -342,18 +346,13 @@ export default function NotificationsPage() {
           : undefined,
     }
 
+    setComposeSubmitting(true)
     try {
       const created = await api.createNotification(session, payload)
       const scheduledCount = created.filter((item) => !item.date).length
       const deliveredCount = created.length - scheduledCount
 
-      setDialogOpen(false)
-      setForm({
-        userIdsText: '',
-        message: '',
-        triggerMode: 'now',
-        triggerAt: defaultTriggerAtValue(),
-      })
+      closeComposeDialog()
 
       await Promise.all([loadNotifications(), loadScheduledNotifications()])
 
@@ -367,7 +366,9 @@ export default function NotificationsPage() {
         setSuccess(`Sent ${deliveredCount} notifications.`)
       }
     } catch (err) {
-      setError(err.message || 'Failed to create notification')
+      setComposeError(err.message || 'Failed to create notification')
+    } finally {
+      setComposeSubmitting(false)
     }
   }
 
@@ -389,28 +390,36 @@ export default function NotificationsPage() {
     setRescheduleTriggerAt(
       batch?.trigger_at ? toLocalDateTimeInputValue(batch.trigger_at) : defaultTriggerAtValue(),
     )
+    setRescheduleError('')
     setRescheduleDialogOpen(true)
   }
 
+  function closeRescheduleDialog() {
+    setRescheduleDialogOpen(false)
+    setRescheduleBatch(null)
+    setRescheduleError('')
+  }
+
   async function handleRescheduleScheduled() {
-    setError('')
+    setRescheduleError('')
     setSuccess('')
 
     if (!rescheduleBatch?.batch_id) {
-      setError('Select a scheduled notification batch first.')
+      setRescheduleError('Select a scheduled notification batch first.')
       return
     }
 
     const scheduledAt = new Date(rescheduleTriggerAt)
     if (Number.isNaN(scheduledAt.getTime())) {
-      setError('Choose a valid scheduled date.')
+      setRescheduleError('Choose a valid scheduled date.')
       return
     }
     if (scheduledAt <= new Date()) {
-      setError('Scheduled notification time must be in the future.')
+      setRescheduleError('Scheduled notification time must be in the future.')
       return
     }
 
+    setRescheduleSubmitting(true)
     try {
       await api.rescheduleScheduledNotification(
         session,
@@ -419,10 +428,13 @@ export default function NotificationsPage() {
       )
       setRescheduleDialogOpen(false)
       setRescheduleBatch(null)
+      setRescheduleError('')
       await loadScheduledNotifications()
       setSuccess('Scheduled notification batch rescheduled.')
     } catch (err) {
-      setError(err.message || 'Failed to reschedule scheduled notification')
+      setRescheduleError(err.message || 'Failed to reschedule scheduled notification')
+    } finally {
+      setRescheduleSubmitting(false)
     }
   }
 
@@ -485,7 +497,7 @@ export default function NotificationsPage() {
       triggerMode: 'now',
       triggerAt: defaultTriggerAtValue(),
     })
-    setError('')
+    setComposeError('')
   }
 
   async function openComposeDialog() {
@@ -871,6 +883,11 @@ export default function NotificationsPage() {
         <DialogTitle>Compose notification</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
+            {composeError && (
+              <Alert severity="error" onClose={() => setComposeError('')}>
+                {composeError}
+              </Alert>
+            )}
             <Box
               sx={{
                 p: 2,
@@ -1013,22 +1030,29 @@ export default function NotificationsPage() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={closeComposeDialog}>Cancel</Button>
-          <Button onClick={handleCreate} variant="contained">
-            Save notification
+          <Button onClick={closeComposeDialog} disabled={composeSubmitting}>
+            Cancel
+          </Button>
+          <Button onClick={handleCreate} variant="contained" disabled={composeSubmitting}>
+            {composeSubmitting ? 'Saving…' : 'Save notification'}
           </Button>
         </DialogActions>
       </Dialog>
 
       <Dialog
         open={rescheduleDialogOpen}
-        onClose={() => setRescheduleDialogOpen(false)}
+        onClose={closeRescheduleDialog}
         fullWidth
         maxWidth="xs"
       >
         <DialogTitle>Reschedule notification batch</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
+            {rescheduleError && (
+              <Alert severity="error" onClose={() => setRescheduleError('')}>
+                {rescheduleError}
+              </Alert>
+            )}
             <Typography variant="body2" color="text.secondary">
               {rescheduleBatch?.message || 'Update the trigger time for this scheduled batch.'}
             </Typography>
@@ -1042,9 +1066,15 @@ export default function NotificationsPage() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setRescheduleDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleRescheduleScheduled} variant="contained">
-            Save new time
+          <Button onClick={closeRescheduleDialog} disabled={rescheduleSubmitting}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleRescheduleScheduled}
+            variant="contained"
+            disabled={rescheduleSubmitting}
+          >
+            {rescheduleSubmitting ? 'Saving…' : 'Save new time'}
           </Button>
         </DialogActions>
       </Dialog>
