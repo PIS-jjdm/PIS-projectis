@@ -68,6 +68,7 @@ message CreateProjectRequest {
   google.protobuf.Timestamp start_date            = 6;
   google.protobuf.Timestamp end_date              = 7;
   string                    subject_id            = 8;
+  float                     max_points            = 9;
 }
 
 message UpdateProjectRequest {

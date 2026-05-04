@@ -24,6 +24,9 @@ public class ProjectEntity extends BaseEntity {
     private String description;
 
     @Column(nullable = false)
+    private Float maxPoints;
+
+    @Column(nullable = false)
     private String teacherId;
 
     @Column(nullable = false)
