@@ -171,9 +171,17 @@ services:
       SUBJECT_GRPC_ENDPOINT: subject-service:50053
       EVALUATION_GRPC_ENDPOINT: evaluation-service:50055
       JAVA_TOOL_OPTIONS: --add-opens=java.base/java.nio=ALL-UNNAMED --enable-native-access=ALL-UNNAMED
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:40054/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     depends_on:
-      - project-postgres
-      - otel-collector
+      project-postgres:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
 
   evaluation-service:
     build:
