@@ -330,6 +330,8 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
         JwtUtils.UserContext ctx = AuthenticationInterceptor.USER_CONTEXT_KEY.get();
         String currentUserId = ctx.userId();
         String teamName = joinedTeam.getName();
+        String projectName = joinedTeam.getProject().getTitle();
+        String subjectId = joinedTeam.getProject().getSubjectId();
 
         Team response = teamMapper.toProto(joinedTeam);
         responseObserver.onNext(response);
@@ -337,9 +339,11 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
 
         CompletableFuture.runAsync(() -> {
             try {
+                subject.SubjectOuterClass.Subject subject = subjectClientService.getSubject(subjectId);
                 notificationClient.createNotification(
                         List.of(studentId),
-                        String.format("You have been added to team: %s", teamName),
+                        String.format("You have been added to team '%s' for project '%s' in subject %s.",
+                                teamName, projectName, subject.getName()),
                         currentUserId, null);
             } catch (Exception e) {
                 log.error("Failed to send add-member notification for student: {}", studentId, e);
@@ -359,6 +363,8 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
         JwtUtils.UserContext ctx = AuthenticationInterceptor.USER_CONTEXT_KEY.get();
         String currentUserId = ctx.userId();
         String teamName = leftTeam.getName();
+        String projectName = leftTeam.getProject().getTitle();
+        String subjectId = leftTeam.getProject().getSubjectId();
 
         Team response = teamMapper.toProto(leftTeam);
         responseObserver.onNext(response);
@@ -366,9 +372,11 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
 
         CompletableFuture.runAsync(() -> {
             try {
+                subject.SubjectOuterClass.Subject subject = subjectClientService.getSubject(subjectId);
                 notificationClient.createNotification(
                         List.of(studentId),
-                        String.format("You have been removed from team: %s", teamName),
+                        String.format("You have been removed from team '%s' for project '%s' in subject %s.",
+                                teamName, projectName, subject.getName()),
                         currentUserId, null);
             } catch (Exception e) {
                 log.error("Failed to send remove-member notification for student: {}", studentId, e);
