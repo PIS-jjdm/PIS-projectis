@@ -81,18 +81,6 @@ scrape_configs:
             check: grpc-health
     relabel_configs: *blackbox_relabel
 
-  - job_name: "blackbox-project-service-health"
-    metrics_path: /probe
-    params:
-      module: [tcp_connect]
-    static_configs:
-      - targets:
-          - project-service:50054
-        labels:
-          service: project-service
-          check: grpc-port
-    relabel_configs: *blackbox_relabel
-
   - job_name: "blackbox-frontend-health"
     metrics_path: /probe
     params:
@@ -104,3 +92,16 @@ scrape_configs:
           service: frontend
           check: http
     relabel_configs: *blackbox_relabel
+
+  - job_name: "blackbox-project-service-health"
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - http://project-service:40054/actuator/health
+        labels:
+          service: project-service
+          check: liveness
+    relabel_configs: *blackbox_relabel
+
