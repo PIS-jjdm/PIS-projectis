@@ -112,6 +112,8 @@ function normalizeProject(project) {
       description: project.getDescription(),
       teacher_id: project.getTeacherId(),
       max_students_per_team: project.getMaxStudentsPerTeam(),
+      max_points:
+        typeof project.getMaxPoints === 'function' ? Number(project.getMaxPoints()) : null,
       start_date: timestampToIso(project.getStartDate()),
       end_date: timestampToIso(project.getEndDate()),
       subject_id: project.getSubjectId(),
@@ -397,6 +399,10 @@ export const api = {
 
   async createProject(session, payload) {
     return normalizeProject(await gatewayClient.createProject(accessToken(session), payload))
+  },
+
+  async updateProject(session, payload) {
+    return normalizeProject(await gatewayClient.updateProject(accessToken(session), payload))
   },
 
   async registerTeam(session, projectId, teamName) {

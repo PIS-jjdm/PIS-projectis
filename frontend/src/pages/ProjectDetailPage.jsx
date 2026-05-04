@@ -190,11 +190,18 @@ export default function ProjectDetailPage() {
     }))
   }
 
+  const maxPoints =
+    Number.isFinite(Number(project?.max_points)) && Number(project?.max_points) > 0
+      ? Number(project.max_points)
+      : null
+
   function evaluationDraftState(draft) {
     if (!draft) return { hasValidScore: false, hasChanges: false, canSave: false }
     const trimmedScore = String(draft.score ?? '').trim()
     const scoreNum = Number(trimmedScore)
-    const hasValidScore = trimmedScore !== '' && Number.isFinite(scoreNum)
+    const inRange =
+      scoreNum >= 0 && (maxPoints === null || scoreNum <= maxPoints)
+    const hasValidScore = trimmedScore !== '' && Number.isFinite(scoreNum) && inRange
     const scoreChanged = trimmedScore !== String(draft.originalScore ?? '').trim()
     const feedbackChanged =
       String(draft.feedback ?? '') !== String(draft.originalFeedback ?? '')
@@ -208,6 +215,12 @@ export default function ProjectDetailPage() {
     const score = Number(draft.score)
     if (!Number.isFinite(score)) {
       throw new Error('Score must be a number')
+    }
+    if (score < 0) {
+      throw new Error('Score cannot be negative')
+    }
+    if (maxPoints !== null && score > maxPoints) {
+      throw new Error(`Score cannot exceed the project maximum of ${maxPoints}`)
     }
     if (draft.evaluation_id) {
       await api.updateProjectEvaluation(session, {
@@ -452,6 +465,7 @@ export default function ProjectDetailPage() {
         />
         <Chip label={`Teacher: ${displayUserName(knownUsersById.get(project.teacher_id))}`} />
         <Chip label={`Max ${project.max_students_per_team} / team`} />
+        {maxPoints !== null && <Chip label={`Max points: ${maxPoints}`} />}
         {project.start_date && <Chip label={`Start ${formatDateOnly(project.start_date)}`} />}
         {project.end_date && <Chip label={`End ${formatDateOnly(project.end_date)}`} />}
       </Stack>
@@ -950,13 +964,20 @@ export default function ProjectDetailPage() {
                             <TextField
                               label="Score"
                               type="number"
-                              inputProps={{ step: 0.5, min: 0 }}
+                              inputProps={{
+                                step: 0.5,
+                                min: 0,
+                                ...(maxPoints !== null ? { max: maxPoints } : {}),
+                              }}
+                              helperText={
+                                maxPoints !== null ? `0 – ${maxPoints}` : undefined
+                              }
                               size="small"
                               value={draft.score ?? ''}
                               onChange={(event) =>
                                 setEvaluationField(team.id, 'score', event.target.value)
                               }
-                              sx={{ width: { xs: '100%', md: 140 } }}
+                              sx={{ width: { xs: '100%', md: 160 } }}
                               disabled={savingEvaluation}
                             />
                             <TextField

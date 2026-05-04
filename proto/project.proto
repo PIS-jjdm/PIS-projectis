@@ -79,6 +79,8 @@ message UpdateProjectRequest {
   uint32                    max_students_per_team = 4;
   google.protobuf.Timestamp start_date            = 5;
   google.protobuf.Timestamp end_date              = 6;
+  // optional so callers / project-service can treat absence as "leave unchanged"
+  optional float            max_points            = 7;
 }
 
 message DeleteProjectRequest { string project_id = 1; }
