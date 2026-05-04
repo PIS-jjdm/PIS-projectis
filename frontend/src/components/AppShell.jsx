@@ -26,6 +26,7 @@ import {
   useMediaQuery,
 } from '@mui/material'
 import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded'
+import GradingRoundedIcon from '@mui/icons-material/GradingRounded'
 import MenuBookRoundedIcon from '@mui/icons-material/MenuBookRounded'
 import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
 import NotificationsRoundedIcon from '@mui/icons-material/NotificationsRounded'
@@ -74,6 +75,17 @@ function navItems(role, unreadCount) {
       subtitle: 'My work',
       path: '/projects',
       icon: <UploadFileRoundedIcon />,
+    },
+    {
+      label: 'Evaluations',
+      subtitle:
+        role === 'teacher'
+          ? 'Submitted'
+          : role === 'admin'
+            ? 'Across system'
+            : 'Scores received',
+      path: '/evaluations',
+      icon: <GradingRoundedIcon />,
     },
     {
       label: 'Notifications',

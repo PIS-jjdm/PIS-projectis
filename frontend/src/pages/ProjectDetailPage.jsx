@@ -5,7 +5,12 @@ import {
   Card,
   CardContent,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Divider,
+  Link,
   MenuItem,
   Paper,
   Stack,
@@ -26,12 +31,7 @@ import LoadingState from '../components/LoadingState'
 import PageHeader from '../components/PageHeader'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
-import {
-  displayUserName,
-  formatFileSize,
-  ownTeamForUser,
-  resolveKnownUser,
-} from '../lib/projectView'
+import { displayUserName, formatFileSize, ownTeamForUser } from '../lib/projectView'
 import { formatDateOnly } from '../utils/date'
 
 const validTabs = new Set(['overview', 'team', 'files'])
@@ -57,6 +57,10 @@ export default function ProjectDetailPage() {
   const [savingEvaluation, setSavingEvaluation] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [submittingFile, setSubmittingFile] = useState(false)
+  const [teamDialogOpen, setTeamDialogOpen] = useState(false)
+  const [teamNameInput, setTeamNameInput] = useState('')
+  const [teamDialogError, setTeamDialogError] = useState('')
+  const [creatingTeam, setCreatingTeam] = useState(false)
 
   const isProjectTeacher =
     !!project && (user?.role === 'admin' || project.teacher_id === user?.id)
@@ -67,19 +71,27 @@ export default function ProjectDetailPage() {
     () => new Map(knownUsers.map((knownUser) => [knownUser.id, knownUser])),
     [knownUsers],
   )
-  const effectiveUser = useMemo(() => resolveKnownUser(knownUsers, user), [knownUsers, user])
   const ownTeam = useMemo(
-    () => (effectiveUser ? ownTeamForUser(teams, effectiveUser.id) : null),
-    [effectiveUser, teams],
+    () => (user?.id ? ownTeamForUser(teams, user.id) : null),
+    [user?.id, teams],
   )
   const canManageOwnTeam =
     !!ownTeam &&
-    !!effectiveUser &&
-    ownTeam.leader_student_id === effectiveUser.id &&
-    effectiveUser.role === 'student'
+    !!user?.id &&
+    ownTeam.leader_student_id === user.id &&
+    user.role === 'student'
   const visibleTeams = useMemo(
     () => (isStudent ? (ownTeam ? [ownTeam] : []) : teams),
     [isStudent, ownTeam, teams],
+  )
+  // Split into two visually-separated sections so teachers can scan unfinished work first.
+  const pendingTeams = useMemo(
+    () => visibleTeams.filter((team) => !teamDetails[team.id]?.evaluation),
+    [visibleTeams, teamDetails],
+  )
+  const evaluatedTeams = useMemo(
+    () => visibleTeams.filter((team) => !!teamDetails[team.id]?.evaluation),
+    [visibleTeams, teamDetails],
   )
 
   const candidateStudents = useMemo(() => {
@@ -114,54 +126,54 @@ export default function ProjectDetailPage() {
     setLoading(true)
     setError('')
     try {
-      const [projectData, subjectData, teamData, userData] = await Promise.all([
+      const [projectData, subjectData, detailsData, userData] = await Promise.all([
         api.getProject(session, projectId),
         api.listSubjects(session),
-        api.listTeamsByProject(session, projectId),
-        api.listKnownUsers(session),
+        api.listProjectTeamDetails(session, projectId),
+        api.listUsers(session),
       ])
 
       const subjects = Array.isArray(subjectData) ? subjectData : subjectData.subjects || []
       const nextProject = Array.isArray(projectData) ? projectData[0] : projectData
-      const nextTeams = Array.isArray(teamData) ? teamData : teamData.teams || []
+      const detailList = Array.isArray(detailsData) ? detailsData : []
 
       setProject(nextProject)
       setSubject(subjects.find((item) => item.id === nextProject?.subject_id) || null)
-      setTeams(nextTeams)
+      // The detail list already mirrors what the user is allowed to see (router filters
+      // students to their own team). Synthesize the basic Team rows from it for code
+      // that just needs id/name/student_ids without re-fetching.
+      setTeams(
+        detailList.map((detail) => ({
+          id: detail.id,
+          project_id: detail.project_id,
+          name: detail.name,
+          leader_student_id: detail.leader_student_id,
+          student_ids: detail.student_ids || [],
+        })),
+      )
       setKnownUsers(Array.isArray(userData) ? userData : [])
 
-      const role = String(user?.role || '').toLowerCase()
-      const detailFetchTeams =
-        role === 'student'
-          ? nextTeams.filter((team) => (team.student_ids || []).includes(user?.id))
-          : nextTeams
-      const detailEntries = await Promise.all(
-        detailFetchTeams.map(async (team) => {
-          try {
-            const detail = await api.getTeam(session, team.id)
-            return [team.id, detail]
-          } catch {
-            return [team.id, null]
-          }
-        }),
-      )
-      const nextDetails = Object.fromEntries(detailEntries)
-      setTeamDetails(nextDetails)
+      setTeamDetails(Object.fromEntries(detailList.map((detail) => [detail.id, detail])))
       setEvaluationDrafts(
         Object.fromEntries(
-          detailEntries.map(([teamId, detail]) => [
-            teamId,
-            {
-              evaluation_id: detail?.evaluation?.id || null,
-              score:
-                detail?.evaluation?.total_score !== undefined &&
-                detail?.evaluation?.total_score !== null
-                  ? String(detail.evaluation.total_score)
-                  : '',
-              feedback: detail?.evaluation?.feedback || '',
-              dirty: false,
-            },
-          ]),
+          detailList.map((detail) => {
+            const savedScore =
+              detail?.evaluation?.total_score !== undefined &&
+              detail?.evaluation?.total_score !== null
+                ? String(detail.evaluation.total_score)
+                : ''
+            const savedFeedback = detail?.evaluation?.feedback || ''
+            return [
+              detail.id,
+              {
+                evaluation_id: detail?.evaluation?.id || null,
+                score: savedScore,
+                feedback: savedFeedback,
+                originalScore: savedScore,
+                originalFeedback: savedFeedback,
+              },
+            ]
+          }),
         ),
       )
     } catch (loadError) {
@@ -174,8 +186,20 @@ export default function ProjectDetailPage() {
   function setEvaluationField(teamId, field, value) {
     setEvaluationDrafts((current) => ({
       ...current,
-      [teamId]: { ...(current[teamId] || {}), [field]: value, dirty: true },
+      [teamId]: { ...(current[teamId] || {}), [field]: value },
     }))
+  }
+
+  function evaluationDraftState(draft) {
+    if (!draft) return { hasValidScore: false, hasChanges: false, canSave: false }
+    const trimmedScore = String(draft.score ?? '').trim()
+    const scoreNum = Number(trimmedScore)
+    const hasValidScore = trimmedScore !== '' && Number.isFinite(scoreNum)
+    const scoreChanged = trimmedScore !== String(draft.originalScore ?? '').trim()
+    const feedbackChanged =
+      String(draft.feedback ?? '') !== String(draft.originalFeedback ?? '')
+    const hasChanges = scoreChanged || feedbackChanged
+    return { hasValidScore, hasChanges, canSave: hasValidScore && hasChanges }
   }
 
   async function saveEvaluationOne(teamId) {
@@ -217,7 +241,9 @@ export default function ProjectDetailPage() {
   }
 
   async function handleSaveAllEvaluations() {
-    const dirty = Object.entries(evaluationDrafts).filter(([, draft]) => draft.dirty)
+    const dirty = Object.entries(evaluationDrafts).filter(
+      ([, draft]) => evaluationDraftState(draft).canSave,
+    )
     if (!dirty.length) return
     setError('')
     setSavingEvaluation(true)
@@ -300,15 +326,36 @@ export default function ProjectDetailPage() {
     loadData()
   }, [projectId, token, user])
 
+  function openCreateTeamDialog() {
+    setTeamNameInput('')
+    setTeamDialogError('')
+    setTeamDialogOpen(true)
+  }
+
+  function closeCreateTeamDialog() {
+    setTeamDialogOpen(false)
+    setTeamDialogError('')
+    setTeamNameInput('')
+  }
+
   async function handleCreateTeam() {
     if (!projectId) return
+    const trimmedName = teamNameInput.trim()
+    if (!trimmedName) {
+      setTeamDialogError('Team name is required.')
+      return
+    }
+    setCreatingTeam(true)
     try {
-      await api.registerTeam(session, projectId)
-      setSuccess('Team created successfully.')
+      await api.registerTeam(session, projectId, trimmedName)
+      closeCreateTeamDialog()
+      setSuccess(`Team "${trimmedName}" created.`)
       await loadData()
       setSearchParams({ tab: 'team' })
     } catch (createError) {
-      setError(createError.message || 'Failed to create team')
+      setTeamDialogError(createError.message || 'Failed to create team')
+    } finally {
+      setCreatingTeam(false)
     }
   }
 
@@ -448,7 +495,7 @@ export default function ProjectDetailPage() {
 
           {activeTab === 'team' && (
             <Stack spacing={3}>
-              {effectiveUser?.role === 'student' && !ownTeam && (
+              {user?.role === 'student' && !ownTeam && (
                 <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
                   <Stack
                     direction={{ xs: 'column', md: 'row' }}
@@ -462,7 +509,7 @@ export default function ProjectDetailPage() {
                         Create a team for this project, then manage members here.
                       </Typography>
                     </Box>
-                    <Button variant="contained" onClick={handleCreateTeam}>
+                    <Button variant="contained" onClick={openCreateTeamDialog}>
                       Create team
                     </Button>
                   </Stack>
@@ -619,7 +666,7 @@ export default function ProjectDetailPage() {
                   (team) => teamDetails[team.id]?.submission,
                 )
                 const dirtyCount = Object.values(evaluationDrafts).filter(
-                  (draft) => draft.dirty,
+                  (draft) => evaluationDraftState(draft).canSave,
                 ).length
                 return (
                   <Stack
@@ -673,21 +720,42 @@ export default function ProjectDetailPage() {
                   </Typography>
                 </Paper>
               ) : (
-                visibleTeams.map((team) => {
+                (() => {
+                  const renderTeamCard = (team) => {
                   const detail = teamDetails[team.id]
                   const submission = detail?.submission
+                  const evaluation = detail?.evaluation
+                  const isEvaluated = !!evaluation
                   const isOwnTeam = ownTeam?.id === team.id
                   const canSubmit = isStudent && isOwnTeam
                   const draft = evaluationDrafts[team.id] || {
                     score: '',
                     feedback: '',
-                    dirty: false,
+                    originalScore: '',
+                    originalFeedback: '',
                   }
+                  const draftState = evaluationDraftState(draft)
                   return (
                     <Paper
                       key={team.id}
                       variant="outlined"
-                      sx={{ p: 2.5, borderRadius: 3 }}
+                      sx={(theme) => ({
+                        p: 2.5,
+                        borderRadius: 3,
+                        ...(isEvaluated
+                          ? {
+                              borderColor: theme.palette.success.main,
+                              borderWidth: 2,
+                              bgcolor:
+                                theme.palette.mode === 'dark'
+                                  ? 'rgba(76, 175, 80, 0.10)'
+                                  : 'rgba(76, 175, 80, 0.06)',
+                            }
+                          : {
+                              borderStyle: 'dashed',
+                              borderColor: 'divider',
+                            }),
+                      })}
                     >
                       <Stack spacing={1.5}>
                         <Stack
@@ -697,7 +765,16 @@ export default function ProjectDetailPage() {
                           alignItems={{ xs: 'flex-start', sm: 'center' }}
                         >
                           <Box sx={{ minWidth: 0 }}>
-                            <Typography variant="h6">{team.name}</Typography>
+                            <Stack direction="row" spacing={1} alignItems="center" useFlexGap>
+                              <Typography variant="h6">{team.name}</Typography>
+                              {isEvaluated && (
+                                <Chip
+                                  label={`Evaluated · ${evaluation.total_score}`}
+                                  color="success"
+                                  size="small"
+                                />
+                              )}
+                            </Stack>
                             <Stack
                               direction="row"
                               spacing={0.75}
@@ -745,9 +822,23 @@ export default function ProjectDetailPage() {
                                   sx={{ color: 'primary.main', mt: 0.25 }}
                                 />
                                 <Box>
-                                  <Typography variant="subtitle1">
+                                  <Link
+                                    component="button"
+                                    type="button"
+                                    underline="hover"
+                                    onClick={() => handleDownload(team.id)}
+                                    disabled={downloading}
+                                    sx={{
+                                      typography: 'subtitle1',
+                                      color: 'primary.main',
+                                      fontWeight: 600,
+                                      textAlign: 'left',
+                                      cursor: downloading ? 'wait' : 'pointer',
+                                      '&:disabled': { color: 'text.disabled', cursor: 'wait' },
+                                    }}
+                                  >
                                     {submission.file_name || 'submission'}
-                                  </Typography>
+                                  </Link>
                                   {submission.submitted_at && (
                                     <Typography
                                       color="text.secondary"
@@ -848,7 +939,7 @@ export default function ProjectDetailPage() {
                             <Button
                               variant="contained"
                               onClick={() => handleSaveEvaluation(team.id)}
-                              disabled={!draft.dirty || savingEvaluation}
+                              disabled={!draftState.canSave || savingEvaluation}
                               sx={{ minWidth: 100 }}
                             >
                               Save
@@ -858,12 +949,85 @@ export default function ProjectDetailPage() {
                       </Stack>
                     </Paper>
                   )
-                })
+                  }
+                  const showSectionHeaders = !isStudent
+                  return (
+                    <Stack spacing={3}>
+                      {pendingTeams.length > 0 && (
+                        <Stack spacing={1.5}>
+                          {showSectionHeaders && (
+                            <Typography
+                              variant="overline"
+                              color="text.secondary"
+                              sx={{ fontWeight: 700, letterSpacing: 1 }}
+                            >
+                              Pending evaluation ({pendingTeams.length})
+                            </Typography>
+                          )}
+                          <Stack spacing={1.5}>
+                            {pendingTeams.map(renderTeamCard)}
+                          </Stack>
+                        </Stack>
+                      )}
+                      {evaluatedTeams.length > 0 && (
+                        <Stack spacing={1.5}>
+                          {showSectionHeaders && (
+                            <Typography
+                              variant="overline"
+                              color="success.main"
+                              sx={{ fontWeight: 700, letterSpacing: 1 }}
+                            >
+                              Evaluated ({evaluatedTeams.length})
+                            </Typography>
+                          )}
+                          <Stack spacing={1.5}>
+                            {evaluatedTeams.map(renderTeamCard)}
+                          </Stack>
+                        </Stack>
+                      )}
+                    </Stack>
+                  )
+                })()
               )}
             </Stack>
           )}
         </Box>
       </Paper>
+
+      <Dialog open={teamDialogOpen} onClose={closeCreateTeamDialog} fullWidth maxWidth="xs">
+        <DialogTitle>Create team</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            {teamDialogError && (
+              <Alert severity="error" onClose={() => setTeamDialogError('')}>
+                {teamDialogError}
+              </Alert>
+            )}
+            <TextField
+              required
+              autoFocus
+              label="Team name"
+              value={teamNameInput}
+              onChange={(event) => setTeamNameInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !creatingTeam) {
+                  event.preventDefault()
+                  handleCreateTeam()
+                }
+              }}
+              fullWidth
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeCreateTeamDialog} disabled={creatingTeam}>
+            Cancel
+          </Button>
+          <Button onClick={handleCreateTeam} variant="contained" disabled={creatingTeam}>
+            {creatingTeam ? 'Creating…' : 'Create'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   )
 }

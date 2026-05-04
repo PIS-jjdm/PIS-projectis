@@ -165,7 +165,7 @@ export default function SubjectDetailPage() {
       const [subjectData, projectData, userData] = await Promise.all([
         api.getSubject(session, subjectId),
         api.listProjects(session),
-        api.listKnownUsers(session),
+        api.listUsers(session),
       ])
       setSubject(subjectData)
       setProjects(Array.isArray(projectData) ? projectData : projectData.projects || [])

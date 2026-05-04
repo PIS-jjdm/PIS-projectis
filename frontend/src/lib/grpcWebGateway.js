@@ -226,6 +226,11 @@ const methods = {
     projectPb.ListTeamsByProjectRequest,
     gatewayPb.ListTeamsByProjectGatewayResponse,
   ),
+  listProjectTeamDetails: unaryDescriptor(
+    '/gateway.FrontendGateway/ListProjectTeamDetails',
+    gatewayPb.ListProjectTeamDetailsGatewayRequest,
+    gatewayPb.ListProjectTeamDetailsGatewayResponse,
+  ),
   getTeam: unaryDescriptor(
     '/gateway.FrontendGateway/GetTeam',
     projectPb.GetTeamRequest,
@@ -240,11 +245,6 @@ const methods = {
     '/gateway.FrontendGateway/SubmitProject',
     projectPb.SubmitProjectRequest,
     projectPb.ProjectSubmission,
-  ),
-  deleteSubmission: unaryDescriptor(
-    '/gateway.FrontendGateway/DeleteSubmission',
-    projectPb.DeleteSubmissionRequest,
-    commonPb.Ack,
   ),
   listProjectEvaluations: unaryDescriptor(
     '/gateway.FrontendGateway/ListProjectEvaluations',
@@ -488,6 +488,12 @@ export const gatewayClient = {
     return client.unary(methods.listTeamsByProject, request, accessToken)
   },
 
+  listProjectTeamDetails(accessToken, projectId) {
+    const request = new gatewayPb.ListProjectTeamDetailsGatewayRequest()
+    request.setProjectId(projectId || '')
+    return client.unary(methods.listProjectTeamDetails, request, accessToken)
+  },
+
   getTeam(accessToken, teamId) {
     const request = new projectPb.GetTeamRequest()
     request.setTeamId(teamId || '')
@@ -504,10 +510,12 @@ export const gatewayClient = {
     return client.unary(methods.submitProject, request, accessToken)
   },
 
-  deleteSubmission(accessToken, teamId) {
-    const request = new projectPb.DeleteSubmissionRequest()
-    request.setTeamId(teamId || '')
-    return client.unary(methods.deleteSubmission, request, accessToken)
+  listProjectEvaluations(accessToken, { projectId, studentId, evaluatorTeacherId } = {}) {
+    const request = new evalPb.ListProjectEvaluationsRequest()
+    if (projectId) request.setProjectId(projectId)
+    if (studentId) request.setStudentId(studentId)
+    if (evaluatorTeacherId) request.setEvaluatorTeacherId(evaluatorTeacherId)
+    return client.unary(methods.listProjectEvaluations, request, accessToken)
   },
 
   downloadSubmission(accessToken, teamId) {
@@ -535,12 +543,6 @@ export const gatewayClient = {
       )
       stream.on('error', reject)
     })
-  },
-
-  listProjectEvaluations(accessToken, projectId) {
-    const request = new evalPb.ListProjectEvaluationsRequest()
-    request.setProjectId(projectId || '')
-    return client.unary(methods.listProjectEvaluations, request, accessToken)
   },
 
   createProjectEvaluation(accessToken, payload) {

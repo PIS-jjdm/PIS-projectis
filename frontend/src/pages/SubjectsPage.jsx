@@ -34,17 +34,29 @@ import LoadingState from '../components/LoadingState'
 import PageHeader from '../components/PageHeader'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
-import { displayUserName, ownTeamForUser, resolveKnownUser } from '../lib/projectView'
+import { displayUserName, ownTeamForUser } from '../lib/projectView'
 import { formatDateOnly } from '../utils/date'
 
 const initialSubjectForm = { name: '', description: '', abbreviation: '' }
-const initialProjectForm = {
-  title: '',
-  description: '',
-  subject_id: '',
-  max_students_per_team: 3,
-  start_date: '',
-  end_date: '',
+
+function pad(value) {
+  return String(value).padStart(2, '0')
+}
+
+function dateAtTime(date, hours, minutes, seconds) {
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(hours)}:${pad(minutes)}:${pad(seconds)}`
+}
+
+function defaultProjectForm() {
+  const today = new Date()
+  return {
+    title: '',
+    description: '',
+    subject_id: '',
+    max_students_per_team: 3,
+    start_date: dateAtTime(today, 0, 0, 0),
+    end_date: dateAtTime(today, 23, 59, 59),
+  }
 }
 
 export default function SubjectsPage() {
@@ -71,17 +83,21 @@ export default function SubjectsPage() {
   const [projectDialogOpen, setProjectDialogOpen] = useState(false)
   const [editingSubject, setEditingSubject] = useState(null)
   const [subjectForm, setSubjectForm] = useState(initialSubjectForm)
-  const [projectForm, setProjectForm] = useState(initialProjectForm)
+  const [projectForm, setProjectForm] = useState(defaultProjectForm())
   const [subjectFormError, setSubjectFormError] = useState('')
   const [projectFormError, setProjectFormError] = useState('')
   const [subjectSubmitting, setSubjectSubmitting] = useState(false)
   const [projectSubmitting, setProjectSubmitting] = useState(false)
+  const [teamDialogOpen, setTeamDialogOpen] = useState(false)
+  const [teamDialogProjectId, setTeamDialogProjectId] = useState(null)
+  const [teamNameInput, setTeamNameInput] = useState('')
+  const [teamDialogError, setTeamDialogError] = useState('')
+  const [creatingTeam, setCreatingTeam] = useState(false)
 
   const knownUsersById = useMemo(
     () => new Map(knownUsers.map((knownUser) => [knownUser.id, knownUser])),
     [knownUsers],
   )
-  const effectiveUser = useMemo(() => resolveKnownUser(knownUsers, user), [knownUsers, user])
   const projectsBySubjectId = useMemo(
     () =>
       projects.reduce((accumulator, project) => {
@@ -98,7 +114,7 @@ export default function SubjectsPage() {
       const [subjectData, projectData, userData] = await Promise.all([
         api.listSubjects(session),
         api.listProjects(session),
-        api.listKnownUsers(session),
+        api.listUsers(session),
       ])
 
       const nextSubjects = Array.isArray(subjectData) ? subjectData : subjectData.subjects || []
@@ -214,7 +230,7 @@ export default function SubjectsPage() {
 
   function closeProjectDialog() {
     setProjectDialogOpen(false)
-    setProjectForm(initialProjectForm)
+    setProjectForm(defaultProjectForm())
     setProjectFormError('')
   }
 
@@ -242,14 +258,39 @@ export default function SubjectsPage() {
     }
   }
 
-  async function handleCreateTeam(projectId) {
+  function openCreateTeamDialog(projectId) {
+    setTeamDialogProjectId(projectId)
+    setTeamNameInput('')
+    setTeamDialogError('')
+    setTeamDialogOpen(true)
+  }
+
+  function closeCreateTeamDialog() {
+    setTeamDialogOpen(false)
+    setTeamDialogProjectId(null)
+    setTeamDialogError('')
+    setTeamNameInput('')
+  }
+
+  async function handleCreateTeam() {
+    if (!teamDialogProjectId) return
+    const trimmedName = teamNameInput.trim()
+    if (!trimmedName) {
+      setTeamDialogError('Team name is required.')
+      return
+    }
+    setCreatingTeam(true)
     try {
-      await api.registerTeam(session, projectId)
-      setSuccess('Team created for this project.')
+      await api.registerTeam(session, teamDialogProjectId, trimmedName)
+      const projectId = teamDialogProjectId
+      closeCreateTeamDialog()
+      setSuccess(`Team "${trimmedName}" created.`)
       await loadData()
       navigate(`/projects/${projectId}?tab=team`)
     } catch (createError) {
-      setError(createError.message || 'Failed to create team')
+      setTeamDialogError(createError.message || 'Failed to create team')
+    } finally {
+      setCreatingTeam(false)
     }
   }
 
@@ -271,7 +312,7 @@ export default function SubjectsPage() {
   function openProjectCreator(subjectId = '') {
     setProjectFormError('')
     setProjectForm({
-      ...initialProjectForm,
+      ...defaultProjectForm(),
       subject_id: subjectId || subjects[0]?.id || '',
     })
     setProjectDialogOpen(true)
@@ -485,8 +526,8 @@ export default function SubjectsPage() {
                           <Stack spacing={1.5} sx={{ mt: 1.5 }}>
                             {subjectProjects.map((project) => {
                               const projectTeams = teamsByProject[project.id] || []
-                              const ownTeam = effectiveUser
-                                ? ownTeamForUser(projectTeams, effectiveUser.id)
+                              const ownTeam = user?.id
+                                ? ownTeamForUser(projectTeams, user.id)
                                 : null
 
                               return (
@@ -582,15 +623,15 @@ export default function SubjectsPage() {
                                     >
                                       View teams
                                     </Button>
-                                    {effectiveUser?.role === 'student' && !ownTeam && (
+                                    {user?.role === 'student' && !ownTeam && (
                                       <Button
                                         variant="contained"
-                                        onClick={() => handleCreateTeam(project.id)}
+                                        onClick={() => openCreateTeamDialog(project.id)}
                                       >
                                         Create team
                                       </Button>
                                     )}
-                                    {effectiveUser?.role === 'student' && ownTeam && (
+                                    {user?.role === 'student' && ownTeam && (
                                       <Button
                                         variant="contained"
                                         onClick={() => navigate(`/projects/${project.id}?tab=team`)}
@@ -771,6 +812,41 @@ export default function SubjectsPage() {
           <Button onClick={() => setDeleteSubjectTarget(null)}>Cancel</Button>
           <Button color="error" variant="contained" onClick={handleDeleteSubject}>
             Delete subject
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={teamDialogOpen} onClose={closeCreateTeamDialog} fullWidth maxWidth="xs">
+        <DialogTitle>Create team</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            {teamDialogError && (
+              <Alert severity="error" onClose={() => setTeamDialogError('')}>
+                {teamDialogError}
+              </Alert>
+            )}
+            <TextField
+              required
+              autoFocus
+              label="Team name"
+              value={teamNameInput}
+              onChange={(event) => setTeamNameInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !creatingTeam) {
+                  event.preventDefault()
+                  handleCreateTeam()
+                }
+              }}
+              fullWidth
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeCreateTeamDialog} disabled={creatingTeam}>
+            Cancel
+          </Button>
+          <Button onClick={handleCreateTeam} variant="contained" disabled={creatingTeam}>
+            {creatingTeam ? 'Creating…' : 'Create'}
           </Button>
         </DialogActions>
       </Dialog>

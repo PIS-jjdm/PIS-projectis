@@ -356,20 +356,10 @@ export const api = {
   },
 
   async listProjects(session, subjectId) {
-    if (subjectId) {
-      const response = await gatewayClient.listProjects(accessToken(session), subjectId)
-      return response.getProjectsList().map(normalizeProject)
-    }
-
-    const subjectsResponse = await gatewayClient.listSubjects(accessToken(session))
-    const subjects = subjectsResponse.getSubjectsList().map(normalizeSubject)
-    const perSubject = await Promise.all(
-      subjects.map(async (subject) => {
-        const response = await gatewayClient.listProjects(accessToken(session), subject.id)
-        return response.getProjectsList().map(normalizeProject)
-      }),
-    )
-    return perSubject.flat()
+    // The router fans out internally when subject_id is empty, so a single grpc-web round-trip
+    // returns every project the caller can see.
+    const response = await gatewayClient.listProjects(accessToken(session), subjectId || '')
+    return response.getProjectsList().map(normalizeProject)
   },
 
   async getProjectNotificationRecipients(session, projectId) {
@@ -421,8 +411,18 @@ export const api = {
     return normalizeTeamDetail(await gatewayClient.getTeam(accessToken(session), teamId))
   },
 
+  async listProjectTeamDetails(session, projectId) {
+    const response = await gatewayClient.listProjectTeamDetails(accessToken(session), projectId)
+    return response.getTeamsList().map(normalizeTeamDetail).filter(Boolean)
+  },
+
   async downloadSubmission(session, teamId) {
     return gatewayClient.downloadSubmission(accessToken(session), teamId)
+  },
+
+  async listProjectEvaluations(session, filters = {}) {
+    const response = await gatewayClient.listProjectEvaluations(accessToken(session), filters)
+    return response.getEvaluationsList().map(normalizeProjectEvaluation)
   },
 
   async submitProject(session, teamId, file) {
@@ -438,15 +438,6 @@ export const api = {
         fileData,
       }),
     )
-  },
-
-  async deleteSubmission(session, teamId) {
-    return gatewayClient.deleteSubmission(accessToken(session), teamId)
-  },
-
-  async listProjectEvaluations(session, projectId) {
-    const response = await gatewayClient.listProjectEvaluations(accessToken(session), projectId)
-    return response.getEvaluationsList().map(normalizeProjectEvaluation)
   },
 
   async createProjectEvaluation(session, payload) {
@@ -506,11 +497,6 @@ export const api = {
         subject: subjectById.get(project.subject_id) || null,
         teams: teamsByProjectId.get(project.id) || [],
       }))
-  },
-
-  async listKnownUsers(session) {
-    const response = await gatewayClient.listUsers(accessToken(session))
-    return response.getUsersList().map(normalizeUser)
   },
 
   async listNotifications(session) {
