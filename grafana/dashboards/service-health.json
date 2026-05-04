@@ -76,88 +76,12 @@
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "expr": "probe_success{job=\"blackbox-subject-service-health\", service=\"subject-service\", check=\"liveness\"}",
-          "legendFormat": "subject-service",
+          "expr": "probe_success{service=\"$service\"}",
+          "legendFormat": "{{check}}",
           "refId": "A"
         }
       ],
-      "title": "Subject Service Liveness",
-      "type": "stat"
-    },
-    {
-      "datasource": {
-        "type": "prometheus",
-        "uid": "Prometheus"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "mappings": [
-            {
-              "options": {
-                "0": {
-                  "color": "red",
-                  "text": "DOWN"
-                },
-                "1": {
-                  "color": "green",
-                  "text": "UP"
-                }
-              },
-              "type": "value"
-            }
-          ],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 0
-      },
-      "id": 2,
-      "options": {
-        "colorMode": "background",
-        "graphMode": "none",
-        "justifyMode": "center",
-        "orientation": "auto",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "showPercentChange": false,
-        "textMode": "auto",
-        "wideLayout": true
-      },
-      "pluginVersion": "11.0.0",
-      "targets": [
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "Prometheus"
-          },
-          "expr": "probe_success{job=\"blackbox-subject-service-health\", service=\"subject-service\", check=\"readiness-db\"}",
-          "legendFormat": "subject-db via subject-service",
-          "refId": "A"
-        }
-      ],
-      "title": "Subject DB Readiness",
+      "title": "$service Health Checks",
       "type": "stat"
     },
     {
@@ -173,11 +97,11 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 24,
-        "x": 0,
-        "y": 8
+        "w": 12,
+        "x": 12,
+        "y": 0
       },
-      "id": 3,
+      "id": 2,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -185,8 +109,8 @@
           "showLegend": true
         },
         "tooltip": {
-          "mode": "single",
-          "sort": "none"
+          "mode": "multi",
+          "sort": "desc"
         }
       },
       "targets": [
@@ -195,7 +119,7 @@
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "expr": "probe_duration_seconds{job=\"blackbox-subject-service-health\", service=\"subject-service\"}",
+          "expr": "probe_duration_seconds{service=\"$service\"}",
           "legendFormat": "{{check}}",
           "refId": "A"
         }
@@ -218,9 +142,9 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 16
+        "y": 8
       },
-      "id": 4,
+      "id": 3,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -238,7 +162,7 @@
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "expr": "sum by (rpc_method) (rate(subject_grpc_requests_total[$__rate_interval]))",
+          "expr": "sum by (rpc_method) (rate(grpc_requests_total{exported_job=\"$service\"}[$__rate_interval]))",
           "legendFormat": "{{rpc_method}}",
           "refId": "A"
         }
@@ -261,9 +185,9 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 16
+        "y": 8
       },
-      "id": 5,
+      "id": 4,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -281,7 +205,7 @@
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "expr": "sum by (rpc_method, rpc_grpc_status_code) (rate(subject_grpc_requests_total{rpc_grpc_status_code!=\"OK\"}[$__rate_interval])) or vector(0)",
+          "expr": "sum by (rpc_method, rpc_grpc_status_code) (rate(grpc_requests_total{exported_job=\"$service\", rpc_grpc_status_code!=\"0\"}[$__rate_interval])) or vector(0)",
           "legendFormat": "{{rpc_method}} {{rpc_grpc_status_code}}",
           "refId": "A"
         }
@@ -304,9 +228,9 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 24
+        "y": 16
       },
-      "id": 6,
+      "id": 5,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -324,7 +248,7 @@
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "expr": "sum by (rpc_method) (subject_grpc_active_requests)",
+          "expr": "sum by (rpc_method) (grpc_active_requests{exported_job=\"$service\"}) or vector(0)",
           "legendFormat": "{{rpc_method}}",
           "refId": "A"
         }
@@ -347,9 +271,9 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 24
+        "y": 16
       },
-      "id": 7,
+      "id": 6,
       "options": {
         "legend": {
           "displayMode": "list",
@@ -367,7 +291,7 @@
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "expr": "histogram_quantile(0.95, sum by (le, rpc_method) (rate(subject_grpc_request_duration_seconds_bucket[$__rate_interval])))",
+          "expr": "histogram_quantile(0.95, sum by (le, rpc_method) (increase(grpc_request_duration_seconds_bucket{exported_job=\"$service\"}[$__range]))) and on (rpc_method) sum by (rpc_method) (increase(grpc_request_duration_seconds_count{exported_job=\"$service\"}[$__range])) > 0",
           "legendFormat": "{{rpc_method}}",
           "refId": "A"
         }
@@ -384,9 +308,9 @@
         "h": 10,
         "w": 24,
         "x": 0,
-        "y": 32
+        "y": 24
       },
-      "id": 8,
+      "id": 7,
       "options": {
         "dedupStrategy": "none",
         "enableLogDetails": true,
@@ -403,24 +327,52 @@
             "type": "loki",
             "uid": "Loki"
           },
-          "expr": "{service_name=\"subject-service\"}",
+          "expr": "{service_name=\"$service\"}",
           "refId": "A"
         }
       ],
-      "title": "Subject Service Logs",
+      "title": "$service Logs",
       "type": "logs"
     }
   ],
   "refresh": "10s",
   "schemaVersion": 39,
   "tags": [
-    "subject-service",
+    "service-health",
     "health",
     "metrics",
     "logs"
   ],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "subject-service",
+          "value": "subject-service"
+        },
+        "datasource": {
+          "type": "prometheus",
+          "uid": "Prometheus"
+        },
+        "definition": "label_values(probe_success, service)",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Service",
+        "multi": false,
+        "name": "service",
+        "options": [],
+        "query": {
+          "query": "label_values(probe_success, service)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
   },
   "time": {
     "from": "now-15m",
@@ -428,8 +380,8 @@
   },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Subject Service Health",
-  "uid": "subject-service-health",
+  "title": "Service Health",
+  "uid": "service-health",
   "version": 1,
   "weekStart": ""
 }

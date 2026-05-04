@@ -80,3 +80,27 @@ scrape_configs:
             service: notification-service
             check: grpc-health
     relabel_configs: *blackbox_relabel
+
+  - job_name: "blackbox-project-service-health"
+    metrics_path: /probe
+    params:
+      module: [tcp_connect]
+    static_configs:
+      - targets:
+          - project-service:50054
+        labels:
+          service: project-service
+          check: grpc-port
+    relabel_configs: *blackbox_relabel
+
+  - job_name: "blackbox-frontend-health"
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    static_configs:
+      - targets:
+          - http://frontend
+        labels:
+          service: frontend
+          check: http
+    relabel_configs: *blackbox_relabel

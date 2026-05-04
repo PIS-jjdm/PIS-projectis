@@ -2,7 +2,7 @@ use std::time::Instant;
 
 use opentelemetry::{
     KeyValue,
-    metrics::{Counter, Histogram},
+    metrics::{Counter, Histogram, UpDownCounter},
 };
 use tonic::{Code, Response, Status};
 
@@ -10,6 +10,8 @@ use tonic::{Code, Response, Status};
 pub struct Metrics {
     total_requests: Counter<u64>,
     request_duration: Histogram<f64>,
+    active_requests: UpDownCounter<i64>,
+    service_name: &'static str,
 }
 
 impl Metrics {
@@ -23,12 +25,20 @@ impl Metrics {
 
         let request_duration = meter
             .f64_histogram("grpc_request_duration_seconds")
-            .with_description("Duration of evaluation-service gRPC requests")
+            .with_description("Duration of gRPC requests")
+            .with_unit("s")
+            .build();
+
+        let active_requests = meter
+            .i64_up_down_counter("grpc_active_requests")
+            .with_description("Current number of in-flight gRPC requests")
             .build();
 
         Self {
             total_requests,
             request_duration,
+            active_requests,
+            service_name: meter_name,
         }
     }
 
@@ -37,6 +47,13 @@ impl Metrics {
         method: &str,
         func: impl AsyncFnOnce() -> Result<Response<R>, Status>,
     ) -> Result<Response<R>, Status> {
+        let active_tags = &[
+            KeyValue::new("rpc.system", "grpc"),
+            KeyValue::new("rpc.service", self.service_name),
+            KeyValue::new("rpc.method", method.to_owned()),
+        ];
+        self.active_requests.add(1, active_tags);
+
         let start = Instant::now();
         let res = func().await;
         let duration = Instant::now().duration_since(start).as_secs_f64();
@@ -48,13 +65,14 @@ impl Metrics {
 
         let tags = &[
             KeyValue::new("rpc.system", "grpc"),
-            KeyValue::new("rpc.service", "EvaluationService"),
+            KeyValue::new("rpc.service", self.service_name),
             KeyValue::new("rpc.method", method.to_owned()),
             KeyValue::new(
                 "rpc.grpc.status_code",
                 (grpc_status_code as u32).to_string(),
             ),
         ];
+        self.active_requests.add(-1, active_tags);
         self.total_requests.add(1, tags);
         self.request_duration.record(duration, tags);
 

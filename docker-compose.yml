@@ -165,6 +165,7 @@ services:
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
       OTEL_SERVICE_NAME: project-service
       OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_INSTRUMENTATION_GRPC_ENABLED: "false"
       AUTH_GRPC_ENDPOINT: auth-service:50051
       NOTIFICATION_GRPC_ENDPOINT: notification-service:50052
       SUBJECT_GRPC_ENDPOINT: subject-service:50053
