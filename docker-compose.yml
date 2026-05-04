@@ -182,7 +182,7 @@ services:
       BIND_ADDRESS: 0.0.0.0
       BIND_PORT: 50055
       DATA_DIR: /data/eval-db
-      SEEDS_PATH: /app/seeds.toml
+      # SEEDS_PATH: /app/seeds.toml
       OTLP_ENDPOINT: http://otel-collector:4317
       SUBJECT_ENDPOINT: http://subject-service:50053
       NOTIFICATION_ENDPOINT: http://notification-service:50052

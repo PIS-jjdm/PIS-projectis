@@ -2,6 +2,7 @@ use thiserror::Error;
 
 use crate::{
     application::{
+        gateway::*,
         repository::project_evaluation::{self as proj_eval, GetError, SaveError},
         usecase::project_evaluation::UpdateResult,
     },
@@ -43,16 +44,18 @@ impl From<SaveError> for Error {
 }
 
 #[derive(Debug)]
-pub struct Update<'r, R> {
+pub struct Update<'r, 'g, R, G> {
     repo: &'r R,
+    gateways: &'g G,
 }
 
-impl<'r, R> Update<'r, R>
+impl<'r, 'g, R, G> Update<'r, 'g, R, G>
 where
     R: proj_eval::Repo,
+    G: GatewayCollection,
 {
-    pub fn new(repo: &'r R) -> Self {
-        Self { repo }
+    pub fn new(repo: &'r R, gateways: &'g G) -> Self {
+        Self { repo, gateways }
     }
 
     pub async fn exec(&self, req: Request) -> UpdateResult {
@@ -65,6 +68,44 @@ where
         self.repo.save(eval).await?;
 
         let eval = self.repo.get(req.evaluation_id).await?;
+
+        if let Err(e) = self.notify(&eval).await {
+            log::error!("Notification creation failed: {e}");
+        }
+
         Ok(eval)
+    }
+
+    async fn notify(&self, record: &ProjectEvaluation) -> Result<(), anyhow::Error> {
+        let project = self
+            .gateways
+            .project()
+            .get_project_info(record.project_id.clone())
+            .await?;
+
+        let team = self
+            .gateways
+            .project()
+            .get_team_info(record.team_id.clone())
+            .await?;
+
+        let subject = self
+            .gateways
+            .subject()
+            .get_subject_info(project.subject_id.clone())
+            .await?;
+
+        self.gateways
+            .notification()
+            .send_evaluation_updated(EvaluationSavedEvent {
+                creator_id: record.evaluator_teacher_id.clone(),
+                total_score: record.total_score,
+                team,
+                project,
+                subject,
+            })
+            .await?;
+
+        Ok(())
     }
 }

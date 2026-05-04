@@ -2,7 +2,9 @@ use super::grpc_models::eval::{
     self as grpc,
     evaluation_service_server::{EvaluationService, EvaluationServiceServer},
 };
-use crate::infrastructure::api::{SERVICE_NAME, grpc_models::common, observe, shutdown_signal};
+use crate::infrastructure::api::{
+    REQUEST_CONTEXT, RequestContext, SERVICE_NAME, grpc_models::common, observe, shutdown_signal,
+};
 use crate::{
     adapter::{self, Db, presenter::web},
     domain,
@@ -56,6 +58,15 @@ macro_rules! with_metrics {
     };
 }
 
+macro_rules! in_request_scope {
+    ($req:expr, $call:expr) => {{
+        let (_, jwt) = get_user_id($req)?;
+        let ctx = RequestContext::new(jwt.to_owned());
+        let future = $call;
+        REQUEST_CONTEXT.scope(ctx, future)
+    }};
+}
+
 #[tonic::async_trait]
 impl<D: Db> EvaluationService for GrpcEvaluationService<D> {
     #[instrument(skip_all)]
@@ -78,14 +89,16 @@ impl<D: Db> EvaluationService for GrpcEvaluationService<D> {
     #[instrument(skip_all)]
     async fn list_project_evaluations(
         &self,
-        _req: Request<grpc::ListProjectEvaluationsRequest>,
+        req: Request<grpc::ListProjectEvaluationsRequest>,
     ) -> Result<Response<grpc::ListProjectEvaluationsResponse>, Status> {
         with_metrics!(self.metrics, "list_project_evaluations", {
-            let res = self.app_api.getall_project_evaluations().await.map(|r| {
-                Response::new(grpc::ListProjectEvaluationsResponse {
-                    evaluations: r.into_iter().map(grpc::ProjectEvaluation::from).collect(),
-                })
-            })?;
+            let res = in_request_scope!(&req, self.app_api.getall_project_evaluations())
+                .await
+                .map(|r| {
+                    Response::new(grpc::ListProjectEvaluationsResponse {
+                        evaluations: r.into_iter().map(grpc::ProjectEvaluation::from).collect(),
+                    })
+                })?;
 
             Ok(res)
         })
@@ -97,31 +110,18 @@ impl<D: Db> EvaluationService for GrpcEvaluationService<D> {
         req: Request<grpc::CreateProjectEvaluationRequest>,
     ) -> Result<Response<grpc::ProjectEvaluation>, Status> {
         with_metrics!(self.metrics, "create_project_evaluation", {
-            let jwt = req
-                .metadata()
-                .get("authorization")
-                .ok_or(Status::new(
-                    Code::Unauthenticated,
-                    "Authorization header is not present",
-                ))?
-                .to_str()
-                .map_err(|_| {
-                    Status::new(Code::Unauthenticated, "Authorization header parsing failed")
-                })?;
-            let user_id = get_user_id(jwt)
-                .map_err(|e| Status::new(Code::Unauthenticated, format!("Invalid JWT: {e}")))?;
-            let req = req.into_inner();
+            let (user_id, jwt) = get_user_id(&req)?;
+            let ctx = RequestContext::new(jwt.to_owned());
 
-            let created_eval = self
-                .app_api
-                .create_project_evaluation(
-                    &req.project_id,
-                    &req.team_id,
-                    &user_id,
-                    req.total_score,
-                    &req.feedback,
-                )
-                .await?;
+            let req = req.get_ref();
+            let created_eval_fut = self.app_api.create_project_evaluation(
+                &req.project_id,
+                &req.team_id,
+                &user_id,
+                req.total_score,
+                &req.feedback,
+            );
+            let created_eval = REQUEST_CONTEXT.scope(ctx, created_eval_fut).await?;
 
             Ok(Response::new(grpc::ProjectEvaluation::from(created_eval)))
         })
@@ -133,11 +133,16 @@ impl<D: Db> EvaluationService for GrpcEvaluationService<D> {
         req: Request<grpc::UpdateProjectEvaluationRequest>,
     ) -> Result<Response<grpc::ProjectEvaluation>, Status> {
         with_metrics!(self.metrics, "update_project_evaluation", {
-            let req = req.into_inner();
-            let updated_eval = self
-                .app_api
-                .update_project_evaluation(&req.evaluation_id, req.total_score, &req.feedback)
-                .await?;
+            let ireq = req.get_ref();
+            let updated_eval = in_request_scope!(
+                &req,
+                self.app_api.update_project_evaluation(
+                    &ireq.evaluation_id,
+                    ireq.total_score,
+                    &ireq.feedback
+                )
+            )
+            .await?;
 
             Ok(Response::new(grpc::ProjectEvaluation::from(updated_eval)))
         })
@@ -149,11 +154,12 @@ impl<D: Db> EvaluationService for GrpcEvaluationService<D> {
         req: Request<grpc::DeleteEvaluationRequest>,
     ) -> Result<Response<common::Ack>, Status> {
         with_metrics!(self.metrics, "delete_project_evaluation", {
-            let req = req.into_inner();
-            let deleted_eval = self
-                .app_api
-                .delete_project_evaluation(&req.evaluation_id)
-                .await?;
+            let ireq = req.get_ref();
+            let deleted_eval = in_request_scope!(
+                &req,
+                self.app_api.delete_project_evaluation(&ireq.evaluation_id)
+            )
+            .await?;
 
             Ok(Response::new(common::Ack {
                 success: true,
@@ -170,14 +176,24 @@ struct Claims {
     pub role: String,
 }
 
-fn get_user_id(authorization: &str) -> Result<String, anyhow::Error> {
+fn get_user_id<T>(req: &Request<T>) -> Result<(String, &'_ str), Status> {
+    let auth_header = req
+        .metadata()
+        .get("authorization")
+        .ok_or(Status::new(
+            Code::Unauthenticated,
+            "Authorization header is not present",
+        ))?
+        .to_str()
+        .map_err(|_| Status::new(Code::Unauthenticated, "Authorization header parsing failed"))?;
+
     // The router forwards the full "Bearer <jwt>" header verbatim — strip the prefix before
     // base64-decoding the JWT payload, otherwise the leading "Bearer " trips the decoder.
-    let token = authorization
-        .strip_prefix("Bearer ")
-        .unwrap_or(authorization);
-    let data = jsonwebtoken::dangerous::insecure_decode::<Claims>(token)?;
-    Ok(data.claims.sub)
+    let token = auth_header.strip_prefix("Bearer ").unwrap_or(auth_header);
+    let data = jsonwebtoken::dangerous::insecure_decode::<Claims>(token)
+        .map_err(|e| Status::new(Code::Unauthenticated, format!("Invalid JWT: {e}")))?;
+
+    Ok((data.claims.sub, token))
 }
 
 impl From<adapter::models::Error> for Status {

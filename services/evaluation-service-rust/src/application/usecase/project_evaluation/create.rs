@@ -65,7 +65,7 @@ where
             .map_err(|_| Error::Repo(ConnectionError.into()))?;
 
         if let Err(e) = self.notify(&eval).await {
-            log::warn!("Notification creation failed: {e}");
+            log::error!("Notification creation failed: {e}");
         }
 
         Ok(eval)
@@ -92,7 +92,7 @@ where
 
         self.gateways
             .notification()
-            .send_evaluation_created(EvaluationCreatedEvent {
+            .send_evaluation_created(EvaluationSavedEvent {
                 creator_id: record.evaluator_teacher_id.clone(),
                 total_score: record.total_score,
                 team,

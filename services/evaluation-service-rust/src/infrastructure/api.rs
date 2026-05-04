@@ -7,17 +7,12 @@ use opentelemetry::trace::TracerProvider;
 use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
 use opentelemetry_otlp::WithExportConfig;
 use opentelemetry_sdk::{
-    Resource,
-    logs::SdkLoggerProvider,
-    metrics::{SdkMeterProvider, periodic_reader_with_async_runtime::PeriodicReader},
-    runtime,
-    trace::SdkTracerProvider,
+    Resource, logs::SdkLoggerProvider, metrics::SdkMeterProvider, trace::SdkTracerProvider,
 };
 use std::{
     net::{IpAddr, SocketAddr},
     path::PathBuf,
     sync::Arc,
-    time::Duration,
 };
 use thiserror::Error;
 use tokio::signal;
@@ -49,6 +44,21 @@ pub async fn run() -> Result<(), anyhow::Error> {
     let addr = SocketAddr::from((args.bind, args.port));
 
     grpc::run(db, gateways, addr).await
+}
+
+#[derive(Debug, Clone, derive_getters::Getters)]
+pub struct RequestContext {
+    auth_token: String,
+}
+
+impl RequestContext {
+    pub fn new(auth_token: String) -> Self {
+        Self { auth_token }
+    }
+}
+
+tokio::task_local! {
+    pub static REQUEST_CONTEXT: RequestContext;
 }
 
 #[derive(Debug, Error)]

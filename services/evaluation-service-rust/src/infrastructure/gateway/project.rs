@@ -1,5 +1,4 @@
-use std::{str::FromStr, sync::Arc};
-use tokio::sync::Mutex;
+use std::str::FromStr;
 use tonic::{
     Code, async_trait,
     transport::{Channel, Uri},
@@ -8,13 +7,14 @@ use tonic::{
 use crate::{
     application::gateway::{ProjectError, ProjectGateway, models},
     domain::Id,
-    infrastructure::api::grpc_models::project::{
-        self as grpc, project_service_client::ProjectServiceClient,
+    infrastructure::{
+        api::grpc_models::project::{self as grpc, project_service_client::ProjectServiceClient},
+        gateway::WithSessionAuth,
     },
 };
 
 pub struct GrpcProjectGateway {
-    client: Arc<Mutex<ProjectServiceClient<Channel>>>,
+    client: ProjectServiceClient<Channel>,
 }
 
 impl GrpcProjectGateway {
@@ -24,24 +24,23 @@ impl GrpcProjectGateway {
 
         tracing::info!(addr = addr, "Using lazy connect");
 
-        Ok(Self {
-            client: Arc::new(Mutex::new(client)),
-        })
+        Ok(Self { client })
     }
 }
 
 #[async_trait]
 impl ProjectGateway for GrpcProjectGateway {
     async fn get_project_info(&self, project_id: Id) -> Result<models::Project, ProjectError> {
-        let req = tonic::Request::new(grpc::GetProjectRequest { project_id });
-        let response = self.client.lock().await.get_project(req).await?;
+        let req =
+            tonic::Request::new(grpc::GetProjectRequest { project_id }).with_session_auth()?;
+        let response = self.client.clone().get_project(req).await?;
 
         Ok(response.into_inner().into())
     }
 
     async fn get_team_info(&self, team_id: Id) -> Result<models::Team, ProjectError> {
-        let req = tonic::Request::new(grpc::GetTeamRequest { team_id });
-        let response = self.client.lock().await.get_team(req).await?;
+        let req = tonic::Request::new(grpc::GetTeamRequest { team_id }).with_session_auth()?;
+        let response = self.client.clone().get_team(req).await?;
 
         Ok(response.into_inner().into())
     }
@@ -71,5 +70,11 @@ impl From<tonic::Status> for ProjectError {
             Code::Unavailable => Self::Unavailable,
             _ => Self::Failed(value.message().to_owned()),
         }
+    }
+}
+
+impl From<anyhow::Error> for ProjectError {
+    fn from(error: anyhow::Error) -> Self {
+        Self::Failed(error.to_string())
     }
 }

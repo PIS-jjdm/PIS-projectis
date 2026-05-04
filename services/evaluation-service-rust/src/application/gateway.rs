@@ -13,9 +13,17 @@ pub trait GatewayCollection {
 }
 
 #[derive(Debug)]
-pub struct EvaluationCreatedEvent {
+pub struct EvaluationSavedEvent {
     pub creator_id: Id,
     pub total_score: f32,
+    pub team: Team,
+    pub project: Project,
+    pub subject: Subject,
+}
+
+#[derive(Debug)]
+pub struct EvaluationDeletedEvent {
+    pub creator_id: Id,
     pub team: Team,
     pub project: Project,
     pub subject: Subject,
@@ -25,7 +33,17 @@ pub struct EvaluationCreatedEvent {
 pub trait NotificationGateway: Send + Sync {
     async fn send_evaluation_created(
         &self,
-        event: EvaluationCreatedEvent,
+        event: EvaluationSavedEvent,
+    ) -> Result<(), NotificationError>;
+
+    async fn send_evaluation_updated(
+        &self,
+        event: EvaluationSavedEvent,
+    ) -> Result<(), NotificationError>;
+
+    async fn send_evaluation_deleted(
+        &self,
+        event: EvaluationDeletedEvent,
     ) -> Result<(), NotificationError>;
 }
 
