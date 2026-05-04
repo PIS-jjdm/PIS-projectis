@@ -373,6 +373,17 @@ export default function ProjectDetailPage() {
     }
   }
 
+  async function handleLeaveTeam() {
+    if (!ownTeam?.id) return
+    try {
+      await api.leaveTeam(session, ownTeam.id)
+      setSuccess('Left the team.')
+      await loadData()
+    } catch (leaveError) {
+      setError(leaveError.message || 'Failed to leave team')
+    }
+  }
+
   async function handleRemoveMember(studentId) {
     if (!ownTeam?.id) return
     try {
@@ -503,15 +514,27 @@ export default function ProjectDetailPage() {
                     justifyContent="space-between"
                     alignItems={{ xs: 'flex-start', md: 'center' }}
                   >
-                    <Box>
-                      <Typography variant="h6">You are not in a team yet</Typography>
-                      <Typography color="text.secondary" sx={{ mt: 0.75 }}>
-                        Create a team for this project, then manage members here.
-                      </Typography>
-                    </Box>
-                    <Button variant="contained" onClick={openCreateTeamDialog}>
-                      Create team
-                    </Button>
+                    {(subject?.user_ids || []).includes(user?.id) ? (
+                      <>
+                        <Box>
+                          <Typography variant="h6">You are not in a team yet</Typography>
+                          <Typography color="text.secondary" sx={{ mt: 0.75 }}>
+                            Create a team for this project, then manage members here.
+                          </Typography>
+                        </Box>
+                        <Button variant="contained" onClick={openCreateTeamDialog}>
+                          Create team
+                        </Button>
+                      </>
+                    ) : (
+                      <Box>
+                        <Typography variant="h6">Subject registration required</Typography>
+                        <Typography color="text.secondary" sx={{ mt: 0.75 }}>
+                          You must register for the &quot;{subject?.name || 'subject'}&quot;
+                          subject before you can create or join a team for this project.
+                        </Typography>
+                      </Box>
+                    )}
                   </Stack>
                 </Paper>
               )}
@@ -602,6 +625,18 @@ export default function ProjectDetailPage() {
                           <Typography color="text.secondary" sx={{ fontSize: 14 }}>
                             {(ownTeam.student_ids || []).length} / {project.max_students_per_team} seats used
                           </Typography>
+                        </Stack>
+                      )}
+
+                      {isStudent && !teamDetails[ownTeam.id]?.evaluation && (
+                        <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
+                          <Button
+                            color="error"
+                            variant="outlined"
+                            onClick={handleLeaveTeam}
+                          >
+                            Leave team
+                          </Button>
                         </Stack>
                       )}
                     </Stack>

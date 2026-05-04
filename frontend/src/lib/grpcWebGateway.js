@@ -181,6 +181,11 @@ const methods = {
     gatewayPb.RegisterSubjectGatewayRequest,
     commonPb.Ack,
   ),
+  leaveSubject: unaryDescriptor(
+    '/gateway.FrontendGateway/LeaveSubject',
+    gatewayPb.LeaveSubjectGatewayRequest,
+    commonPb.Ack,
+  ),
   addStudentToSubject: unaryDescriptor(
     '/gateway.FrontendGateway/AddStudentToSubject',
     subjectPb.UserSubjectRequest,
@@ -206,6 +211,11 @@ const methods = {
     projectPb.ListProjectsRequest,
     projectPb.ListProjectsResponse,
   ),
+  listProjectsWithTeams: unaryDescriptor(
+    '/gateway.FrontendGateway/ListProjectsWithTeams',
+    gatewayPb.ListProjectsWithTeamsGatewayRequest,
+    gatewayPb.ListProjectsWithTeamsGatewayResponse,
+  ),
   createProject: unaryDescriptor(
     '/gateway.FrontendGateway/CreateProject',
     gatewayPb.CreateProjectGatewayRequest,
@@ -220,6 +230,11 @@ const methods = {
     '/gateway.FrontendGateway/RegisterTeam',
     projectPb.RegisterTeamRequest,
     projectPb.Team,
+  ),
+  leaveTeam: unaryDescriptor(
+    '/gateway.FrontendGateway/LeaveTeam',
+    projectPb.LeaveTeamRequest,
+    commonPb.Ack,
   ),
   listTeamsByProject: unaryDescriptor(
     '/gateway.FrontendGateway/ListTeamsByProject',
@@ -419,6 +434,12 @@ export const gatewayClient = {
     return client.unary(methods.registerSubject, request, accessToken)
   },
 
+  leaveSubject(accessToken, subjectId) {
+    const request = new gatewayPb.LeaveSubjectGatewayRequest()
+    request.setSubjectId(subjectId || '')
+    return client.unary(methods.leaveSubject, request, accessToken)
+  },
+
   addStudentToSubject(accessToken, subjectId, userId) {
     const request = new subjectPb.UserSubjectRequest()
     request.setSubjectId(subjectId || '')
@@ -445,6 +466,12 @@ export const gatewayClient = {
     request.setSubjectId(subjectId || '')
     request.setTeacherUserId(teacherUserId || '')
     return client.unary(methods.removeTeacherFromSubject, request, accessToken)
+  },
+
+  listProjectsWithTeams(accessToken, subjectId) {
+    const request = new gatewayPb.ListProjectsWithTeamsGatewayRequest()
+    request.setSubjectId(subjectId || '')
+    return client.unary(methods.listProjectsWithTeams, request, accessToken)
   },
 
   listProjects(accessToken, subjectId) {
@@ -480,6 +507,12 @@ export const gatewayClient = {
     request.setProjectId(projectId || '')
     request.setTeamName(teamName || '')
     return client.unary(methods.registerTeam, request, accessToken)
+  },
+
+  leaveTeam(accessToken, teamId) {
+    const request = new projectPb.LeaveTeamRequest()
+    request.setTeamId(teamId || '')
+    return client.unary(methods.leaveTeam, request, accessToken)
   },
 
   listTeamsByProject(accessToken, projectId) {

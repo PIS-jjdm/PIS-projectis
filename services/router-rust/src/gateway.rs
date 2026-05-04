@@ -19,9 +19,10 @@ use crate::proto::{
         frontend_gateway_server::FrontendGateway, CancelScheduledNotificationGatewayRequest,
         ChangePasswordGatewayRequest, CreateNotificationGatewayRequest,
         CreateNotificationGatewayResponse, CreateProjectGatewayRequest,
-        ListNotificationsGatewayResponse, ListProjectTeamDetailsGatewayRequest,
-        ListProjectTeamDetailsGatewayResponse, ListTeamsByProjectGatewayResponse,
-        NotificationWithSender, RegisterSubjectGatewayRequest,
+        LeaveSubjectGatewayRequest, ListNotificationsGatewayResponse,
+        ListProjectTeamDetailsGatewayRequest, ListProjectTeamDetailsGatewayResponse,
+        ListProjectsWithTeamsGatewayRequest, ListProjectsWithTeamsGatewayResponse,
+        ListTeamsByProjectGatewayResponse, NotificationWithSender, RegisterSubjectGatewayRequest,
         RescheduleScheduledNotificationGatewayRequest,
     },
     notification::{ListScheduledNotificationsResponse, MarkAsReadRequest, Notification},
@@ -282,6 +283,13 @@ impl FrontendGateway for FrontendGatewayService {
         subjects::register_subject(self, request).await
     }
 
+    async fn leave_subject(
+        &self,
+        request: Request<LeaveSubjectGatewayRequest>,
+    ) -> Result<Response<Ack>, Status> {
+        subjects::leave_subject(self, request).await
+    }
+
     async fn add_student_to_subject(
         &self,
         request: Request<UserSubjectRequest>,
@@ -315,6 +323,13 @@ impl FrontendGateway for FrontendGatewayService {
         request: Request<ListProjectsRequest>,
     ) -> Result<Response<ListProjectsResponse>, Status> {
         projects::list_projects(self, request).await
+    }
+
+    async fn list_projects_with_teams(
+        &self,
+        request: Request<ListProjectsWithTeamsGatewayRequest>,
+    ) -> Result<Response<ListProjectsWithTeamsGatewayResponse>, Status> {
+        projects::list_projects_with_teams(self, request).await
     }
 
     async fn create_project(

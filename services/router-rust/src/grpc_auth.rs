@@ -128,6 +128,7 @@ fn route_auth_policy(path: &str) -> RouteAuthPolicy {
         }
         "/gateway.FrontendGateway/SubmitProject" => RouteAuthPolicy::Roles(STUDENT_OR_ADMIN),
         "/gateway.FrontendGateway/RegisterSubject" => RouteAuthPolicy::Roles(STUDENT_ONLY),
+        "/gateway.FrontendGateway/LeaveSubject" => RouteAuthPolicy::Roles(STUDENT_ONLY),
         _ => RouteAuthPolicy::Authenticated,
     }
 }

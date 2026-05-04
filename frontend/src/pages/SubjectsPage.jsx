@@ -107,29 +107,46 @@ export default function SubjectsPage() {
     [projects],
   )
 
+  // Subjects in which the current student is on at least one team. Used to hide the
+  // "Unregister from subject" button — unregistering while still on a team there
+  // would leave that team in an inconsistent state.
+  const subjectsWhereStudentHasTeam = useMemo(() => {
+    const studentId = user?.id
+    if (!studentId) return new Set()
+    const result = new Set()
+    for (const project of projects) {
+      const teams = teamsByProject[project.id] || []
+      if (teams.some((team) => (team.student_ids || []).includes(studentId))) {
+        result.add(project.subject_id)
+      }
+    }
+    return result
+  }, [projects, teamsByProject, user?.id])
+
   async function loadData() {
     setLoading(true)
     setError('')
     try {
-      const [subjectData, projectData, userData] = await Promise.all([
+      // Single bundled call replaces listProjects + per-project listTeamsByProject (was N+1).
+      const [subjectData, projectsBundle, userData] = await Promise.all([
         api.listSubjects(session),
-        api.listProjects(session),
+        api.listProjectsWithTeams(session),
         api.listUsers(session),
       ])
 
       const nextSubjects = Array.isArray(subjectData) ? subjectData : subjectData.subjects || []
-      const nextProjects = Array.isArray(projectData) ? projectData : projectData.projects || []
-      const teamLists = await Promise.all(
-        nextProjects.map(async (project) => ({
-          projectId: project.id,
-          teams: await api.listTeamsByProject(session, project.id),
-        })),
+      const bundle = Array.isArray(projectsBundle) ? projectsBundle : []
+      const nextProjects = bundle.map((entry) => entry.project).filter(Boolean)
+      const nextTeamsByProject = Object.fromEntries(
+        bundle
+          .filter((entry) => entry.project?.id)
+          .map((entry) => [entry.project.id, entry.teams || []]),
       )
 
       setSubjects(nextSubjects)
       setProjects(nextProjects)
       setKnownUsers(Array.isArray(userData) ? userData : [])
-      setTeamsByProject(Object.fromEntries(teamLists.map((item) => [item.projectId, item.teams])))
+      setTeamsByProject(nextTeamsByProject)
     } catch (loadError) {
       setError(loadError.message || 'Failed to load subject workspace')
     } finally {
@@ -148,6 +165,16 @@ export default function SubjectsPage() {
       await loadData()
     } catch (registerError) {
       setError(registerError.message || 'Failed to register to subject')
+    }
+  }
+
+  async function handleLeaveSubject(subjectId) {
+    try {
+      await api.leaveSubject(session, subjectId)
+      setSuccess('Unregistered from subject.')
+      await loadData()
+    } catch (leaveError) {
+      setError(leaveError.message || 'Failed to unregister from subject')
     }
   }
 
@@ -454,6 +481,17 @@ export default function SubjectsPage() {
                               Register to subject
                             </Button>
                           )}
+                        {user?.role === 'student' &&
+                          (subject.user_ids || []).includes(user?.id) &&
+                          !subjectsWhereStudentHasTeam.has(subject.id) && (
+                            <Button
+                              color="error"
+                              variant="outlined"
+                              onClick={() => handleLeaveSubject(subject.id)}
+                            >
+                              Unregister from subject
+                            </Button>
+                          )}
                         {['teacher', 'admin'].includes(user?.role) && (
                           <Button
                             variant="contained"
@@ -623,14 +661,16 @@ export default function SubjectsPage() {
                                     >
                                       View teams
                                     </Button>
-                                    {user?.role === 'student' && !ownTeam && (
-                                      <Button
-                                        variant="contained"
-                                        onClick={() => openCreateTeamDialog(project.id)}
-                                      >
-                                        Create team
-                                      </Button>
-                                    )}
+                                    {user?.role === 'student' &&
+                                      !ownTeam &&
+                                      (subject.user_ids || []).includes(user?.id) && (
+                                        <Button
+                                          variant="contained"
+                                          onClick={() => openCreateTeamDialog(project.id)}
+                                        >
+                                          Create team
+                                        </Button>
+                                      )}
                                     {user?.role === 'student' && ownTeam && (
                                       <Button
                                         variant="contained"

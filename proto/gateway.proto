@@ -28,12 +28,18 @@ service FrontendGateway {
   rpc UpdateSubject(subject.UpdateSubjectRequest) returns (subject.Subject);
   rpc DeleteSubject(subject.DeleteSubjectRequest) returns (common.Ack);
   rpc RegisterSubject(RegisterSubjectGatewayRequest) returns (common.Ack);
+  rpc LeaveSubject(LeaveSubjectGatewayRequest) returns (common.Ack);
   rpc AddStudentToSubject(subject.UserSubjectRequest) returns (common.Ack);
   rpc RemoveStudentFromSubject(subject.UserSubjectRequest) returns (common.Ack);
   rpc AssignTeacherToSubject(subject.TeacherSubjectRequest) returns (subject.Subject);
   rpc RemoveTeacherFromSubject(subject.TeacherSubjectRequest) returns (subject.Subject);
 
   rpc ListProjects(project.ListProjectsRequest) returns (project.ListProjectsResponse);
+  // Single-call replacement for "list projects + per-project list_teams_by_project". When
+  // subject_id is empty the router fans out across every subject server-side. Each entry
+  // bundles a Project with its Teams (basic shape, student_ids enriched).
+  rpc ListProjectsWithTeams(ListProjectsWithTeamsGatewayRequest)
+      returns (ListProjectsWithTeamsGatewayResponse);
   rpc GetProject(project.GetProjectRequest) returns (project.Project);
   rpc CreateProject(CreateProjectGatewayRequest) returns (project.Project);
   rpc UpdateProject(project.UpdateProjectRequest) returns (project.Project);
@@ -80,6 +86,8 @@ service FrontendGateway {
 
 message RegisterSubjectGatewayRequest { string subject_id = 1; }
 
+message LeaveSubjectGatewayRequest { string subject_id = 1; }
+
 message ChangePasswordGatewayRequest {
   string current_password = 1;
   string new_password = 2;
@@ -122,6 +130,17 @@ message ListProjectTeamDetailsGatewayRequest { string project_id = 1; }
 
 message ListProjectTeamDetailsGatewayResponse {
   repeated project.TeamDetail teams = 1;
+}
+
+message ListProjectsWithTeamsGatewayRequest { string subject_id = 1; }
+
+message ProjectWithTeams {
+  project.Project project = 1;
+  repeated project.Team teams = 2;
+}
+
+message ListProjectsWithTeamsGatewayResponse {
+  repeated ProjectWithTeams projects = 1;
 }
 
 message CancelScheduledNotificationGatewayRequest { string batch_id = 1; }
