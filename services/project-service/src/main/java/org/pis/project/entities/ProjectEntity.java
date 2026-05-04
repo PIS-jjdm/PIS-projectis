@@ -23,7 +23,7 @@ public class ProjectEntity extends BaseEntity {
 
     private String description;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "FLOAT DEFAULT 100")
     private Float maxPoints;
 
     @Column(nullable = false)

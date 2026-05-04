@@ -49,6 +49,7 @@ message Project {
   google.protobuf.Timestamp end_date              = 8;
   string                    subject_id            = 9;
   repeated ListTeam         teams                 = 10;
+  float                     max_points            = 11;
 }
 
 message ListProjectsRequest {

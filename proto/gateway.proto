@@ -101,6 +101,7 @@ message CreateProjectGatewayRequest {
   google.protobuf.Timestamp start_date = 5;
   google.protobuf.Timestamp end_date = 6;
   string subject_id = 7;
+  float max_points = 8;
 }
 
 message CreateNotificationGatewayRequest {
