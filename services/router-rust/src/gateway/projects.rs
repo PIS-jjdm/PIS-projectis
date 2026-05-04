@@ -193,6 +193,35 @@ pub(super) async fn register_team(
     FrontendGatewayService::require_non_empty(&body.project_id, "project id")?;
     FrontendGatewayService::require_non_empty(&body.team_name, "team name")?;
 
+    // Enforce: a student can only create a team in a project whose subject they're
+    // enrolled in. The frontend hides the button for non-enrolled students; this is the
+    // belt-and-suspenders check so a determined caller can't bypass via grpcurl.
+    if current_user.role == UserRole::Student {
+        let project = service
+            .state
+            .project_client()
+            .get_project(ctx.clone().into_request(GetProjectRequest {
+                project_id: body.project_id.clone(),
+            })?)
+            .await?
+            .into_inner();
+        let subject = service
+            .state
+            .subject_client()
+            .get_subject(ctx.clone().into_request(
+                crate::proto::subject::GetSubjectRequest {
+                    subject_id: project.subject_id.clone(),
+                },
+            )?)
+            .await?
+            .into_inner();
+        if !subject.user_ids.iter().any(|id| id == &current_user.user_id) {
+            return Err(Status::permission_denied(
+                "register for the subject before creating a team in its project",
+            ));
+        }
+    }
+
     let response = service
         .state
         .project_client()

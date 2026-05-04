@@ -108,7 +108,7 @@ export default function SubjectsPage() {
   )
 
   // Subjects in which the current student is on at least one team. Used to hide the
-  // "Leave subject" button — leaving a subject while still belonging to a team there
+  // "Unregister from subject" button — unregistering while still on a team there
   // would leave that team in an inconsistent state.
   const subjectsWhereStudentHasTeam = useMemo(() => {
     const studentId = user?.id
@@ -171,10 +171,10 @@ export default function SubjectsPage() {
   async function handleLeaveSubject(subjectId) {
     try {
       await api.leaveSubject(session, subjectId)
-      setSuccess('Unenrolled from subject.')
+      setSuccess('Unregistered from subject.')
       await loadData()
     } catch (leaveError) {
-      setError(leaveError.message || 'Failed to leave subject')
+      setError(leaveError.message || 'Failed to unregister from subject')
     }
   }
 
@@ -489,7 +489,7 @@ export default function SubjectsPage() {
                               variant="outlined"
                               onClick={() => handleLeaveSubject(subject.id)}
                             >
-                              Leave subject
+                              Unregister from subject
                             </Button>
                           )}
                         {['teacher', 'admin'].includes(user?.role) && (

@@ -514,15 +514,27 @@ export default function ProjectDetailPage() {
                     justifyContent="space-between"
                     alignItems={{ xs: 'flex-start', md: 'center' }}
                   >
-                    <Box>
-                      <Typography variant="h6">You are not in a team yet</Typography>
-                      <Typography color="text.secondary" sx={{ mt: 0.75 }}>
-                        Create a team for this project, then manage members here.
-                      </Typography>
-                    </Box>
-                    <Button variant="contained" onClick={openCreateTeamDialog}>
-                      Create team
-                    </Button>
+                    {(subject?.user_ids || []).includes(user?.id) ? (
+                      <>
+                        <Box>
+                          <Typography variant="h6">You are not in a team yet</Typography>
+                          <Typography color="text.secondary" sx={{ mt: 0.75 }}>
+                            Create a team for this project, then manage members here.
+                          </Typography>
+                        </Box>
+                        <Button variant="contained" onClick={openCreateTeamDialog}>
+                          Create team
+                        </Button>
+                      </>
+                    ) : (
+                      <Box>
+                        <Typography variant="h6">Subject registration required</Typography>
+                        <Typography color="text.secondary" sx={{ mt: 0.75 }}>
+                          You must register for the &quot;{subject?.name || 'subject'}&quot;
+                          subject before you can create or join a team for this project.
+                        </Typography>
+                      </Box>
+                    )}
                   </Stack>
                 </Paper>
               )}
