@@ -103,7 +103,7 @@ where
         &self,
         evaluation_id: &str,
     ) -> <P as Present<peuc::DeleteResult>>::ViewModel {
-        let interceptor = uc::project_evaluation::Delete::new(&*self.db);
+        let interceptor = uc::project_evaluation::Delete::new(&*self.db, &*self.gateways);
         let res = interceptor.exec(evaluation_id.to_owned()).await;
 
         self.presenter.present(res)
@@ -121,7 +121,7 @@ where
             feedback: feedback.clone(),
         };
 
-        let interceptor = uc::project_evaluation::Update::new(&*self.db);
+        let interceptor = uc::project_evaluation::Update::new(&*self.db, &*self.gateways);
         let res = interceptor.exec(req).await;
 
         self.presenter.present(res)

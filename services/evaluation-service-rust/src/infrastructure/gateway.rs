@@ -5,10 +5,14 @@ mod subject;
 pub use notification::GrpcNotificationGateway;
 pub use project::GrpcProjectGateway;
 pub use subject::GrpcSubjectGateway;
-use tonic::transport::Channel;
+use thiserror::Error;
+use tonic::metadata::MetadataValue;
 
-use crate::application::gateway::{
-    GatewayCollection, NotificationGateway, ProjectGateway, SubjectGateway,
+use crate::{
+    application::gateway::{
+        GatewayCollection, NotificationGateway, ProjectGateway, SubjectGateway,
+    },
+    infrastructure::api::REQUEST_CONTEXT,
 };
 
 pub struct GrpcGatewayCollection {
@@ -31,6 +35,32 @@ impl GatewayCollection for GrpcGatewayCollection {
     }
 }
 
-pub fn connect_with_retries() -> Result<Channel, anyhow::Error> {
-    todo!();
+#[derive(Debug, Error)]
+enum AuthError {
+    #[error("Request context extraction failed: {0}")]
+    Context(anyhow::Error),
+    #[error("Failed to convert auth token to metadata value")]
+    Meta,
+}
+
+trait WithSessionAuth {
+    fn with_session_auth(self) -> Result<Self, anyhow::Error>
+    where
+        Self: Sized;
+}
+
+impl<T> WithSessionAuth for tonic::Request<T> {
+    fn with_session_auth(mut self) -> Result<Self, anyhow::Error> {
+        let ctx = REQUEST_CONTEXT
+            .try_get()
+            .map_err(|e| AuthError::Context(e.into()))?;
+        let auth_token = ctx.auth_token();
+
+        self.metadata_mut().append(
+            "authorization",
+            MetadataValue::try_from(auth_token).map_err(|_| AuthError::Meta)?,
+        );
+
+        Ok(self)
+    }
 }
