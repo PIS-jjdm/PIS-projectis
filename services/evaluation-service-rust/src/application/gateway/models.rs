@@ -8,6 +8,7 @@ pub struct Team {
 pub struct Project {
     pub name: String,
     pub subject_id: String,
+    pub max_points: f32,
 }
 
 #[derive(Debug)]
