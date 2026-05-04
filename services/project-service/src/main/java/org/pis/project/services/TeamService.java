@@ -47,6 +47,7 @@ public class TeamService {
     public TeamEntity getTeam(UUID teamId) {
         TeamEntity retrievedTeam = teamRepository.findById(teamId)
                 .orElseThrow(() -> new ResourceNotFoundException("Team not found with id: " + teamId));
+        Hibernate.initialize(retrievedTeam.getProject());
         Hibernate.initialize(retrievedTeam.getMembers());
         Hibernate.initialize(retrievedTeam.getProjectSubmission());
         return retrievedTeam;
@@ -213,6 +214,7 @@ public class TeamService {
         TeamEntity team = teamMember.getTeam();
         team.removeMember(teamMember);
 
+        Hibernate.initialize(team.getProject());
         Hibernate.initialize(team.getMembers());
         log.info("Successfully removed student [{}] from team [{}]", studentId, teamId);
         return team;
