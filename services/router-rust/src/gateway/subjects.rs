@@ -1,4 +1,5 @@
 use super::*;
+use crate::proto::gateway::LeaveSubjectGatewayRequest;
 use crate::proto::subject::{
     GetSubjectRequest, ListSubjectsRequest, TeacherSubjectRequest, UserSubjectRequest,
 };
@@ -186,6 +187,28 @@ pub(super) async fn register_subject(
         .state
         .subject_client()
         .register_user_to_subject(ctx.into_request(UserSubjectRequest {
+            subject_id: body.subject_id,
+            user_id: current_user.user_id,
+        })?)
+        .await?
+        .into_inner();
+
+    Ok(Response::new(response))
+}
+
+pub(super) async fn leave_subject(
+    service: &FrontendGatewayService,
+    request: Request<LeaveSubjectGatewayRequest>,
+) -> Result<Response<Ack>, Status> {
+    let current_user = FrontendGatewayService::current_user(&request)?;
+    let ctx = ForwardContext::from_request(&request);
+    let body = request.into_inner();
+    FrontendGatewayService::require_non_empty(&body.subject_id, "subject id")?;
+
+    let response = service
+        .state
+        .subject_client()
+        .remove_user_from_subject(ctx.into_request(UserSubjectRequest {
             subject_id: body.subject_id,
             user_id: current_user.user_id,
         })?)

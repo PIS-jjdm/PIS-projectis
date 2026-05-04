@@ -335,6 +335,10 @@ export const api = {
     return gatewayClient.registerSubject(accessToken(session), subjectId)
   },
 
+  async leaveSubject(session, subjectId) {
+    return gatewayClient.leaveSubject(accessToken(session), subjectId)
+  },
+
   async addStudentToSubject(session, subjectId, userId) {
     return gatewayClient.addStudentToSubject(accessToken(session), subjectId, userId)
   },
@@ -360,6 +364,19 @@ export const api = {
     // returns every project the caller can see.
     const response = await gatewayClient.listProjects(accessToken(session), subjectId || '')
     return response.getProjectsList().map(normalizeProject)
+  },
+
+  // One round-trip: returns every (project, teams[]) pair the caller can see. Avoids the
+  // browser doing listProjects + per-project listTeamsByProject. Pass subjectId to scope.
+  async listProjectsWithTeams(session, subjectId) {
+    const response = await gatewayClient.listProjectsWithTeams(
+      accessToken(session),
+      subjectId || '',
+    )
+    return response.getProjectsList().map((entry) => ({
+      project: normalizeProject(entry.getProject()),
+      teams: entry.getTeamsList().map(normalizeTeam),
+    }))
   },
 
   async getProjectNotificationRecipients(session, projectId) {
@@ -388,6 +405,10 @@ export const api = {
     return normalizeTeam(
       await gatewayClient.registerTeam(accessToken(session), projectId, resolvedName),
     )
+  },
+
+  async leaveTeam(session, teamId) {
+    return gatewayClient.leaveTeam(accessToken(session), teamId)
   },
 
   async addTeamMember(session, teamId, studentId) {

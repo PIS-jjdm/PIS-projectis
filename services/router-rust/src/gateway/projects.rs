@@ -12,7 +12,8 @@ use crate::proto::eval::{ListProjectEvaluationsRequest, ProjectEvaluation};
 
 use crate::proto::gateway::{
     CreateProjectGatewayRequest, ListProjectTeamDetailsGatewayRequest,
-    ListProjectTeamDetailsGatewayResponse, ListTeamsByProjectGatewayResponse,
+    ListProjectTeamDetailsGatewayResponse, ListProjectsWithTeamsGatewayRequest,
+    ListProjectsWithTeamsGatewayResponse, ListTeamsByProjectGatewayResponse, ProjectWithTeams,
 };
 
 use crate::proto::project::{
@@ -295,17 +296,19 @@ pub(super) async fn list_project_team_details(
         {
             Ok(response) => {
                 let mut detail = response.into_inner();
-                if is_student {
-                    let belongs = detail.leader_student_id == current_user.user_id
+                let belongs = is_student
+                    && (detail.leader_student_id == current_user.user_id
                         || detail
                             .students
                             .iter()
-                            .any(|user| user.id == current_user.user_id);
-                    if !belongs {
-                        continue;
-                    }
-                }
-                if let Some(evaluation) = evaluations_by_team.get(&detail.team_id) {
+                            .any(|user| user.id == current_user.user_id));
+                if is_student && !belongs {
+                    // Students still need to see other teams (to know who's on them and to
+                    // request joining), but they must not see those teams' submission file or
+                    // grade. Strip the private fields and keep the rest.
+                    detail.submission = None;
+                    detail.evaluation = None;
+                } else if let Some(evaluation) = evaluations_by_team.get(&detail.team_id) {
                     detail.evaluation = Some(evaluation.clone());
                 }
                 teams.push(detail);
@@ -322,6 +325,136 @@ pub(super) async fn list_project_team_details(
     }
 
     Ok(Response::new(ListProjectTeamDetailsGatewayResponse { teams }))
+}
+
+pub(super) async fn list_projects_with_teams(
+    service: &FrontendGatewayService,
+    request: Request<ListProjectsWithTeamsGatewayRequest>,
+) -> Result<Response<ListProjectsWithTeamsGatewayResponse>, Status> {
+    let ctx = ForwardContext::from_request(&request);
+    let body = request.into_inner();
+    let subject_filter = body.subject_id.trim().to_string();
+
+    // Collect target projects. With a subject filter we hit project-service once;
+    // without, we fan out across every subject server-side.
+    let mut all_projects: Vec<Project> = Vec::new();
+    if !subject_filter.is_empty() {
+        let response = service
+            .state
+            .project_client()
+            .list_projects(ctx.clone().into_request(ListProjectsRequest {
+                subject_id: subject_filter,
+            })?)
+            .await?
+            .into_inner();
+        all_projects.extend(response.projects);
+    } else {
+        let subjects = service
+            .state
+            .subject_client()
+            .list_subjects(
+                ctx.clone()
+                    .into_request(crate::proto::subject::ListSubjectsRequest {})?,
+            )
+            .await?
+            .into_inner()
+            .subjects;
+        for subject in subjects {
+            match service
+                .state
+                .project_client()
+                .list_projects(ctx.clone().into_request(ListProjectsRequest {
+                    subject_id: subject.id.clone(),
+                })?)
+                .await
+            {
+                Ok(response) => all_projects.extend(response.into_inner().projects),
+                Err(status) => {
+                    tracing::warn!(
+                        subject_id = %subject.id,
+                        code = ?status.code(),
+                        message = status.message(),
+                        "list_projects_with_teams: per-subject project fetch failed; skipping"
+                    );
+                }
+            }
+        }
+    }
+
+    // For each project enrich teams with student_ids (matches list_teams_by_project's shape).
+    let mut entries = Vec::with_capacity(all_projects.len());
+    for project in all_projects {
+        let project_id = project.project_id.clone();
+        let teams = match service
+            .state
+            .project_client()
+            .list_teams_by_project(ctx.clone().into_request(ListTeamsByProjectRequest {
+                project_id: project_id.clone(),
+            })?)
+            .await
+        {
+            Ok(response) => {
+                let listing = response.into_inner();
+                let mut teams = Vec::with_capacity(listing.teams.len());
+                for team in listing.teams {
+                    match service
+                        .state
+                        .project_client()
+                        .get_team(ctx.clone().into_request(GetTeamRequest {
+                            team_id: team.team_id.clone(),
+                        })?)
+                        .await
+                    {
+                        Ok(detail_response) => {
+                            teams.push(team_from_detail(detail_response.into_inner()));
+                        }
+                        Err(status) => {
+                            tracing::warn!(
+                                team_id = %team.team_id,
+                                code = ?status.code(),
+                                message = status.message(),
+                                "list_projects_with_teams: get_team enrichment failed; \
+                                 falling back to leader-only student_ids"
+                            );
+                            let leader = team.leader_student_id.clone();
+                            let student_ids = if leader.is_empty() {
+                                Vec::new()
+                            } else {
+                                vec![leader.clone()]
+                            };
+                            teams.push(Team {
+                                team_id: team.team_id,
+                                project_id: team.project_id,
+                                name: team.name,
+                                leader_student_id: leader,
+                                student_ids,
+                            });
+                        }
+                    }
+                }
+                teams
+            }
+            Err(status) => {
+                tracing::warn!(
+                    project_id = %project_id,
+                    code = ?status.code(),
+                    message = status.message(),
+                    "list_projects_with_teams: list_teams_by_project failed; \
+                     returning project with no teams"
+                );
+                Vec::new()
+            }
+        };
+
+        entries.push(ProjectWithTeams {
+            project: Some(project),
+            teams,
+        });
+    }
+
+    Ok(Response::new(ListProjectsWithTeamsGatewayResponse {
+        projects: entries,
+    }))
 }
 
 pub(super) async fn list_teams_by_project(

@@ -373,6 +373,17 @@ export default function ProjectDetailPage() {
     }
   }
 
+  async function handleLeaveTeam() {
+    if (!ownTeam?.id) return
+    try {
+      await api.leaveTeam(session, ownTeam.id)
+      setSuccess('Left the team.')
+      await loadData()
+    } catch (leaveError) {
+      setError(leaveError.message || 'Failed to leave team')
+    }
+  }
+
   async function handleRemoveMember(studentId) {
     if (!ownTeam?.id) return
     try {
@@ -602,6 +613,18 @@ export default function ProjectDetailPage() {
                           <Typography color="text.secondary" sx={{ fontSize: 14 }}>
                             {(ownTeam.student_ids || []).length} / {project.max_students_per_team} seats used
                           </Typography>
+                        </Stack>
+                      )}
+
+                      {isStudent && !teamDetails[ownTeam.id]?.evaluation && (
+                        <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
+                          <Button
+                            color="error"
+                            variant="outlined"
+                            onClick={handleLeaveTeam}
+                          >
+                            Leave team
+                          </Button>
                         </Stack>
                       )}
                     </Stack>
