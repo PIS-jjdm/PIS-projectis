@@ -42,10 +42,14 @@ public class GlobalGrpcExceptionHandler implements GrpcExceptionHandler {
                 // This prints the full stack trace to your Spring Boot console
                 log.error("Unhandled internal exception caught by gRPC Exception Handler", exception);
 
-                String errorMessage = exception != null ? exception.getMessage() : "Unknown error";
+                String exceptionType = exception != null ? exception.getClass().getName() : "null";
+                String rawMessage = exception != null ? exception.getMessage() : null;
+                String description = rawMessage != null && !rawMessage.isBlank()
+                        ? rawMessage
+                        : ("no message (" + exceptionType + ")");
 
                 yield Status.INTERNAL
-                        .withDescription("An unexpected internal error occurred: " + errorMessage)
+                        .withDescription("An unexpected internal error occurred: " + description)
                         .withCause(exception)
                         .asException();
             }
