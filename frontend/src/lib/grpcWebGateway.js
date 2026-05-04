@@ -5,14 +5,12 @@ import './grpc/generated/auth_pb.js'
 import './grpc/generated/subject_pb.js'
 import './grpc/generated/project_pb.js'
 import './grpc/generated/notification_pb.js'
-import './grpc/generated/eval_pb.js'
 import './grpc/generated/gateway_pb.js'
 
 const GRPC_BASE_URL = (import.meta.env.VITE_GRPC_BASE_URL || '/grpc').replace(/\/$/, '')
 const proto = globalThis.proto
 const authPb = proto.auth
 const commonPb = proto.common
-const evalPb = proto.eval
 const gatewayPb = proto.gateway
 const notificationPb = proto.notification
 const projectPb = proto.project
@@ -203,7 +201,7 @@ const methods = {
   ),
   listProjects: unaryDescriptor(
     '/gateway.FrontendGateway/ListProjects',
-    projectPb.ListProjectsRequest,
+    commonPb.Empty,
     projectPb.ListProjectsResponse,
   ),
   createProject: unaryDescriptor(
@@ -218,48 +216,13 @@ const methods = {
   ),
   registerTeam: unaryDescriptor(
     '/gateway.FrontendGateway/RegisterTeam',
-    projectPb.RegisterTeamRequest,
+    gatewayPb.RegisterTeamGatewayRequest,
     projectPb.Team,
   ),
   listTeamsByProject: unaryDescriptor(
     '/gateway.FrontendGateway/ListTeamsByProject',
     projectPb.ListTeamsByProjectRequest,
-    gatewayPb.ListTeamsByProjectGatewayResponse,
-  ),
-  listProjectTeamDetails: unaryDescriptor(
-    '/gateway.FrontendGateway/ListProjectTeamDetails',
-    gatewayPb.ListProjectTeamDetailsGatewayRequest,
-    gatewayPb.ListProjectTeamDetailsGatewayResponse,
-  ),
-  getTeam: unaryDescriptor(
-    '/gateway.FrontendGateway/GetTeam',
-    projectPb.GetTeamRequest,
-    projectPb.TeamDetail,
-  ),
-  downloadSubmission: streamDescriptor(
-    '/gateway.FrontendGateway/DownloadSubmission',
-    projectPb.DownloadSubmissionRequest,
-    projectPb.FileChunk,
-  ),
-  submitProject: unaryDescriptor(
-    '/gateway.FrontendGateway/SubmitProject',
-    projectPb.SubmitProjectRequest,
-    projectPb.ProjectSubmission,
-  ),
-  listProjectEvaluations: unaryDescriptor(
-    '/gateway.FrontendGateway/ListProjectEvaluations',
-    evalPb.ListProjectEvaluationsRequest,
-    evalPb.ListProjectEvaluationsResponse,
-  ),
-  createProjectEvaluation: unaryDescriptor(
-    '/gateway.FrontendGateway/CreateProjectEvaluation',
-    evalPb.CreateProjectEvaluationRequest,
-    evalPb.ProjectEvaluation,
-  ),
-  updateProjectEvaluation: unaryDescriptor(
-    '/gateway.FrontendGateway/UpdateProjectEvaluation',
-    evalPb.UpdateProjectEvaluationRequest,
-    evalPb.ProjectEvaluation,
+    projectPb.ListTeamsByProjectResponse,
   ),
   addTeamMember: unaryDescriptor(
     '/gateway.FrontendGateway/AddTeamMember',
@@ -447,10 +410,8 @@ export const gatewayClient = {
     return client.unary(methods.removeTeacherFromSubject, request, accessToken)
   },
 
-  listProjects(accessToken, subjectId) {
-    const request = new projectPb.ListProjectsRequest()
-    request.setSubjectId(subjectId || '')
-    return client.unary(methods.listProjects, request, accessToken)
+  listProjects(accessToken) {
+    return client.unary(methods.listProjects, new commonPb.Empty(), accessToken)
   },
 
   createProject(accessToken, payload) {
@@ -475,10 +436,9 @@ export const gatewayClient = {
     return client.unary(methods.getProject, request, accessToken)
   },
 
-  registerTeam(accessToken, projectId, teamName) {
-    const request = new projectPb.RegisterTeamRequest()
+  registerTeam(accessToken, projectId) {
+    const request = new gatewayPb.RegisterTeamGatewayRequest()
     request.setProjectId(projectId || '')
-    request.setTeamName(teamName || '')
     return client.unary(methods.registerTeam, request, accessToken)
   },
 
@@ -486,85 +446,6 @@ export const gatewayClient = {
     const request = new projectPb.ListTeamsByProjectRequest()
     request.setProjectId(projectId || '')
     return client.unary(methods.listTeamsByProject, request, accessToken)
-  },
-
-  listProjectTeamDetails(accessToken, projectId) {
-    const request = new gatewayPb.ListProjectTeamDetailsGatewayRequest()
-    request.setProjectId(projectId || '')
-    return client.unary(methods.listProjectTeamDetails, request, accessToken)
-  },
-
-  getTeam(accessToken, teamId) {
-    const request = new projectPb.GetTeamRequest()
-    request.setTeamId(teamId || '')
-    return client.unary(methods.getTeam, request, accessToken)
-  },
-
-  submitProject(accessToken, { teamId, fileName, contentType, fileSize, fileData }) {
-    const request = new projectPb.SubmitProjectRequest()
-    request.setTeamId(teamId || '')
-    request.setFileName(fileName || '')
-    request.setContentType(contentType || 'application/octet-stream')
-    request.setFileSize(fileSize || 0)
-    request.setFileData(fileData || new Uint8Array())
-    return client.unary(methods.submitProject, request, accessToken)
-  },
-
-  listProjectEvaluations(accessToken, { projectId, studentId, evaluatorTeacherId } = {}) {
-    const request = new evalPb.ListProjectEvaluationsRequest()
-    if (projectId) request.setProjectId(projectId)
-    if (studentId) request.setStudentId(studentId)
-    if (evaluatorTeacherId) request.setEvaluatorTeacherId(evaluatorTeacherId)
-    return client.unary(methods.listProjectEvaluations, request, accessToken)
-  },
-
-  downloadSubmission(accessToken, teamId) {
-    return new Promise((resolve, reject) => {
-      const request = new projectPb.DownloadSubmissionRequest()
-      request.setTeamId(teamId || '')
-      const stream = client.stream(methods.downloadSubmission, request, accessToken)
-
-      const chunks = []
-      let fileName = ''
-      let contentType = ''
-
-      stream.on('data', (chunk) => {
-        const data = chunk.getData()
-        if (data && data.length) chunks.push(data)
-        if (!fileName) fileName = chunk.getFileName() || ''
-        if (!contentType) contentType = chunk.getContentType() || ''
-      })
-      stream.on('end', () =>
-        resolve({
-          blob: new Blob(chunks, contentType ? { type: contentType } : undefined),
-          fileName,
-          contentType,
-        }),
-      )
-      stream.on('error', reject)
-    })
-  },
-
-  createProjectEvaluation(accessToken, payload) {
-    const request = new evalPb.CreateProjectEvaluationRequest()
-    request.setSubjectId(payload.subject_id || '')
-    request.setProjectId(payload.project_id || '')
-    request.setTeamId(payload.team_id || '')
-    request.setTotalScore(Number(payload.total_score) || 0)
-    request.setFeedback(payload.feedback || '')
-    return client.unary(methods.createProjectEvaluation, request, accessToken)
-  },
-
-  updateProjectEvaluation(accessToken, payload) {
-    const request = new evalPb.UpdateProjectEvaluationRequest()
-    request.setEvaluationId(payload.evaluation_id || '')
-    if (payload.total_score !== undefined && payload.total_score !== null) {
-      request.setTotalScore(Number(payload.total_score) || 0)
-    }
-    if (payload.feedback !== undefined && payload.feedback !== null) {
-      request.setFeedback(payload.feedback)
-    }
-    return client.unary(methods.updateProjectEvaluation, request, accessToken)
   },
 
   addTeamMember(accessToken, teamId, studentId) {

@@ -26,24 +26,20 @@ import {
   useMediaQuery,
 } from '@mui/material'
 import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded'
-import GradingRoundedIcon from '@mui/icons-material/GradingRounded'
 import MenuBookRoundedIcon from '@mui/icons-material/MenuBookRounded'
 import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
 import NotificationsRoundedIcon from '@mui/icons-material/NotificationsRounded'
 import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSettingsRounded'
-import DarkModeRoundedIcon from '@mui/icons-material/DarkModeRounded'
 import HelpOutlineRoundedIcon from '@mui/icons-material/HelpOutlineRounded'
-import LightModeRoundedIcon from '@mui/icons-material/LightModeRounded'
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded'
 import SchoolRoundedIcon from '@mui/icons-material/SchoolRounded'
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded'
 import AccountCircleRoundedIcon from '@mui/icons-material/AccountCircleRounded'
 import KeyRoundedIcon from '@mui/icons-material/KeyRounded'
-import { alpha, useTheme } from '@mui/material/styles'
+import { useTheme } from '@mui/material/styles'
 import { Outlet, useLocation, useNavigate } from 'react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
-import { useThemeMode } from '../contexts/ThemeModeContext'
 import { api } from '../lib/api'
 import UserAvatar from './UserAvatar'
 
@@ -75,17 +71,6 @@ function navItems(role, unreadCount) {
       subtitle: 'My work',
       path: '/projects',
       icon: <UploadFileRoundedIcon />,
-    },
-    {
-      label: 'Evaluations',
-      subtitle:
-        role === 'teacher'
-          ? 'Submitted'
-          : role === 'admin'
-            ? 'Across system'
-            : 'Scores received',
-      path: '/evaluations',
-      icon: <GradingRoundedIcon />,
     },
     {
       label: 'Notifications',
@@ -146,7 +131,6 @@ export default function AppShell() {
   const location = useLocation()
   const navigate = useNavigate()
   const { logout, user, token } = useAuth()
-  const { mode, toggleMode } = useThemeMode()
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const [accountAnchorEl, setAccountAnchorEl] = useState(null)
@@ -444,7 +428,7 @@ export default function AppShell() {
           <SchoolRoundedIcon fontSize="small" />
         </Box>
         <Box>
-          <Typography variant="h6" sx={{ fontSize: 18, lineHeight: 1.1, color: 'text.primary' }}>
+          <Typography variant="h6" sx={{ fontSize: 18, lineHeight: 1.1, color: '#1e3a5f' }}>
             Scholarly Curator
           </Typography>
           <Typography
@@ -467,25 +451,20 @@ export default function AppShell() {
                 navigate(item.path)
                 setDrawerOpen(false)
               }}
-              sx={(theme) => ({
+              sx={{
                 gap: 1.5,
                 borderRadius: 2,
                 mb: 0.5,
                 px: 1.5,
                 py: 1.2,
-                color: active ? theme.palette.primary.main : theme.palette.text.secondary,
-                bgcolor: active
-                  ? alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.22 : 0.12)
-                  : 'transparent',
+                color: active ? '#1e3a5f' : '#546166',
+                bgcolor: active ? 'rgba(214, 227, 255, 0.7)' : 'transparent',
                 '&:hover': {
-                  bgcolor: alpha(
-                    theme.palette.primary.main,
-                    active ? (theme.palette.mode === 'dark' ? 0.3 : 0.18) : 0.08,
-                  ),
+                  bgcolor: active ? 'rgba(214, 227, 255, 0.86)' : 'rgba(239, 244, 247, 0.9)',
                   transform: 'translateX(4px)',
                 },
                 transition: 'background-color 0.2s ease, transform 0.2s ease',
-              })}
+              }}
             >
               <ListItemIcon sx={{ minWidth: 32, color: 'inherit' }}>
                 {item.badge ? (
@@ -508,16 +487,13 @@ export default function AppShell() {
       </List>
 
       <Box
-        sx={(theme) => ({
+        sx={{
           mt: 'auto',
           p: 2,
           borderRadius: 3,
-          bgcolor:
-            theme.palette.mode === 'dark'
-              ? alpha(theme.palette.common.white, 0.04)
-              : '#eff4f7',
+          bgcolor: '#eff4f7',
           fontFamily: 'Inter, sans-serif',
-        })}
+        }}
       >
         <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary' }}>
           QUICK HELP
@@ -551,13 +527,13 @@ export default function AppShell() {
         open={mobile ? drawerOpen : true}
         onClose={() => setDrawerOpen(false)}
         ModalProps={{ keepMounted: true }}
-        sx={(theme) => ({
+        sx={{
           '& .MuiDrawer-paper': {
             width: drawerWidth,
             boxSizing: 'border-box',
-            borderRight: `1px solid ${theme.palette.divider}`,
+            borderRight: '1px solid rgba(167, 180, 186, 0.18)',
           },
-        })}
+        }}
       >
         {drawerContent}
       </Drawer>
@@ -571,7 +547,7 @@ export default function AppShell() {
               </IconButton>
             )}
             <Stack direction="row" spacing={4} alignItems="center" sx={{ flexGrow: 1 }}>
-              <Typography variant="h6" sx={{ fontSize: 20, color: 'primary.main' }}>
+              <Typography variant="h6" sx={{ fontSize: 20, color: '#455f88' }}>
                 Scholarly Curator
               </Typography>
               <Stack
@@ -593,9 +569,8 @@ export default function AppShell() {
                         border: 0,
                         cursor: 'pointer',
                         pb: 0.75,
-                        color: active ? 'primary.main' : 'text.secondary',
-                        borderBottom: (theme) =>
-                          `2px solid ${active ? theme.palette.primary.main : 'transparent'}`,
+                        color: active ? '#455f88' : '#546166',
+                        borderBottom: active ? '2px solid #455f88' : '2px solid transparent',
                         fontWeight: active ? 700 : 500,
                         fontFamily: 'inherit',
                       }}
@@ -608,15 +583,6 @@ export default function AppShell() {
             </Stack>
 
             <Stack direction="row" spacing={1.5} alignItems="center">
-              <Tooltip title={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}>
-                <IconButton onClick={toggleMode} aria-label="Toggle theme">
-                  {mode === 'dark' ? (
-                    <LightModeRoundedIcon sx={{ color: 'text.secondary' }} />
-                  ) : (
-                    <DarkModeRoundedIcon sx={{ color: 'text.secondary' }} />
-                  )}
-                </IconButton>
-              </Tooltip>
               <Tooltip title="Notifications">
                 <IconButton onClick={() => navigate('/notifications')}>
                   <Badge color="error" badgeContent={unreadCount}>
@@ -631,9 +597,9 @@ export default function AppShell() {
                     version={avatarVersion}
                     size={34}
                     sx={{
-                      bgcolor: 'primary.light',
-                      color: 'primary.dark',
-                      border: (theme) => `2px solid ${theme.palette.primary.light}`,
+                      bgcolor: 'rgba(214, 227, 255, 0.9)',
+                      color: 'primary.main',
+                      border: '2px solid rgba(214, 227, 255, 1)',
                     }}
                   >
                     {user?.firstname?.[0] || 'U'}
@@ -701,14 +667,12 @@ export default function AppShell() {
                       version={avatarVersion}
                       src={accountAvatarSrc}
                       size={88}
-                      sx={(theme) => ({
-                        bgcolor: 'primary.light',
-                        color: 'primary.dark',
+                      sx={{
+                        bgcolor: 'rgba(214, 227, 255, 0.9)',
+                        color: 'primary.main',
                         cursor: savingAvatar ? 'progress' : 'pointer',
-                        border: pendingAvatarFile
-                          ? `2px solid ${theme.palette.primary.main}`
-                          : 'none',
-                      })}
+                        border: pendingAvatarFile ? '2px solid rgba(25, 118, 210, 0.45)' : 'none',
+                      }}
                     >
                       {user?.firstname?.[0] || 'U'}
                     </UserAvatar>
@@ -789,11 +753,8 @@ export default function AppShell() {
                   fullWidth
                 />
                 <TextField
-                  id="profile-new-password"
                   label="New password"
                   type="password"
-                  autoComplete="new-password"
-                  inputProps={{ 'aria-label': 'New password' }}
                   value={passwordForm.new_password}
                   onChange={(event) =>
                     setPasswordForm((prev) => ({ ...prev, new_password: event.target.value }))
@@ -801,11 +762,8 @@ export default function AppShell() {
                   fullWidth
                 />
                 <TextField
-                  id="profile-confirm-new-password"
                   label="Confirm new password"
                   type="password"
-                  autoComplete="new-password"
-                  inputProps={{ 'aria-label': 'Confirm new password' }}
                   value={passwordForm.confirm_password}
                   onChange={(event) =>
                     setPasswordForm((prev) => ({ ...prev, confirm_password: event.target.value }))

@@ -54,6 +54,9 @@ export default function LoginPage() {
           <Button size="large" type="submit" variant="contained" disabled={submitting}>
             {submitting ? 'Signing in...' : 'Sign in'}
           </Button>
+          <Alert severity="info">
+            Demo accounts in mock mode: student@example.com / student123, teacher@example.com / teacher123, admin@example.com / admin123.
+          </Alert>
         </Stack>
       </Box>
     </AuthLayout>

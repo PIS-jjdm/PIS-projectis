@@ -3,46 +3,23 @@ import {
   Card,
   CardContent,
   Container,
-  IconButton,
   Stack,
-  Tooltip,
   Typography,
 } from '@mui/material'
 import AssignmentTurnedInRoundedIcon from '@mui/icons-material/AssignmentTurnedInRounded'
-import DarkModeRoundedIcon from '@mui/icons-material/DarkModeRounded'
-import LightModeRoundedIcon from '@mui/icons-material/LightModeRounded'
-import { useThemeMode } from '../../contexts/ThemeModeContext'
 
 export default function AuthLayout({ title, subtitle, children }) {
-  const { mode, toggleMode } = useThemeMode()
-  const isDark = mode === 'dark'
   return (
     <Box
-      sx={(theme) => ({
-        position: 'relative',
+      sx={{
         minHeight: '100vh',
         display: 'grid',
         placeItems: 'center',
-        background: isDark
-          ? `radial-gradient(circle at top left, rgba(21,101,192,0.18), transparent 42%), radial-gradient(circle at bottom right, rgba(0,137,123,0.18), transparent 36%), ${theme.palette.background.default}`
-          : 'radial-gradient(circle at top left, rgba(21,101,192,0.14), transparent 42%), radial-gradient(circle at bottom right, rgba(0,137,123,0.14), transparent 36%), #f4f7fb',
+        background:
+          'radial-gradient(circle at top left, rgba(21,101,192,0.14), transparent 42%), radial-gradient(circle at bottom right, rgba(0,137,123,0.14), transparent 36%), #f4f7fb',
         py: 4,
-      })}
+      }}
     >
-      <Tooltip title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}>
-        <IconButton
-          onClick={toggleMode}
-          aria-label="toggle theme"
-          sx={{
-            position: 'absolute',
-            top: 16,
-            right: 16,
-            color: isDark ? 'common.white' : 'text.primary',
-          }}
-        >
-          {isDark ? <LightModeRoundedIcon /> : <DarkModeRoundedIcon />}
-        </IconButton>
-      </Tooltip>
       <Container maxWidth="md">
         <Card sx={{ overflow: 'hidden' }}>
           <Box

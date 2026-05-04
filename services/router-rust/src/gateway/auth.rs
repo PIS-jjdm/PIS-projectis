@@ -19,10 +19,13 @@ pub(super) async fn create_user(
     service: &FrontendGatewayService,
     request: Request<CreateUserRequest>,
 ) -> Result<Response<User>, Status> {
+    let current_user = FrontendGatewayService::current_user(&request)?;
+    FrontendGatewayService::require_roles(&current_user, &[UserRole::Admin])?;
+
     let response = service
         .state
         .auth_client()
-        .create_user(request)
+        .create_user(request.into_inner())
         .await?
         .into_inner();
 
@@ -33,6 +36,9 @@ pub(super) async fn update_user(
     service: &FrontendGatewayService,
     request: Request<UpdateUserRequest>,
 ) -> Result<Response<User>, Status> {
+    let current_user = FrontendGatewayService::current_user(&request)?;
+    FrontendGatewayService::require_roles(&current_user, &[UserRole::Admin])?;
+
     let body = request.into_inner();
     FrontendGatewayService::require_non_empty(&body.user_id, "user id")?;
 
@@ -120,8 +126,11 @@ pub(super) async fn get_user(
 
 pub(super) async fn list_users(
     service: &FrontendGatewayService,
-    _request: Request<Empty>,
+    request: Request<Empty>,
 ) -> Result<Response<ListUsersResponse>, Status> {
+    let current_user = FrontendGatewayService::current_user(&request)?;
+    FrontendGatewayService::require_roles(&current_user, &[UserRole::Teacher, UserRole::Admin])?;
+
     let response = service
         .state
         .auth_client()

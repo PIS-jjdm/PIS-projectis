@@ -19,9 +19,7 @@ use crate::proto::{
         frontend_gateway_server::FrontendGateway, CancelScheduledNotificationGatewayRequest,
         ChangePasswordGatewayRequest, CreateNotificationGatewayRequest,
         CreateNotificationGatewayResponse, CreateProjectGatewayRequest,
-        ListNotificationsGatewayResponse, ListProjectTeamDetailsGatewayRequest,
-        ListProjectTeamDetailsGatewayResponse, ListTeamsByProjectGatewayResponse,
-        NotificationWithSender, RegisterSubjectGatewayRequest,
+        ListNotificationsGatewayResponse, NotificationWithSender, RegisterSubjectGatewayRequest,
         RescheduleScheduledNotificationGatewayRequest,
     },
     notification::{ListScheduledNotificationsResponse, MarkAsReadRequest, Notification},
@@ -30,7 +28,7 @@ use crate::proto::{
         DeleteJoinRequestRequest, DeleteProjectRequest, DeleteSubmissionRequest,
         DownloadSubmissionRequest, FileChunk, GetProjectRequest, GetTeamRequest, JoinRequest,
         LeaveTeamRequest, ListJoinRequestsRequest, ListJoinRequestsResponse, ListProjectsRequest,
-        ListProjectsResponse, ListTeamsByProjectRequest, Project,
+        ListProjectsResponse, ListTeamsByProjectRequest, ListTeamsByProjectResponse, Project,
         ProjectSubmission, RegisterTeamRequest, RemoveTeamMemberRequest, ResolveJoinRequestRequest,
         SubmitProjectRequest, Team, TeamDetail, UpdateProjectRequest,
     },
@@ -43,37 +41,6 @@ use crate::AppState;
 
 type NotificationStream =
     Pin<Box<dyn tokio_stream::Stream<Item = Result<NotificationWithSender, Status>> + Send>>;
-
-/// Snapshots the resolved auth context off an inbound request and re-attaches
-/// it as metadata on outbound calls to downstream services. Without this,
-/// downstream services that validate the JWT (e.g. project-service) reject
-/// every call from the gateway with UNAUTHENTICATED.
-#[derive(Clone)]
-pub struct ForwardContext {
-    token: Option<String>,
-}
-
-impl ForwardContext {
-    pub fn from_request<T>(request: &Request<T>) -> Self {
-        Self {
-            token: request
-                .extensions()
-                .get::<AuthToken>()
-                .map(|token| token.access_token.clone()),
-        }
-    }
-
-    pub fn into_request<T>(self, payload: T) -> Result<Request<T>, Status> {
-        let mut request = Request::new(payload);
-        if let Some(token) = self.token {
-            let value = format!("Bearer {token}")
-                .parse()
-                .map_err(|_| Status::internal("invalid auth token metadata"))?;
-            request.metadata_mut().insert("authorization", value);
-        }
-        Ok(request)
-    }
-}
 
 #[derive(Clone)]
 pub struct FrontendGatewayService {
@@ -99,6 +66,16 @@ impl FrontendGatewayService {
             .get::<AuthToken>()
             .map(|token| token.access_token.clone())
             .ok_or_else(|| Status::unauthenticated("missing auth token"))
+    }
+
+    fn require_roles(user: &CurrentUser, allowed_roles: &[UserRole]) -> Result<(), Status> {
+        if allowed_roles.contains(&user.role) {
+            return Ok(());
+        }
+
+        Err(Status::permission_denied(
+            "user role does not have permission to access this resource",
+        ))
     }
 
     fn require_non_empty(value: &str, name: &str) -> Result<(), Status> {
@@ -362,15 +339,8 @@ impl FrontendGateway for FrontendGatewayService {
     async fn list_teams_by_project(
         &self,
         request: Request<ListTeamsByProjectRequest>,
-    ) -> Result<Response<ListTeamsByProjectGatewayResponse>, Status> {
+    ) -> Result<Response<ListTeamsByProjectResponse>, Status> {
         projects::list_teams_by_project(self, request).await
-    }
-
-    async fn list_project_team_details(
-        &self,
-        request: Request<ListProjectTeamDetailsGatewayRequest>,
-    ) -> Result<Response<ListProjectTeamDetailsGatewayResponse>, Status> {
-        projects::list_project_team_details(self, request).await
     }
 
     async fn leave_team(

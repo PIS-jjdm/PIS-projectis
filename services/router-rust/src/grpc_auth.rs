@@ -17,7 +17,6 @@ use crate::{
 
 const ADMIN_ONLY: &[UserRole] = &[UserRole::Admin];
 const TEACHER_OR_ADMIN: &[UserRole] = &[UserRole::Teacher, UserRole::Admin];
-const STUDENT_OR_ADMIN: &[UserRole] = &[UserRole::Student, UserRole::Admin];
 const STUDENT_ONLY: &[UserRole] = &[UserRole::Student];
 
 #[derive(Clone)]
@@ -108,25 +107,21 @@ fn route_auth_policy(path: &str) -> RouteAuthPolicy {
         "/gateway.FrontendGateway/Register" => RouteAuthPolicy::Roles(&[UserRole::Admin]),
         "/gateway.FrontendGateway/CreateUser" => RouteAuthPolicy::Roles(&[UserRole::Admin]),
         "/gateway.FrontendGateway/UpdateUser" => RouteAuthPolicy::Roles(&[UserRole::Admin]),
+        "/gateway.FrontendGateway/ListUsers" => RouteAuthPolicy::Roles(TEACHER_OR_ADMIN),
         "/gateway.FrontendGateway/CreateSubject"
         | "/gateway.FrontendGateway/UpdateSubject"
         | "/gateway.FrontendGateway/DeleteSubject"
         | "/gateway.FrontendGateway/AddStudentToSubject"
+        | "/gateway.FrontendGateway/RemoveStudentFromSubject"
         | "/gateway.FrontendGateway/AssignTeacherToSubject"
         | "/gateway.FrontendGateway/RemoveTeacherFromSubject" => RouteAuthPolicy::Roles(ADMIN_ONLY),
-        "/gateway.FrontendGateway/RemoveStudentFromSubject" => {
-            RouteAuthPolicy::Roles(TEACHER_OR_ADMIN)
-        }
         "/gateway.FrontendGateway/CreateProject"
-        | "/gateway.FrontendGateway/UpdateProject"
-        | "/gateway.FrontendGateway/DeleteProject"
         | "/gateway.FrontendGateway/CreateNotification"
         | "/gateway.FrontendGateway/ListScheduledNotifications"
         | "/gateway.FrontendGateway/CancelScheduledNotification"
         | "/gateway.FrontendGateway/RescheduleScheduledNotification" => {
             RouteAuthPolicy::Roles(TEACHER_OR_ADMIN)
         }
-        "/gateway.FrontendGateway/SubmitProject" => RouteAuthPolicy::Roles(STUDENT_OR_ADMIN),
         "/gateway.FrontendGateway/RegisterSubject" => RouteAuthPolicy::Roles(STUDENT_ONLY),
         _ => RouteAuthPolicy::Authenticated,
     }

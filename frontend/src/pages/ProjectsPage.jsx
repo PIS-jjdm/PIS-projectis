@@ -18,7 +18,7 @@ import LoadingState from '../components/LoadingState'
 import PageHeader from '../components/PageHeader'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
-import { displayUserName, ownTeamForUser } from '../lib/projectView'
+import { displayUserName, ownTeamForUser, resolveKnownUser } from '../lib/projectView'
 import { formatDateOnly } from '../utils/date'
 
 export default function ProjectsPage() {
@@ -34,6 +34,7 @@ export default function ProjectsPage() {
     () => new Map(knownUsers.map((knownUser) => [knownUser.id, knownUser])),
     [knownUsers],
   )
+  const effectiveUser = useMemo(() => resolveKnownUser(knownUsers, user), [knownUsers, user])
 
   useEffect(() => {
     let active = true
@@ -44,7 +45,7 @@ export default function ProjectsPage() {
       try {
         const [projectData, userData] = await Promise.all([
           api.listParticipantProjects(session),
-          api.listUsers(session),
+          api.listKnownUsers(session),
         ])
         if (!active) return
         setProjects(Array.isArray(projectData) ? projectData : [])
@@ -71,16 +72,16 @@ export default function ProjectsPage() {
   }
 
   const title =
-    user?.role === 'teacher'
+    effectiveUser?.role === 'teacher'
       ? 'Projects you supervise'
-      : user?.role === 'admin'
+      : effectiveUser?.role === 'admin'
         ? 'Project workspace'
         : 'My projects'
 
   const subtitle =
-    user?.role === 'student'
+    effectiveUser?.role === 'student'
       ? 'Projects where you already participate. Open one to manage your team and review submission files.'
-      : user?.role === 'teacher'
+      : effectiveUser?.role === 'teacher'
         ? 'Projects you own, with quick access to team rosters and submitted work.'
         : 'Admin view of all current projects and their participation state.'
 
@@ -98,7 +99,7 @@ export default function ProjectsPage() {
         <EmptyState
           title="No projects yet"
           description={
-            user?.role === 'student'
+            effectiveUser?.role === 'student'
               ? 'Join or create a team from the Subjects page and your active projects will appear here.'
               : 'Projects will appear here once they are attached to subjects.'
           }
@@ -114,7 +115,7 @@ export default function ProjectsPage() {
           }}
         >
           {projects.map((project) => {
-            const ownTeam = user?.id ? ownTeamForUser(project.teams || [], user.id) : null
+            const ownTeam = effectiveUser ? ownTeamForUser(project.teams || [], effectiveUser.id) : null
 
             return (
               <Card key={project.id} sx={{ height: '100%' }}>

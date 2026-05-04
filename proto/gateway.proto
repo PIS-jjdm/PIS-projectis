@@ -40,13 +40,7 @@ service FrontendGateway {
   rpc DeleteProject(project.DeleteProjectRequest) returns (common.Ack);
   rpc RegisterTeam(project.RegisterTeamRequest) returns (project.Team);
   rpc GetTeam(project.GetTeamRequest) returns (project.TeamDetail);
-  rpc ListTeamsByProject(project.ListTeamsByProjectRequest)
-      returns (ListTeamsByProjectGatewayResponse);
-  // Single-call replacement for "list teams + per-team get_team" — returns each team's
-  // detail (with embedded submission and evaluation) for the project. For students the
-  // server filters to just their own team.
-  rpc ListProjectTeamDetails(ListProjectTeamDetailsGatewayRequest)
-      returns (ListProjectTeamDetailsGatewayResponse);
+  rpc ListTeamsByProject(project.ListTeamsByProjectRequest) returns (project.ListTeamsByProjectResponse);
   rpc LeaveTeam(project.LeaveTeamRequest) returns (common.Ack);
   rpc ChangeTeamLeader(project.ChangeTeamLeaderRequest) returns (project.Team);
   rpc AddTeamMember(project.AddTeamMemberRequest) returns (project.Team);
@@ -95,6 +89,8 @@ message CreateProjectGatewayRequest {
   string subject_id = 7;
 }
 
+message RegisterTeamGatewayRequest { string project_id = 1; }
+
 message CreateNotificationGatewayRequest {
   repeated string user_ids = 1;
   string message = 2;
@@ -112,16 +108,6 @@ message ListNotificationsGatewayResponse {
 
 message CreateNotificationGatewayResponse {
   repeated NotificationWithSender notifications = 1;
-}
-
-message ListTeamsByProjectGatewayResponse {
-  repeated project.Team teams = 1;
-}
-
-message ListProjectTeamDetailsGatewayRequest { string project_id = 1; }
-
-message ListProjectTeamDetailsGatewayResponse {
-  repeated project.TeamDetail teams = 1;
 }
 
 message CancelScheduledNotificationGatewayRequest { string batch_id = 1; }

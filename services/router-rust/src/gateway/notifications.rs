@@ -33,6 +33,7 @@ pub(super) async fn create_notification(
     request: Request<CreateNotificationGatewayRequest>,
 ) -> Result<Response<CreateNotificationGatewayResponse>, Status> {
     let current_user = FrontendGatewayService::current_user(&request)?;
+    FrontendGatewayService::require_roles(&current_user, &[UserRole::Teacher, UserRole::Admin])?;
 
     let body = request.into_inner();
     if body
@@ -70,6 +71,7 @@ pub(super) async fn list_scheduled_notifications(
     request: Request<Empty>,
 ) -> Result<Response<ListScheduledNotificationsResponse>, Status> {
     let current_user = FrontendGatewayService::current_user(&request)?;
+    FrontendGatewayService::require_roles(&current_user, &[UserRole::Teacher, UserRole::Admin])?;
 
     let response = service
         .state
@@ -102,6 +104,7 @@ pub(super) async fn cancel_scheduled_notification(
     request: Request<CancelScheduledNotificationGatewayRequest>,
 ) -> Result<Response<Ack>, Status> {
     let current_user = FrontendGatewayService::current_user(&request)?;
+    FrontendGatewayService::require_roles(&current_user, &[UserRole::Teacher, UserRole::Admin])?;
 
     let body = request.into_inner();
     FrontendGatewayService::require_non_empty(&body.batch_id, "batch id")?;
@@ -124,6 +127,7 @@ pub(super) async fn reschedule_scheduled_notification(
     request: Request<RescheduleScheduledNotificationGatewayRequest>,
 ) -> Result<Response<Ack>, Status> {
     let current_user = FrontendGatewayService::current_user(&request)?;
+    FrontendGatewayService::require_roles(&current_user, &[UserRole::Teacher, UserRole::Admin])?;
 
     let body = request.into_inner();
     FrontendGatewayService::require_non_empty(&body.batch_id, "batch id")?;
