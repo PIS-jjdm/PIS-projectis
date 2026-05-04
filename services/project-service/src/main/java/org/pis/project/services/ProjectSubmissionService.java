@@ -2,6 +2,7 @@ package org.pis.project.services;
 
 import java.util.UUID;
 
+import org.pis.project.entities.ProjectEntity;
 import org.pis.project.entities.ProjectSubmissionEntity;
 import org.pis.project.entities.TeamEntity;
 import org.pis.project.exceptions.BusinessRuleViolationException;
@@ -19,6 +20,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class ProjectSubmissionService {
 
+    private static final long DEFAULT_SUBMISSION_SIZE_LIMIT = 10L * 1024L * 1024L; // 10 MB
+
     private final ProjectSubmissionRepository submissionRepository;
     private final TeamRepository teamRepository;
 
@@ -33,8 +36,19 @@ public class ProjectSubmissionService {
                     return new ResourceNotFoundException("Team not found with id: " + teamId);
                 });
 
-        // check submission size limit
-        Long maxSubmissionSize = team.getProject().getSubmissionSizeLimit();
+        if (fileData == null) {
+            throw new BusinessRuleViolationException("Submission file is empty");
+        }
+        if (fileName == null || fileName.isBlank()) {
+            throw new BusinessRuleViolationException("Submission file name is required");
+        }
+
+        // check submission size limit; null on legacy rows or detached projects
+        ProjectEntity project = team.getProject();
+        Long limitValue = project != null ? project.getSubmissionSizeLimit() : null;
+        long maxSubmissionSize = (limitValue == null || limitValue <= 0L)
+                ? DEFAULT_SUBMISSION_SIZE_LIMIT
+                : limitValue;
         if (fileSize > maxSubmissionSize) {
             log.error("File size [{}] bytes exceeds project limit [{}] bytes for team [{}]",
                     fileSize, maxSubmissionSize, teamId);
@@ -43,6 +57,10 @@ public class ProjectSubmissionService {
                             fileSize / (1024.0 * 1024.0),
                             maxSubmissionSize / (1024.0 * 1024.0)));
         }
+
+        String resolvedContentType = (contentType == null || contentType.isBlank())
+                ? "application/octet-stream"
+                : contentType;
 
         // Replace old submission if exists
         submissionRepository.findByTeamId(teamId).ifPresent(existing -> {
@@ -53,7 +71,7 @@ public class ProjectSubmissionService {
 
         ProjectSubmissionEntity submission = ProjectSubmissionEntity.builder()
                 .fileName(fileName)
-                .contentType(contentType)
+                .contentType(resolvedContentType)
                 .fileSize(fileSize)
                 .fileData(fileData)
                 .team(team)

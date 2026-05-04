@@ -1,7 +1,5 @@
 import * as grpcWeb from 'grpc-web'
-import { isHybridMode, isMockMode } from './config'
 import { gatewayClient } from './grpcWebGateway'
-import { mockApi } from './mockApi'
 
 let authFailureHandler = null
 
@@ -27,23 +25,10 @@ function handleAuthenticationFailure(error) {
   return true
 }
 
-async function tryLive(fn, fallback) {
-  if (isMockMode()) {
-    return fallback()
-  }
-
-  try {
-    return await fn()
-  } catch (error) {
-    if (handleAuthenticationFailure(error)) {
-      throw error
-    }
-
-    if (isHybridMode()) {
-      return fallback(error)
-    }
-    throw error
-  }
+// Auth-sensitive callers (e.g. session hydration) opt in to the
+// session-clear behaviour by invoking this directly on UNAUTHENTICATED.
+export function reportAuthFailure(error) {
+  return handleAuthenticationFailure(error)
 }
 
 function normalizeAuthResponse(data) {
@@ -120,9 +105,9 @@ function normalizeSubject(subject) {
 
 function normalizeProject(project) {
   if (!project) return null
-  if (typeof project.getId === 'function') {
+  if (typeof project.getProjectId === 'function') {
     return {
-      id: project.getId(),
+      id: project.getProjectId(),
       title: project.getTitle(),
       description: project.getDescription(),
       teacher_id: project.getTeacherId(),
@@ -137,16 +122,70 @@ function normalizeProject(project) {
 
 function normalizeTeam(team) {
   if (!team) return null
-  if (typeof team.getId === 'function') {
+  if (typeof team.getTeamId === 'function') {
     return {
-      id: team.getId(),
+      id: team.getTeamId(),
       project_id: team.getProjectId(),
       name: team.getName(),
       leader_student_id: team.getLeaderStudentId(),
-      student_ids: team.getStudentIdsList(),
+      student_ids: team.getStudentIdsList?.() || [],
     }
   }
   return team
+}
+
+function normalizeProjectSubmission(submission) {
+  if (!submission) return null
+  if (typeof submission.getTeamId === 'function') {
+    return {
+      team_id: submission.getTeamId(),
+      submitted_at: submission.getSubmittedAt(),
+      file_name: submission.getFileName(),
+      content_type: submission.getContentType(),
+      file_size: Number(submission.getFileSize?.() || 0),
+    }
+  }
+  return submission
+}
+
+function normalizeProjectEvaluation(evaluation) {
+  if (!evaluation) return null
+  if (typeof evaluation.getId === 'function') {
+    return {
+      id: evaluation.getId(),
+      project_id: evaluation.getProjectId(),
+      team_id: evaluation.getTeamId(),
+      evaluator_teacher_id: evaluation.getEvaluatorTeacherId(),
+      total_score: evaluation.getTotalScore(),
+      feedback: evaluation.getFeedback(),
+      timestamp: timestampToIso(evaluation.getTimestamp()),
+    }
+  }
+  return evaluation
+}
+
+function normalizeTeamDetail(detail) {
+  if (!detail) return null
+  if (typeof detail.getTeamId === 'function') {
+    const students = detail.getStudentsList?.().map(normalizeUser) || []
+    const submission = detail.hasSubmission?.()
+      ? normalizeProjectSubmission(detail.getSubmission())
+      : null
+    const evaluation = detail.hasEvaluation?.()
+      ? normalizeProjectEvaluation(detail.getEvaluation())
+      : null
+    return {
+      id: detail.getTeamId(),
+      project_id: detail.getProjectId(),
+      name: detail.getName(),
+      leader_student_id: detail.getLeaderStudentId(),
+      students,
+      student_ids: students.map((student) => student.id).filter(Boolean),
+      submission,
+      evaluation,
+    }
+  }
+  return detail
 }
 
 function uniqueIds(values) {
@@ -225,88 +264,48 @@ export const api = {
   },
 
   async login(credentials) {
-    return tryLive(
-      async () => normalizeAuthResponse(await gatewayClient.login(credentials)),
-      () => mockApi.login(credentials),
-    )
+    return normalizeAuthResponse(await gatewayClient.login(credentials))
   },
 
   async register(payload) {
-    return tryLive(
-      async () => normalizeAuthResponse(await gatewayClient.register(payload)),
-      () => mockApi.register(payload),
-    )
+    return normalizeAuthResponse(await gatewayClient.register(payload))
   },
 
   async createUser(session, payload) {
-    return tryLive(
-      async () => normalizeUser(await gatewayClient.createUser(accessToken(session), payload)),
-      () => mockApi.createUser(session, payload),
-    )
+    return normalizeUser(await gatewayClient.createUser(accessToken(session), payload))
   },
 
   async updateUser(session, payload) {
-    return tryLive(
-      async () => normalizeUser(await gatewayClient.updateUser(accessToken(session), payload)),
-      () => mockApi.updateUser(session, payload),
-    )
+    return normalizeUser(await gatewayClient.updateUser(accessToken(session), payload))
   },
 
   async getMe(session) {
-    return tryLive(
-      async () => normalizeUser(await gatewayClient.getMe(accessToken(session))),
-      async () => {
-        if (session.user?.id) {
-          return mockApi.getMe(session)
-        }
-        return session.user
-      },
-    )
+    return normalizeUser(await gatewayClient.getMe(accessToken(session)))
   },
 
   async getUser(session, userId) {
-    return tryLive(
-      async () => normalizeUser(await gatewayClient.getUser(accessToken(session), userId)),
-      () => mockApi.getUser(session, userId),
-    )
+    return normalizeUser(await gatewayClient.getUser(accessToken(session), userId))
   },
 
   async changePassword(session, payload) {
-    return tryLive(
-      async () => gatewayClient.changePassword(accessToken(session), payload),
-      () => mockApi.changePassword(session, payload),
-    )
+    return gatewayClient.changePassword(accessToken(session), payload)
   },
 
   async setUserAvatar(session, payload) {
-    return tryLive(
-      async () => gatewayClient.setUserAvatar(accessToken(session), payload),
-      () => mockApi.setUserAvatar(session, payload),
-    )
+    return gatewayClient.setUserAvatar(accessToken(session), payload)
   },
 
   async logout(session) {
-    return tryLive(
-      async () => gatewayClient.logout(accessToken(session)),
-      () => mockApi.logout(session),
-    )
+    return gatewayClient.logout(accessToken(session))
   },
 
   async listSubjects(session) {
-    return tryLive(
-      async () => {
-        const response = await gatewayClient.listSubjects(accessToken(session))
-        return response.getSubjectsList().map(normalizeSubject)
-      },
-      () => mockApi.listSubjects(session),
-    )
+    const response = await gatewayClient.listSubjects(accessToken(session))
+    return response.getSubjectsList().map(normalizeSubject)
   },
 
   async getSubject(session, subjectId) {
-    return tryLive(
-      async () => normalizeSubject(await gatewayClient.getSubject(accessToken(session), subjectId)),
-      () => mockApi.getSubject(subjectId),
-    )
+    return normalizeSubject(await gatewayClient.getSubject(accessToken(session), subjectId))
   },
 
   async getSubjectNotificationRecipients(session, subjectId) {
@@ -319,75 +318,48 @@ export const api = {
   },
 
   async createSubject(session, payload) {
-    return tryLive(
-      async () => normalizeSubject(await gatewayClient.createSubject(accessToken(session), payload)),
-      () => mockApi.createSubject(session, payload),
-    )
+    return normalizeSubject(await gatewayClient.createSubject(accessToken(session), payload))
   },
 
   async updateSubject(session, subjectId, payload) {
-    return tryLive(
-      async () => normalizeSubject(
-        await gatewayClient.updateSubject(accessToken(session), subjectId, payload),
-      ),
-      () => mockApi.updateSubject(session, subjectId, payload),
+    return normalizeSubject(
+      await gatewayClient.updateSubject(accessToken(session), subjectId, payload),
     )
   },
 
   async deleteSubject(session, subjectId) {
-    return tryLive(
-      async () => gatewayClient.deleteSubject(accessToken(session), subjectId),
-      () => mockApi.deleteSubject(session, subjectId),
-    )
+    return gatewayClient.deleteSubject(accessToken(session), subjectId)
   },
 
   async registerSubject(session, subjectId) {
-    return tryLive(
-      async () => gatewayClient.registerSubject(accessToken(session), subjectId),
-      () => mockApi.registerSubject(session, subjectId),
-    )
+    return gatewayClient.registerSubject(accessToken(session), subjectId)
   },
 
   async addStudentToSubject(session, subjectId, userId) {
-    return tryLive(
-      async () => gatewayClient.addStudentToSubject(accessToken(session), subjectId, userId),
-      () => mockApi.addStudentToSubject(session, subjectId, userId),
-    )
+    return gatewayClient.addStudentToSubject(accessToken(session), subjectId, userId)
   },
 
   async removeStudentFromSubject(session, subjectId, userId) {
-    return tryLive(
-      async () => gatewayClient.removeStudentFromSubject(accessToken(session), subjectId, userId),
-      () => mockApi.removeStudentFromSubject(session, subjectId, userId),
-    )
+    return gatewayClient.removeStudentFromSubject(accessToken(session), subjectId, userId)
   },
 
   async assignTeacherToSubject(session, subjectId, teacherUserId) {
-    return tryLive(
-      async () => normalizeSubject(
-        await gatewayClient.assignTeacherToSubject(accessToken(session), subjectId, teacherUserId),
-      ),
-      () => mockApi.assignTeacherToSubject(session, subjectId, teacherUserId),
+    return normalizeSubject(
+      await gatewayClient.assignTeacherToSubject(accessToken(session), subjectId, teacherUserId),
     )
   },
 
   async removeTeacherFromSubject(session, subjectId, teacherUserId) {
-    return tryLive(
-      async () => normalizeSubject(
-        await gatewayClient.removeTeacherFromSubject(accessToken(session), subjectId, teacherUserId),
-      ),
-      () => mockApi.removeTeacherFromSubject(session, subjectId, teacherUserId),
+    return normalizeSubject(
+      await gatewayClient.removeTeacherFromSubject(accessToken(session), subjectId, teacherUserId),
     )
   },
 
-  async listProjects(session) {
-    return tryLive(
-      async () => {
-        const response = await gatewayClient.listProjects(accessToken(session))
-        return response.getProjectsList().map(normalizeProject)
-      },
-      () => mockApi.listProjects(session),
-    )
+  async listProjects(session, subjectId) {
+    // The router fans out internally when subject_id is empty, so a single grpc-web round-trip
+    // returns every project the caller can see.
+    const response = await gatewayClient.listProjects(accessToken(session), subjectId || '')
+    return response.getProjectsList().map(normalizeProject)
   },
 
   async getProjectNotificationRecipients(session, projectId) {
@@ -403,59 +375,87 @@ export const api = {
   },
 
   async getProject(session, projectId) {
-    return tryLive(
-      async () => normalizeProject(await gatewayClient.getProject(accessToken(session), projectId)),
-      () => mockApi.getProject(projectId),
-    )
+    return normalizeProject(await gatewayClient.getProject(accessToken(session), projectId))
   },
 
   async createProject(session, payload) {
-    return tryLive(
-      async () => normalizeProject(await gatewayClient.createProject(accessToken(session), payload)),
-      () => mockApi.createProject(session, payload),
-    )
+    return normalizeProject(await gatewayClient.createProject(accessToken(session), payload))
   },
 
-  async registerTeam(session, projectId) {
-    return tryLive(
-      async () => normalizeTeam(await gatewayClient.registerTeam(accessToken(session), projectId)),
-      () => mockApi.registerTeam(session, projectId),
+  async registerTeam(session, projectId, teamName) {
+    const resolvedName =
+      (teamName && teamName.trim()) || `${session?.user?.firstname || 'Team'}'s team`
+    return normalizeTeam(
+      await gatewayClient.registerTeam(accessToken(session), projectId, resolvedName),
     )
   },
 
   async addTeamMember(session, teamId, studentId) {
-    return tryLive(
-      async () => normalizeTeam(
-        await gatewayClient.addTeamMember(accessToken(session), teamId, studentId),
-      ),
-      () => mockApi.addTeamMember(session, teamId, studentId),
+    return normalizeTeam(
+      await gatewayClient.addTeamMember(accessToken(session), teamId, studentId),
     )
   },
 
   async removeTeamMember(session, teamId, studentId) {
-    return tryLive(
-      async () => normalizeTeam(
-        await gatewayClient.removeTeamMember(accessToken(session), teamId, studentId),
-      ),
-      () => mockApi.removeTeamMember(session, teamId, studentId),
+    return normalizeTeam(
+      await gatewayClient.removeTeamMember(accessToken(session), teamId, studentId),
     )
   },
 
   async listTeamsByProject(session, projectId) {
-    return tryLive(
-      async () => {
-        const response = await gatewayClient.listTeamsByProject(accessToken(session), projectId)
-        return response.getTeamsList().map(normalizeTeam)
-      },
-      () => mockApi.listTeamsByProject(projectId),
+    const response = await gatewayClient.listTeamsByProject(accessToken(session), projectId)
+    return response.getTeamsList().map(normalizeTeam)
+  },
+
+  async getTeam(session, teamId) {
+    return normalizeTeamDetail(await gatewayClient.getTeam(accessToken(session), teamId))
+  },
+
+  async listProjectTeamDetails(session, projectId) {
+    const response = await gatewayClient.listProjectTeamDetails(accessToken(session), projectId)
+    return response.getTeamsList().map(normalizeTeamDetail).filter(Boolean)
+  },
+
+  async downloadSubmission(session, teamId) {
+    return gatewayClient.downloadSubmission(accessToken(session), teamId)
+  },
+
+  async listProjectEvaluations(session, filters = {}) {
+    const response = await gatewayClient.listProjectEvaluations(accessToken(session), filters)
+    return response.getEvaluationsList().map(normalizeProjectEvaluation)
+  },
+
+  async submitProject(session, teamId, file) {
+    if (!file) throw new Error('No file selected')
+    const buffer = await file.arrayBuffer()
+    const fileData = new Uint8Array(buffer)
+    return normalizeProjectSubmission(
+      await gatewayClient.submitProject(accessToken(session), {
+        teamId,
+        fileName: file.name,
+        contentType: file.type || 'application/octet-stream',
+        fileSize: file.size,
+        fileData,
+      }),
+    )
+  },
+
+  async createProjectEvaluation(session, payload) {
+    return normalizeProjectEvaluation(
+      await gatewayClient.createProjectEvaluation(accessToken(session), payload),
+    )
+  },
+
+  async updateProjectEvaluation(session, payload) {
+    return normalizeProjectEvaluation(
+      await gatewayClient.updateProjectEvaluation(accessToken(session), payload),
     )
   },
 
   async listParticipantProjects(session) {
-    const [projects, subjects, knownUsers] = await Promise.all([
+    const [projects, subjects] = await Promise.all([
       api.listProjects(session),
       api.listSubjects(session),
-      api.listKnownUsers(session),
     ])
 
     const teamLists = await Promise.all(
@@ -468,13 +468,7 @@ export const api = {
     const teamsByProjectId = new Map(teamLists.map((item) => [item.projectId, item.teams]))
     const subjectById = new Map(subjects.map((subject) => [subject.id, subject]))
     const role = String(session?.user?.role || '').trim().toLowerCase()
-    const userEmail = String(session?.user?.email || '').trim().toLowerCase()
-    const effectiveUser =
-      knownUsers.find((user) => user.id === session?.user?.id) ||
-      knownUsers.find((user) => user.email.toLowerCase() === userEmail) ||
-      knownUsers.find((user) => user.role === role) ||
-      null
-    const userId = String(effectiveUser?.id || session?.user?.id || '').trim()
+    const userId = String(session?.user?.id || '').trim()
 
     if (role === 'admin') {
       return projects.map((project) => ({
@@ -505,50 +499,17 @@ export const api = {
       }))
   },
 
-  async listKnownUsers(session) {
-    if (!['teacher', 'admin'].includes(session?.user?.role)) {
-      return mockApi.listKnownUsers(session)
-    }
-
-    return tryLive(
-      async () => {
-        const response = await gatewayClient.listUsers(accessToken(session))
-        return response.getUsersList().map(normalizeUser)
-      },
-      () => mockApi.listKnownUsers(session),
-    )
-  },
-
-  async listSubmissionFiles(session, projectId) {
-    return mockApi.listSubmissionFiles(session, projectId)
-  },
-
   async listNotifications(session) {
-    return tryLive(
-      async () => {
-        const response = await gatewayClient.listNotifications(accessToken(session))
-        return response.getNotificationsList().map(normalizeNotification)
-      },
-      () => mockApi.listNotifications(session),
-    )
+    const response = await gatewayClient.listNotifications(accessToken(session))
+    return response.getNotificationsList().map(normalizeNotification)
   },
 
   async listScheduledNotifications(session) {
-    return tryLive(
-      async () => {
-        const response = await gatewayClient.listScheduledNotifications(accessToken(session))
-        return response.getBatchesList().map(normalizeScheduledNotificationBatch)
-      },
-      () => mockApi.listScheduledNotifications(session),
-    )
+    const response = await gatewayClient.listScheduledNotifications(accessToken(session))
+    return response.getBatchesList().map(normalizeScheduledNotificationBatch)
   },
 
   subscribeNotifications(session, handlers = {}) {
-    if (isMockMode()) {
-      handlers.onError?.(new Error('Notification streaming is unavailable in mock mode'))
-      return () => {}
-    }
-
     return gatewayClient.streamNotifications(accessToken(session), {
       onMessage: (message) => handlers.onMessage?.(normalizeNotification(message)),
       onError: (error) => {
@@ -560,51 +521,28 @@ export const api = {
   },
 
   async createNotification(session, payload) {
-    return tryLive(
-      async () => {
-        const response = await gatewayClient.createNotification(accessToken(session), payload)
-        return response.getNotificationsList().map(normalizeNotification)
-      },
-      () => mockApi.createNotification(session, payload),
-    )
+    const response = await gatewayClient.createNotification(accessToken(session), payload)
+    return response.getNotificationsList().map(normalizeNotification)
   },
 
   async markNotificationRead(session, notificationId) {
-    return tryLive(
-      async () => gatewayClient.markNotificationRead(accessToken(session), notificationId),
-      () => mockApi.markNotificationRead(session, notificationId),
-    )
+    return gatewayClient.markNotificationRead(accessToken(session), notificationId)
   },
 
   async cancelScheduledNotification(session, batchId) {
-    return tryLive(
-      async () => gatewayClient.cancelScheduledNotification(accessToken(session), batchId),
-      () => mockApi.cancelScheduledNotification(session, batchId),
-    )
+    return gatewayClient.cancelScheduledNotification(accessToken(session), batchId)
   },
 
   async rescheduleScheduledNotification(session, batchId, triggerAt) {
-    return tryLive(
-      async () =>
-        gatewayClient.rescheduleScheduledNotification(accessToken(session), batchId, triggerAt),
-      () => mockApi.rescheduleScheduledNotification(session, batchId, triggerAt),
-    )
+    return gatewayClient.rescheduleScheduledNotification(accessToken(session), batchId, triggerAt)
   },
 
   async listUsers(session) {
-    return tryLive(
-      async () => {
-        const response = await gatewayClient.listUsers(accessToken(session))
-        return response.getUsersList().map(normalizeUser)
-      },
-      () => mockApi.listUsers(session),
-    )
+    const response = await gatewayClient.listUsers(accessToken(session))
+    return response.getUsersList().map(normalizeUser)
   },
 
   async getDashboardSummary(session) {
-    return tryLive(
-      async () => buildDashboardSummary(session),
-      () => mockApi.getDashboardSummary(session),
-    )
+    return buildDashboardSummary(session)
   },
 }

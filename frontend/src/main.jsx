@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router'
 import { CssBaseline, ThemeProvider } from '@mui/material'
+import { ThemeModeProvider } from './contexts/ThemeModeContext'
 import { theme } from './theme'
 
 const root = ReactDOM.createRoot(document.getElementById('root'))
@@ -77,14 +78,13 @@ async function bootstrap() {
 
     root.render(
       <React.StrictMode>
-        <ThemeProvider theme={theme}>
-          <CssBaseline />
+        <ThemeModeProvider>
           <BrowserRouter>
             <AuthProvider>
               <App />
             </AuthProvider>
           </BrowserRouter>
-        </ThemeProvider>
+        </ThemeModeProvider>
       </React.StrictMode>,
     )
   } catch (error) {

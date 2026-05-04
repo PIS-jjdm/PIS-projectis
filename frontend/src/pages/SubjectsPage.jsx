@@ -5,19 +5,24 @@ import {
   Card,
   CardContent,
   Chip,
+  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  IconButton,
   MenuItem,
   Paper,
   Stack,
   TextField,
   Typography,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
+import ExpandLessRoundedIcon from '@mui/icons-material/ExpandLessRounded'
+import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded'
 import GroupRoundedIcon from '@mui/icons-material/GroupRounded'
 import LaunchRoundedIcon from '@mui/icons-material/LaunchRounded'
 import PlaylistAddRoundedIcon from '@mui/icons-material/PlaylistAddRounded'
@@ -29,17 +34,29 @@ import LoadingState from '../components/LoadingState'
 import PageHeader from '../components/PageHeader'
 import { useAuth } from '../contexts/AuthContext'
 import { api } from '../lib/api'
-import { displayUserName, ownTeamForUser, resolveKnownUser } from '../lib/projectView'
+import { displayUserName, ownTeamForUser } from '../lib/projectView'
 import { formatDateOnly } from '../utils/date'
 
 const initialSubjectForm = { name: '', description: '', abbreviation: '' }
-const initialProjectForm = {
-  title: '',
-  description: '',
-  subject_id: '',
-  max_students_per_team: 3,
-  start_date: '',
-  end_date: '',
+
+function pad(value) {
+  return String(value).padStart(2, '0')
+}
+
+function dateAtTime(date, hours, minutes, seconds) {
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(hours)}:${pad(minutes)}:${pad(seconds)}`
+}
+
+function defaultProjectForm() {
+  const today = new Date()
+  return {
+    title: '',
+    description: '',
+    subject_id: '',
+    max_students_per_team: 3,
+    start_date: dateAtTime(today, 0, 0, 0),
+    end_date: dateAtTime(today, 23, 59, 59),
+  }
 }
 
 export default function SubjectsPage() {
@@ -53,17 +70,34 @@ export default function SubjectsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [collapsedSubjects, setCollapsedSubjects] = useState({})
+  const [deleteSubjectTarget, setDeleteSubjectTarget] = useState(null)
+
+  function toggleSubjectCollapsed(subjectId) {
+    setCollapsedSubjects((current) => ({
+      ...current,
+      [subjectId]: !current[subjectId],
+    }))
+  }
   const [subjectDialogOpen, setSubjectDialogOpen] = useState(false)
   const [projectDialogOpen, setProjectDialogOpen] = useState(false)
   const [editingSubject, setEditingSubject] = useState(null)
   const [subjectForm, setSubjectForm] = useState(initialSubjectForm)
-  const [projectForm, setProjectForm] = useState(initialProjectForm)
+  const [projectForm, setProjectForm] = useState(defaultProjectForm())
+  const [subjectFormError, setSubjectFormError] = useState('')
+  const [projectFormError, setProjectFormError] = useState('')
+  const [subjectSubmitting, setSubjectSubmitting] = useState(false)
+  const [projectSubmitting, setProjectSubmitting] = useState(false)
+  const [teamDialogOpen, setTeamDialogOpen] = useState(false)
+  const [teamDialogProjectId, setTeamDialogProjectId] = useState(null)
+  const [teamNameInput, setTeamNameInput] = useState('')
+  const [teamDialogError, setTeamDialogError] = useState('')
+  const [creatingTeam, setCreatingTeam] = useState(false)
 
   const knownUsersById = useMemo(
     () => new Map(knownUsers.map((knownUser) => [knownUser.id, knownUser])),
     [knownUsers],
   )
-  const effectiveUser = useMemo(() => resolveKnownUser(knownUsers, user), [knownUsers, user])
   const projectsBySubjectId = useMemo(
     () =>
       projects.reduce((accumulator, project) => {
@@ -80,7 +114,7 @@ export default function SubjectsPage() {
       const [subjectData, projectData, userData] = await Promise.all([
         api.listSubjects(session),
         api.listProjects(session),
-        api.listKnownUsers(session),
+        api.listUsers(session),
       ])
 
       const nextSubjects = Array.isArray(subjectData) ? subjectData : subjectData.subjects || []
@@ -117,58 +151,151 @@ export default function SubjectsPage() {
     }
   }
 
+  function validateSubjectForm() {
+    if (!subjectForm.name.trim()) return 'Subject name is required.'
+    if (!subjectForm.abbreviation.trim()) return 'Abbreviation is required.'
+    if (!subjectForm.description.trim()) return 'Description is required.'
+    return ''
+  }
+
+  function closeSubjectDialog() {
+    setSubjectDialogOpen(false)
+    setEditingSubject(null)
+    setSubjectForm(initialSubjectForm)
+    setSubjectFormError('')
+  }
+
   async function handleSaveSubject() {
+    setSubjectFormError('')
+    const validationError = validateSubjectForm()
+    if (validationError) {
+      setSubjectFormError(validationError)
+      return
+    }
+    setSubjectSubmitting(true)
     try {
+      const payload = {
+        name: subjectForm.name.trim(),
+        abbreviation: subjectForm.abbreviation.trim(),
+        description: subjectForm.description.trim(),
+      }
       if (editingSubject) {
-        await api.updateSubject(session, editingSubject.id, subjectForm)
+        await api.updateSubject(session, editingSubject.id, payload)
         setSuccess('Subject updated.')
       } else {
-        await api.createSubject(session, subjectForm)
+        await api.createSubject(session, payload)
         setSuccess('Subject created.')
       }
-      setSubjectDialogOpen(false)
-      setEditingSubject(null)
-      setSubjectForm(initialSubjectForm)
+      closeSubjectDialog()
       await loadData()
     } catch (saveError) {
-      setError(saveError.message || 'Failed to save subject')
+      setSubjectFormError(
+        saveError.message ||
+          (editingSubject ? 'Failed to update subject.' : 'Subject was not created.'),
+      )
+    } finally {
+      setSubjectSubmitting(false)
     }
   }
 
-  async function handleDeleteSubject(subjectId) {
+  async function handleDeleteSubject() {
+    if (!deleteSubjectTarget) return
     try {
-      await api.deleteSubject(session, subjectId)
+      await api.deleteSubject(session, deleteSubjectTarget.id)
       setSuccess('Subject deleted.')
+      setDeleteSubjectTarget(null)
       await loadData()
     } catch (deleteError) {
       setError(deleteError.message || 'Failed to delete subject')
     }
   }
 
+  function validateProjectForm() {
+    if (!projectForm.title.trim()) return 'Project title is required.'
+    if (!projectForm.description.trim()) return 'Project description is required.'
+    if (!projectForm.subject_id) return 'Pick a subject for the project.'
+    const max = Number(projectForm.max_students_per_team)
+    if (!Number.isFinite(max) || max < 1) {
+      return 'Max students per team must be at least 1.'
+    }
+    if (projectForm.start_date && projectForm.end_date) {
+      const start = new Date(projectForm.start_date)
+      const end = new Date(projectForm.end_date)
+      if (Number.isFinite(start.getTime()) && Number.isFinite(end.getTime()) && start > end) {
+        return 'Start date must be on or before the end date.'
+      }
+    }
+    return ''
+  }
+
+  function closeProjectDialog() {
+    setProjectDialogOpen(false)
+    setProjectForm(defaultProjectForm())
+    setProjectFormError('')
+  }
+
   async function handleCreateProject() {
+    setProjectFormError('')
+    const validationError = validateProjectForm()
+    if (validationError) {
+      setProjectFormError(validationError)
+      return
+    }
+    setProjectSubmitting(true)
     try {
-      await api.createProject(session, projectForm)
-      setProjectDialogOpen(false)
-      setProjectForm(initialProjectForm)
+      await api.createProject(session, {
+        ...projectForm,
+        title: projectForm.title.trim(),
+        description: projectForm.description.trim(),
+      })
+      closeProjectDialog()
       setSuccess('Project created.')
       await loadData()
     } catch (createError) {
-      setError(createError.message || 'Failed to create project')
+      setProjectFormError(createError.message || 'Project was not created.')
+    } finally {
+      setProjectSubmitting(false)
     }
   }
 
-  async function handleCreateTeam(projectId) {
+  function openCreateTeamDialog(projectId) {
+    setTeamDialogProjectId(projectId)
+    setTeamNameInput('')
+    setTeamDialogError('')
+    setTeamDialogOpen(true)
+  }
+
+  function closeCreateTeamDialog() {
+    setTeamDialogOpen(false)
+    setTeamDialogProjectId(null)
+    setTeamDialogError('')
+    setTeamNameInput('')
+  }
+
+  async function handleCreateTeam() {
+    if (!teamDialogProjectId) return
+    const trimmedName = teamNameInput.trim()
+    if (!trimmedName) {
+      setTeamDialogError('Team name is required.')
+      return
+    }
+    setCreatingTeam(true)
     try {
-      await api.registerTeam(session, projectId)
-      setSuccess('Team created for this project.')
+      await api.registerTeam(session, teamDialogProjectId, trimmedName)
+      const projectId = teamDialogProjectId
+      closeCreateTeamDialog()
+      setSuccess(`Team "${trimmedName}" created.`)
       await loadData()
       navigate(`/projects/${projectId}?tab=team`)
     } catch (createError) {
-      setError(createError.message || 'Failed to create team')
+      setTeamDialogError(createError.message || 'Failed to create team')
+    } finally {
+      setCreatingTeam(false)
     }
   }
 
   function openSubjectEditor(subject) {
+    setSubjectFormError('')
     setEditingSubject(subject)
     setSubjectForm(
       subject
@@ -183,8 +310,9 @@ export default function SubjectsPage() {
   }
 
   function openProjectCreator(subjectId = '') {
+    setProjectFormError('')
     setProjectForm({
-      ...initialProjectForm,
+      ...defaultProjectForm(),
       subject_id: subjectId || subjects[0]?.id || '',
     })
     setProjectDialogOpen(true)
@@ -262,16 +390,16 @@ export default function SubjectsPage() {
                     >
                       <Stack direction="row" spacing={2} sx={{ minWidth: 0 }}>
                         <Box
-                          sx={{
+                          sx={(theme) => ({
                             width: 54,
                             height: 54,
                             borderRadius: 3,
                             display: 'grid',
                             placeItems: 'center',
-                            bgcolor: 'rgba(21, 101, 192, 0.08)',
+                            bgcolor: alpha(theme.palette.primary.main, 0.12),
                             color: 'primary.main',
                             flexShrink: 0,
-                          }}
+                          })}
                         >
                           <SchoolRoundedIcon />
                         </Box>
@@ -317,11 +445,15 @@ export default function SubjectsPage() {
                         >
                           Open details
                         </Button>
-                        {user?.role === 'student' && (
-                          <Button variant="outlined" onClick={() => handleRegisterSubject(subject.id)}>
-                            Register to subject
-                          </Button>
-                        )}
+                        {user?.role === 'student' &&
+                          !(subject.user_ids || []).includes(user?.id) && (
+                            <Button
+                              variant="outlined"
+                              onClick={() => handleRegisterSubject(subject.id)}
+                            >
+                              Register to subject
+                            </Button>
+                          )}
                         {['teacher', 'admin'].includes(user?.role) && (
                           <Button
                             variant="contained"
@@ -344,7 +476,7 @@ export default function SubjectsPage() {
                               color="error"
                               variant="outlined"
                               startIcon={<DeleteRoundedIcon />}
-                              onClick={() => handleDeleteSubject(subject.id)}
+                              onClick={() => setDeleteSubjectTarget(subject)}
                             >
                               Delete
                             </Button>
@@ -354,43 +486,86 @@ export default function SubjectsPage() {
                     </Stack>
 
                     <Box>
-                      <Typography variant="overline" color="primary.main" sx={{ fontWeight: 700 }}>
-                        Projects In This Subject
-                      </Typography>
-                      {subjectProjects.length === 0 ? (
-                        <Paper
-                          variant="outlined"
-                          sx={{ mt: 1.5, p: 2.5, borderStyle: 'dashed', color: 'text.secondary' }}
+                      <Stack
+                        direction="row"
+                        alignItems="center"
+                        justifyContent="space-between"
+                        spacing={1}
+                      >
+                        <Typography variant="overline" color="primary.main" sx={{ fontWeight: 700 }}>
+                          Projects In This Subject ({subjectProjects.length})
+                        </Typography>
+                        <IconButton
+                          size="small"
+                          onClick={() => toggleSubjectCollapsed(subject.id)}
+                          aria-label={
+                            collapsedSubjects[subject.id] ? 'Show projects' : 'Hide projects'
+                          }
                         >
-                          No projects have been attached to this subject yet.
-                        </Paper>
-                      ) : (
-                        <Stack spacing={1.5} sx={{ mt: 1.5 }}>
-                          {subjectProjects.map((project) => {
-                            const projectTeams = teamsByProject[project.id] || []
-                            const ownTeam = effectiveUser
-                              ? ownTeamForUser(projectTeams, effectiveUser.id)
-                              : null
+                          {collapsedSubjects[subject.id] ? (
+                            <ExpandMoreRoundedIcon />
+                          ) : (
+                            <ExpandLessRoundedIcon />
+                          )}
+                        </IconButton>
+                      </Stack>
+                      <Collapse in={!collapsedSubjects[subject.id]} unmountOnExit>
+                        {subjectProjects.length === 0 ? (
+                          <Paper
+                            variant="outlined"
+                            sx={{
+                              mt: 1.5,
+                              p: 2.5,
+                              borderStyle: 'dashed',
+                              color: 'text.secondary',
+                            }}
+                          >
+                            No projects have been attached to this subject yet.
+                          </Paper>
+                        ) : (
+                          <Stack spacing={1.5} sx={{ mt: 1.5 }}>
+                            {subjectProjects.map((project) => {
+                              const projectTeams = teamsByProject[project.id] || []
+                              const ownTeam = user?.id
+                                ? ownTeamForUser(projectTeams, user.id)
+                                : null
 
-                            return (
-                              <Paper
-                                key={project.id}
-                                variant="outlined"
-                                sx={{ p: 2.25, borderRadius: 3 }}
-                              >
-                                <Stack spacing={1.5}>
-                                  <Stack
-                                    direction={{ xs: 'column', md: 'row' }}
-                                    spacing={1.5}
-                                    justifyContent="space-between"
+                              return (
+                                <Paper
+                                  key={project.id}
+                                  variant="outlined"
+                                  sx={{
+                                    p: 2.25,
+                                    borderRadius: 3,
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    gap: 1.5,
+                                  }}
+                                >
+                                  <Box
+                                    sx={{
+                                      display: 'grid',
+                                      gridTemplateColumns: {
+                                        xs: '1fr',
+                                        sm: 'minmax(0, 1fr) 240px',
+                                      },
+                                      columnGap: 2.5,
+                                      rowGap: 1.5,
+                                      alignItems: 'start',
+                                    }}
                                   >
-                                    <Box>
+                                    <Box sx={{ minWidth: 0 }}>
                                       <Typography variant="h6">{project.title}</Typography>
                                       <Typography color="text.secondary" sx={{ mt: 0.75 }}>
                                         {project.description}
                                       </Typography>
                                     </Box>
-                                    <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                    <Stack
+                                      spacing={1}
+                                      sx={{
+                                        alignItems: { xs: 'flex-start', sm: 'flex-end' },
+                                      }}
+                                    >
                                       <Chip
                                         icon={<GroupRoundedIcon />}
                                         label={`${projectTeams.length} team${projectTeams.length === 1 ? '' : 's'}`}
@@ -407,24 +582,34 @@ export default function SubjectsPage() {
                                         variant="outlined"
                                         size="small"
                                       />
-                                      {project.start_date && (
-                                        <Chip
-                                          label={`Start ${formatDateOnly(project.start_date)}`}
-                                          variant="outlined"
-                                          size="small"
-                                        />
-                                      )}
-                                      {project.end_date && (
-                                        <Chip
-                                          label={`End ${formatDateOnly(project.end_date)}`}
-                                          variant="outlined"
-                                          size="small"
-                                        />
+                                      {(project.start_date || project.end_date) && (
+                                        <Stack direction="row" spacing={1} useFlexGap flexWrap="nowrap">
+                                          {project.start_date && (
+                                            <Chip
+                                              label={`Start ${formatDateOnly(project.start_date)}`}
+                                              variant="outlined"
+                                              size="small"
+                                            />
+                                          )}
+                                          {project.end_date && (
+                                            <Chip
+                                              label={`End ${formatDateOnly(project.end_date)}`}
+                                              variant="outlined"
+                                              size="small"
+                                            />
+                                          )}
+                                        </Stack>
                                       )}
                                     </Stack>
-                                  </Stack>
+                                  </Box>
 
-                                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                                  <Stack
+                                    direction="row"
+                                    spacing={1}
+                                    flexWrap="wrap"
+                                    useFlexGap
+                                    sx={{ mt: 'auto' }}
+                                  >
                                     <Button
                                       variant="outlined"
                                       startIcon={<LaunchRoundedIcon />}
@@ -438,15 +623,15 @@ export default function SubjectsPage() {
                                     >
                                       View teams
                                     </Button>
-                                    {effectiveUser?.role === 'student' && !ownTeam && (
+                                    {user?.role === 'student' && !ownTeam && (
                                       <Button
                                         variant="contained"
-                                        onClick={() => handleCreateTeam(project.id)}
+                                        onClick={() => openCreateTeamDialog(project.id)}
                                       >
                                         Create team
                                       </Button>
                                     )}
-                                    {effectiveUser?.role === 'student' && ownTeam && (
+                                    {user?.role === 'student' && ownTeam && (
                                       <Button
                                         variant="contained"
                                         onClick={() => navigate(`/projects/${project.id}?tab=team`)}
@@ -455,12 +640,12 @@ export default function SubjectsPage() {
                                       </Button>
                                     )}
                                   </Stack>
-                                </Stack>
-                              </Paper>
-                            )
-                          })}
-                        </Stack>
-                      )}
+                                </Paper>
+                              )
+                            })}
+                          </Stack>
+                        )}
+                      </Collapse>
                     </Box>
                   </Stack>
                 </CardContent>
@@ -470,11 +655,17 @@ export default function SubjectsPage() {
         </Stack>
       )}
 
-      <Dialog open={subjectDialogOpen} onClose={() => setSubjectDialogOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={subjectDialogOpen} onClose={closeSubjectDialog} fullWidth maxWidth="sm">
         <DialogTitle>{editingSubject ? 'Edit subject' : 'Create subject'}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
+            {subjectFormError && (
+              <Alert severity="error" onClose={() => setSubjectFormError('')}>
+                {subjectFormError}
+              </Alert>
+            )}
             <TextField
+              required
               label="Name"
               value={subjectForm.name}
               onChange={(event) =>
@@ -483,6 +674,7 @@ export default function SubjectsPage() {
               fullWidth
             />
             <TextField
+              required
               label="Abbreviation"
               value={subjectForm.abbreviation}
               onChange={(event) =>
@@ -491,6 +683,7 @@ export default function SubjectsPage() {
               fullWidth
             />
             <TextField
+              required
               label="Description"
               value={subjectForm.description}
               onChange={(event) =>
@@ -503,18 +696,26 @@ export default function SubjectsPage() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setSubjectDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleSaveSubject} variant="contained">
-            Save
+          <Button onClick={closeSubjectDialog} disabled={subjectSubmitting}>
+            Cancel
+          </Button>
+          <Button onClick={handleSaveSubject} variant="contained" disabled={subjectSubmitting}>
+            {subjectSubmitting ? 'Saving…' : 'Save'}
           </Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={projectDialogOpen} onClose={() => setProjectDialogOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={projectDialogOpen} onClose={closeProjectDialog} fullWidth maxWidth="sm">
         <DialogTitle>Create project</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
+            {projectFormError && (
+              <Alert severity="error" onClose={() => setProjectFormError('')}>
+                {projectFormError}
+              </Alert>
+            )}
             <TextField
+              required
               label="Title"
               value={projectForm.title}
               onChange={(event) =>
@@ -523,6 +724,7 @@ export default function SubjectsPage() {
               fullWidth
             />
             <TextField
+              required
               label="Description"
               value={projectForm.description}
               onChange={(event) =>
@@ -533,6 +735,7 @@ export default function SubjectsPage() {
               minRows={4}
             />
             <TextField
+              required
               select
               label="Subject"
               value={projectForm.subject_id}
@@ -548,13 +751,15 @@ export default function SubjectsPage() {
               ))}
             </TextField>
             <TextField
+              required
               label="Max students per team"
               type="number"
+              inputProps={{ min: 1 }}
               value={projectForm.max_students_per_team}
               onChange={(event) =>
                 setProjectForm((current) => ({
                   ...current,
-                  max_students_per_team: Number(event.target.value) || 1,
+                  max_students_per_team: Math.max(Number(event.target.value) || 1, 1),
                 }))
               }
               fullWidth
@@ -582,9 +787,66 @@ export default function SubjectsPage() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setProjectDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleCreateProject} variant="contained">
-            Save project
+          <Button onClick={closeProjectDialog} disabled={projectSubmitting}>
+            Cancel
+          </Button>
+          <Button onClick={handleCreateProject} variant="contained" disabled={projectSubmitting}>
+            {projectSubmitting ? 'Creating…' : 'Save project'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(deleteSubjectTarget)}
+        onClose={() => setDeleteSubjectTarget(null)}
+        maxWidth="xs"
+      >
+        <DialogTitle>Delete subject</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Delete <strong>{deleteSubjectTarget?.name}</strong>? Attached projects, teams, and
+            registrations will be removed. This cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteSubjectTarget(null)}>Cancel</Button>
+          <Button color="error" variant="contained" onClick={handleDeleteSubject}>
+            Delete subject
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={teamDialogOpen} onClose={closeCreateTeamDialog} fullWidth maxWidth="xs">
+        <DialogTitle>Create team</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            {teamDialogError && (
+              <Alert severity="error" onClose={() => setTeamDialogError('')}>
+                {teamDialogError}
+              </Alert>
+            )}
+            <TextField
+              required
+              autoFocus
+              label="Team name"
+              value={teamNameInput}
+              onChange={(event) => setTeamNameInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !creatingTeam) {
+                  event.preventDefault()
+                  handleCreateTeam()
+                }
+              }}
+              fullWidth
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeCreateTeamDialog} disabled={creatingTeam}>
+            Cancel
+          </Button>
+          <Button onClick={handleCreateTeam} variant="contained" disabled={creatingTeam}>
+            {creatingTeam ? 'Creating…' : 'Create'}
           </Button>
         </DialogActions>
       </Dialog>

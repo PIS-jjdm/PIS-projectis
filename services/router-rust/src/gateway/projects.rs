@@ -4,34 +4,109 @@ use std::pin::Pin;
 
 type DownloadStream = Pin<Box<dyn Stream<Item = Result<FileChunk, Status>> + Send>>;
 
-use crate::proto::common::{Ack, UserRole};
+use std::collections::HashMap;
 
-use crate::proto::gateway::{CreateProjectGatewayRequest};
+use crate::auth_context::CurrentUser;
+use crate::proto::common::{Ack, UserRole};
+use crate::proto::eval::{ListProjectEvaluationsRequest, ProjectEvaluation};
+
+use crate::proto::gateway::{
+    CreateProjectGatewayRequest, ListProjectTeamDetailsGatewayRequest,
+    ListProjectTeamDetailsGatewayResponse, ListTeamsByProjectGatewayResponse,
+};
 
 use crate::proto::project::{
     AddTeamMemberRequest, ChangeTeamLeaderRequest, CreateJoinRequestRequest, CreateProjectRequest,
     DeleteJoinRequestRequest, DeleteProjectRequest, GetProjectRequest, GetTeamRequest, JoinRequest,
     LeaveTeamRequest, ListJoinRequestsRequest, ListJoinRequestsResponse, ListProjectsRequest,
-    ListProjectsResponse, ListTeamsByProjectRequest, ListTeamsByProjectResponse, Project,
-    RegisterTeamRequest, RemoveTeamMemberRequest, ResolveJoinRequestRequest, Team, TeamDetail,
-    UpdateProjectRequest, DeleteSubmissionRequest, SubmitProjectRequest, ProjectSubmission,
-    DownloadSubmissionRequest, FileChunk
+    ListProjectsResponse, ListTeamsByProjectRequest, Project, RegisterTeamRequest,
+    RemoveTeamMemberRequest, ResolveJoinRequestRequest, Team, TeamDetail, UpdateProjectRequest,
+    DeleteSubmissionRequest, SubmitProjectRequest, ProjectSubmission, DownloadSubmissionRequest,
+    FileChunk,
 };
 
-use crate::gateway::FrontendGatewayService;
+use crate::gateway::{ForwardContext, FrontendGatewayService};
+
+async fn ensure_student_can_view_team(
+    service: &FrontendGatewayService,
+    ctx: &ForwardContext,
+    current_user: &CurrentUser,
+    team_id: &str,
+) -> Result<TeamDetail, Status> {
+    let detail = service
+        .state
+        .project_client()
+        .get_team(ctx.clone().into_request(GetTeamRequest {
+            team_id: team_id.to_string(),
+        })?)
+        .await?
+        .into_inner();
+
+    let belongs = detail.leader_student_id == current_user.user_id
+        || detail
+            .students
+            .iter()
+            .any(|user| user.id == current_user.user_id);
+
+    if !belongs {
+        return Err(Status::permission_denied(
+            "students can only access their own team",
+        ));
+    }
+
+    Ok(detail)
+}
 
 pub(super) async fn list_projects(
     service: &FrontendGatewayService,
     request: Request<ListProjectsRequest>,
 ) -> Result<Response<ListProjectsResponse>, Status> {
-    let response = service
-        .state
-        .project_client()
-        .list_projects(request.into_inner())
-        .await?
-        .into_inner();
+    let ctx = ForwardContext::from_request(&request);
+    let body = request.into_inner();
 
-    Ok(Response::new(response))
+    // Specific subject — single forwarded call.
+    if !body.subject_id.trim().is_empty() {
+        let response = service
+            .state
+            .project_client()
+            .list_projects(ctx.into_request(body)?)
+            .await?
+            .into_inner();
+        return Ok(Response::new(response));
+    }
+
+    // No subject filter — fan out per subject on the server so the browser doesn't have to.
+    let subjects = service
+        .state
+        .subject_client()
+        .list_subjects(ctx.clone().into_request(crate::proto::subject::ListSubjectsRequest {})?)
+        .await?
+        .into_inner()
+        .subjects;
+
+    let mut projects = Vec::new();
+    for subject in subjects {
+        match service
+            .state
+            .project_client()
+            .list_projects(ctx.clone().into_request(ListProjectsRequest {
+                subject_id: subject.id.clone(),
+            })?)
+            .await
+        {
+            Ok(response) => projects.extend(response.into_inner().projects),
+            Err(status) => {
+                tracing::warn!(
+                    subject_id = %subject.id,
+                    code = ?status.code(),
+                    message = status.message(),
+                    "list_projects fan-out: per-subject call failed; skipping"
+                );
+            }
+        }
+    }
+
+    Ok(Response::new(ListProjectsResponse { projects }))
 }
 
 pub(super) async fn get_project(
@@ -41,7 +116,7 @@ pub(super) async fn get_project(
     let response = service
         .state
         .project_client()
-        .get_project(request.into_inner())
+        .get_project(request)
         .await?
         .into_inner();
 
@@ -53,8 +128,8 @@ pub(super) async fn create_project(
     request: Request<CreateProjectGatewayRequest>,
 ) -> Result<Response<Project>, Status> {
     let current_user = FrontendGatewayService::current_user(&request)?;
-    FrontendGatewayService::require_roles(&current_user, &[UserRole::Teacher, UserRole::Admin])?;
 
+    let ctx = ForwardContext::from_request(&request);
     let body = request.into_inner();
     FrontendGatewayService::require_non_empty(&body.title, "project title")?;
     FrontendGatewayService::require_non_empty(&body.description, "project description")?;
@@ -63,7 +138,7 @@ pub(super) async fn create_project(
     let response = service
         .state
         .project_client()
-        .create_project(CreateProjectRequest {
+        .create_project(ctx.into_request(CreateProjectRequest {
             title: body.title,
             description: body.description,
             teacher_id: current_user.user_id,
@@ -72,7 +147,7 @@ pub(super) async fn create_project(
             end_date: body.end_date,
             subject_id: body.subject_id,
             submission_size_limit: body.submission_size_limit,
-        })
+        })?)
         .await?
         .into_inner();
 
@@ -83,13 +158,10 @@ pub(super) async fn update_project(
     service: &FrontendGatewayService,
     request: Request<UpdateProjectRequest>,
 ) -> Result<Response<Project>, Status> {
-    let current_user = FrontendGatewayService::current_user(&request)?;
-    FrontendGatewayService::require_roles(&current_user, &[UserRole::Teacher, UserRole::Admin])?;
-
     let response = service
         .state
         .project_client()
-        .update_project(request.into_inner())
+        .update_project(request)
         .await?
         .into_inner();
 
@@ -100,13 +172,10 @@ pub(super) async fn delete_project(
     service: &FrontendGatewayService,
     request: Request<DeleteProjectRequest>,
 ) -> Result<Response<Ack>, Status> {
-    let current_user = FrontendGatewayService::current_user(&request)?;
-    FrontendGatewayService::require_roles(&current_user, &[UserRole::Teacher, UserRole::Admin])?;
-
     let response = service
         .state
         .project_client()
-        .delete_project(request.into_inner())
+        .delete_project(request)
         .await?
         .into_inner();
 
@@ -118,6 +187,7 @@ pub(super) async fn register_team(
     request: Request<RegisterTeamRequest>,
 ) -> Result<Response<Team>, Status> {
     let current_user = FrontendGatewayService::current_user(&request)?;
+    let ctx = ForwardContext::from_request(&request);
     let body = request.into_inner();
     FrontendGatewayService::require_non_empty(&body.project_id, "project id")?;
     FrontendGatewayService::require_non_empty(&body.team_name, "team name")?;
@@ -125,11 +195,11 @@ pub(super) async fn register_team(
     let response = service
         .state
         .project_client()
-        .register_team(RegisterTeamRequest {
+        .register_team(ctx.into_request(RegisterTeamRequest {
             project_id: body.project_id,
             creator_student_id: current_user.user_id,
             team_name: body.team_name,
-        })
+        })?)
         .await?
         .into_inner();
 
@@ -140,28 +210,184 @@ pub(super) async fn get_team(
     service: &FrontendGatewayService,
     request: Request<GetTeamRequest>,
 ) -> Result<Response<TeamDetail>, Status> {
+    let current_user = FrontendGatewayService::current_user(&request)?;
+    let ctx = ForwardContext::from_request(&request);
+    let body = request.into_inner();
+    FrontendGatewayService::require_non_empty(&body.team_id, "team id")?;
+
+    if current_user.role == UserRole::Student {
+        let detail =
+            ensure_student_can_view_team(service, &ctx, &current_user, &body.team_id).await?;
+        return Ok(Response::new(detail));
+    }
+
     let response = service
         .state
         .project_client()
-        .get_team(request.into_inner())
+        .get_team(ctx.into_request(body)?)
         .await?
         .into_inner();
 
     Ok(Response::new(response))
 }
 
-pub(super) async fn list_teams_by_project(
+pub(super) async fn list_project_team_details(
     service: &FrontendGatewayService,
-    request: Request<ListTeamsByProjectRequest>,
-) -> Result<Response<ListTeamsByProjectResponse>, Status> {
-    let response = service
+    request: Request<ListProjectTeamDetailsGatewayRequest>,
+) -> Result<Response<ListProjectTeamDetailsGatewayResponse>, Status> {
+    let current_user = FrontendGatewayService::current_user(&request)?;
+    let ctx = ForwardContext::from_request(&request);
+    let body = request.into_inner();
+    FrontendGatewayService::require_non_empty(&body.project_id, "project id")?;
+
+    let project_id = body.project_id.clone();
+    let listing = service
         .state
         .project_client()
-        .list_teams_by_project(request.into_inner())
+        .list_teams_by_project(ctx.clone().into_request(ListTeamsByProjectRequest {
+            project_id: project_id.clone(),
+        })?)
         .await?
         .into_inner();
 
-    Ok(Response::new(response))
+    // Fetch all evaluations for the project in one shot from eval-service so we can merge them
+    // into each TeamDetail directly. We do this in the router rather than relying on the
+    // project-service's per-team eval pass-through (which sometimes returns empty), so the
+    // teacher's submissions list always sees scores and feedback as soon as they exist.
+    let evaluations_by_team: HashMap<String, ProjectEvaluation> = match service
+        .state
+        .eval_client()
+        .list_project_evaluations(Request::new(ListProjectEvaluationsRequest {
+            project_id: Some(project_id.clone()),
+            student_id: None,
+            evaluator_teacher_id: None,
+        }))
+        .await
+    {
+        Ok(response) => response
+            .into_inner()
+            .evaluations
+            .into_iter()
+            .map(|evaluation| (evaluation.team_id.clone(), evaluation))
+            .collect(),
+        Err(status) => {
+            tracing::warn!(
+                project_id = %project_id,
+                code = ?status.code(),
+                message = status.message(),
+                "list_project_evaluations failed during list_project_team_details; \
+                 evaluations will be missing from the response"
+            );
+            HashMap::new()
+        }
+    };
+
+    let is_student = current_user.role == UserRole::Student;
+    let mut teams = Vec::with_capacity(listing.teams.len());
+    for team in listing.teams {
+        match service
+            .state
+            .project_client()
+            .get_team(ctx.clone().into_request(GetTeamRequest {
+                team_id: team.team_id.clone(),
+            })?)
+            .await
+        {
+            Ok(response) => {
+                let mut detail = response.into_inner();
+                if is_student {
+                    let belongs = detail.leader_student_id == current_user.user_id
+                        || detail
+                            .students
+                            .iter()
+                            .any(|user| user.id == current_user.user_id);
+                    if !belongs {
+                        continue;
+                    }
+                }
+                if let Some(evaluation) = evaluations_by_team.get(&detail.team_id) {
+                    detail.evaluation = Some(evaluation.clone());
+                }
+                teams.push(detail);
+            }
+            Err(status) => {
+                tracing::warn!(
+                    team_id = %team.team_id,
+                    code = ?status.code(),
+                    message = status.message(),
+                    "get_team failed during list_project_team_details; skipping"
+                );
+            }
+        }
+    }
+
+    Ok(Response::new(ListProjectTeamDetailsGatewayResponse { teams }))
+}
+
+pub(super) async fn list_teams_by_project(
+    service: &FrontendGatewayService,
+    request: Request<ListTeamsByProjectRequest>,
+) -> Result<Response<ListTeamsByProjectGatewayResponse>, Status> {
+    let ctx = ForwardContext::from_request(&request);
+    let listing = service
+        .state
+        .project_client()
+        .list_teams_by_project(request)
+        .await?
+        .into_inner();
+
+    let mut teams = Vec::with_capacity(listing.teams.len());
+    for team in listing.teams {
+        let team_id = team.team_id.clone();
+        match service
+            .state
+            .project_client()
+            .get_team(ctx.clone().into_request(GetTeamRequest {
+                team_id: team_id.clone(),
+            })?)
+            .await
+        {
+            Ok(response) => teams.push(team_from_detail(response.into_inner())),
+            Err(status) => {
+                tracing::warn!(
+                    team_id = %team_id,
+                    code = ?status.code(),
+                    message = status.message(),
+                    "get_team enrichment failed; returning basic team data"
+                );
+                let leader = team.leader_student_id.clone();
+                let student_ids = if leader.is_empty() {
+                    Vec::new()
+                } else {
+                    vec![leader.clone()]
+                };
+                teams.push(Team {
+                    team_id: team.team_id,
+                    project_id: team.project_id,
+                    name: team.name,
+                    leader_student_id: leader,
+                    student_ids,
+                });
+            }
+        }
+    }
+
+    Ok(Response::new(ListTeamsByProjectGatewayResponse { teams }))
+}
+
+fn team_from_detail(detail: TeamDetail) -> Team {
+    let mut student_ids: Vec<String> =
+        detail.students.into_iter().map(|user| user.id).collect();
+    if !detail.leader_student_id.is_empty() && !student_ids.contains(&detail.leader_student_id) {
+        student_ids.push(detail.leader_student_id.clone());
+    }
+    Team {
+        team_id: detail.team_id,
+        project_id: detail.project_id,
+        name: detail.name,
+        leader_student_id: detail.leader_student_id,
+        student_ids,
+    }
 }
 
 pub(super) async fn leave_team(
@@ -169,15 +395,16 @@ pub(super) async fn leave_team(
     request: Request<LeaveTeamRequest>,
 ) -> Result<Response<Ack>, Status> {
     let current_user = FrontendGatewayService::current_user(&request)?;
+    let ctx = ForwardContext::from_request(&request);
     let body = request.into_inner();
 
     let response = service
         .state
         .project_client()
-        .leave_team(LeaveTeamRequest {
+        .leave_team(ctx.into_request(LeaveTeamRequest {
             team_id: body.team_id,
             student_id: current_user.user_id,
-        })
+        })?)
         .await?
         .into_inner();
 
@@ -191,7 +418,7 @@ pub(super) async fn change_team_leader(
     let response = service
         .state
         .project_client()
-        .change_team_leader(request.into_inner())
+        .change_team_leader(request)
         .await?
         .into_inner();
 
@@ -205,7 +432,7 @@ pub(super) async fn add_team_member(
     let response = service
         .state
         .project_client()
-        .add_team_member(request.into_inner())
+        .add_team_member(request)
         .await?
         .into_inner();
 
@@ -219,7 +446,7 @@ pub(super) async fn remove_team_member(
     let response = service
         .state
         .project_client()
-        .remove_team_member(request.into_inner())
+        .remove_team_member(request)
         .await?
         .into_inner();
 
@@ -231,15 +458,16 @@ pub(super) async fn create_join_request(
     request: Request<CreateJoinRequestRequest>,
 ) -> Result<Response<JoinRequest>, Status> {
     let current_user = FrontendGatewayService::current_user(&request)?;
+    let ctx = ForwardContext::from_request(&request);
     let body = request.into_inner();
 
     let response = service
         .state
         .project_client()
-        .create_join_request(CreateJoinRequestRequest {
+        .create_join_request(ctx.into_request(CreateJoinRequestRequest {
             team_id: body.team_id,
             requestor_student_id: current_user.user_id,
-        })
+        })?)
         .await?
         .into_inner();
 
@@ -253,7 +481,7 @@ pub(super) async fn delete_join_request(
     let response = service
         .state
         .project_client()
-        .delete_join_request(request.into_inner())
+        .delete_join_request(request)
         .await?
         .into_inner();
 
@@ -265,16 +493,17 @@ pub(super) async fn resolve_join_request(
     request: Request<ResolveJoinRequestRequest>,
 ) -> Result<Response<JoinRequest>, Status> {
     let current_user = FrontendGatewayService::current_user(&request)?;
+    let ctx = ForwardContext::from_request(&request);
     let body = request.into_inner();
 
     let response = service
         .state
         .project_client()
-        .resolve_join_request(ResolveJoinRequestRequest {
+        .resolve_join_request(ctx.into_request(ResolveJoinRequestRequest {
             join_request_id: body.join_request_id,
             accept: body.accept,
             resolver_student_id: current_user.user_id,
-        })
+        })?)
         .await?
         .into_inner();
 
@@ -288,7 +517,7 @@ pub(super) async fn list_join_requests(
     let response = service
         .state
         .project_client()
-        .list_join_requests(request.into_inner())
+        .list_join_requests(request)
         .await?
         .into_inner();
 
@@ -300,12 +529,18 @@ pub(super) async fn submit_project(
     request: Request<SubmitProjectRequest>,
 ) -> Result<Response<ProjectSubmission>, Status> {
     let current_user = FrontendGatewayService::current_user(&request)?;
-    FrontendGatewayService::require_roles(&current_user, &[UserRole::Student, UserRole::Admin])?;
+    let ctx = ForwardContext::from_request(&request);
+    let body = request.into_inner();
+    FrontendGatewayService::require_non_empty(&body.team_id, "team id")?;
+
+    if current_user.role == UserRole::Student {
+        ensure_student_can_view_team(service, &ctx, &current_user, &body.team_id).await?;
+    }
 
     let response = service
         .state
         .project_client()
-        .submit_project(request.into_inner())
+        .submit_project(ctx.into_request(body)?)
         .await?
         .into_inner();
 
@@ -317,12 +552,18 @@ pub(super) async fn delete_submission(
     request: Request<DeleteSubmissionRequest>,
 ) -> Result<Response<Ack>, Status> {
     let current_user = FrontendGatewayService::current_user(&request)?;
-    FrontendGatewayService::require_roles(&current_user, &[UserRole::Student, UserRole::Teacher, UserRole::Admin])?;
+    let ctx = ForwardContext::from_request(&request);
+    let body = request.into_inner();
+    FrontendGatewayService::require_non_empty(&body.team_id, "team id")?;
+
+    if current_user.role == UserRole::Student {
+        ensure_student_can_view_team(service, &ctx, &current_user, &body.team_id).await?;
+    }
 
     let response = service
         .state
         .project_client()
-        .delete_submission(request.into_inner())
+        .delete_submission(ctx.into_request(body)?)
         .await?
         .into_inner();
 
@@ -334,12 +575,18 @@ pub(super) async fn download_submission(
     request: Request<DownloadSubmissionRequest>,
 ) -> Result<Response<DownloadStream>, Status> {
     let current_user = FrontendGatewayService::current_user(&request)?;
-    FrontendGatewayService::require_roles(&current_user, &[UserRole::Student, UserRole::Teacher, UserRole::Admin])?;
+    let ctx = ForwardContext::from_request(&request);
+    let body = request.into_inner();
+    FrontendGatewayService::require_non_empty(&body.team_id, "team id")?;
+
+    if current_user.role == UserRole::Student {
+        ensure_student_can_view_team(service, &ctx, &current_user, &body.team_id).await?;
+    }
 
     let stream = service
         .state
         .project_client()
-        .download_submission(request.into_inner())
+        .download_submission(ctx.into_request(body)?)
         .await?
         .into_inner();
 

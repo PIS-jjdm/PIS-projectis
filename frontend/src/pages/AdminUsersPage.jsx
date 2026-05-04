@@ -45,6 +45,7 @@ export default function AdminUsersPage() {
   const [submitting, setSubmitting] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
   const [form, setForm] = useState(initialForm)
+  const [formError, setFormError] = useState('')
 
   const loadUsers = useCallback(async () => {
     setError('')
@@ -74,6 +75,7 @@ export default function AdminUsersPage() {
   function openCreateDialog() {
     setEditingUser(null)
     setForm(initialForm)
+    setFormError('')
     setDialogOpen(true)
   }
 
@@ -86,31 +88,66 @@ export default function AdminUsersPage() {
       password: '',
       role: targetUser.role || 'student',
     })
+    setFormError('')
     setDialogOpen(true)
+  }
+
+  function closeDialog() {
+    setDialogOpen(false)
+    setEditingUser(null)
+    setForm(initialForm)
+    setFormError('')
   }
 
   function isSelfRoleChange() {
     return editingUser?.id === user?.id && form.role !== user?.role
   }
 
-  async function submitUser() {
-    setError('')
-    setSuccess('')
-    setSubmitting(true)
+  function validateUserForm() {
+    const firstname = form.firstname.trim()
+    const lastname = form.lastname.trim()
+    const email = form.email.trim()
+    if (!firstname) return 'First name is required.'
+    if (!lastname) return 'Last name is required.'
+    if (!email) return 'Email is required.'
+    // RFC 5322 simplified: local@domain with dot in domain
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return 'Email format is invalid.'
+    }
+    if (!editingUser && !form.password) return 'Password is required.'
+    if (!editingUser && form.password.length < 8) {
+      return 'Password must be at least 8 characters.'
+    }
+    return ''
+  }
 
+  async function submitUser() {
+    setFormError('')
+    setSuccess('')
+
+    const validationError = validateUserForm()
+    if (validationError) {
+      setFormError(validationError)
+      return
+    }
+
+    setSubmitting(true)
     try {
       const saved = editingUser
         ? await api.updateUser(session, {
             user_id: editingUser.id,
-            firstname: form.firstname,
-            lastname: form.lastname,
-            email: form.email,
+            firstname: form.firstname.trim(),
+            lastname: form.lastname.trim(),
+            email: form.email.trim(),
             role: form.role,
           })
-        : await api.createUser(session, form)
-      setDialogOpen(false)
-      setEditingUser(null)
-      setForm(initialForm)
+        : await api.createUser(session, {
+            ...form,
+            firstname: form.firstname.trim(),
+            lastname: form.lastname.trim(),
+            email: form.email.trim(),
+          })
+      closeDialog()
       await loadUsers()
       setSuccess(
         editingUser
@@ -118,7 +155,9 @@ export default function AdminUsersPage() {
           : `Created user ${saved.firstname} ${saved.lastname}.`,
       )
     } catch (err) {
-      setError(err.message || (editingUser ? 'Failed to update user' : 'Failed to create user'))
+      setFormError(
+        err.message || (editingUser ? 'Failed to update user.' : 'User was not created.'),
+      )
     } finally {
       setSubmitting(false)
     }
@@ -206,23 +245,31 @@ export default function AdminUsersPage() {
         </Box>
       )}
 
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
+      <Dialog open={dialogOpen} onClose={closeDialog} fullWidth maxWidth="sm">
         <DialogTitle>{editingUser ? 'Edit user' : 'Create user'}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
+            {formError && (
+              <Alert severity="error" onClose={() => setFormError('')}>
+                {formError}
+              </Alert>
+            )}
             <TextField
+              required
               label="First name"
               value={form.firstname}
               onChange={(event) => setForm((prev) => ({ ...prev, firstname: event.target.value }))}
               fullWidth
             />
             <TextField
+              required
               label="Last name"
               value={form.lastname}
               onChange={(event) => setForm((prev) => ({ ...prev, lastname: event.target.value }))}
               fullWidth
             />
             <TextField
+              required
               label="Email"
               type="email"
               value={form.email}
@@ -231,10 +278,12 @@ export default function AdminUsersPage() {
             />
             {!editingUser && (
               <TextField
+                required
                 label="Password"
                 type="password"
                 value={form.password}
                 onChange={(event) => setForm((prev) => ({ ...prev, password: event.target.value }))}
+                helperText="At least 8 characters."
                 fullWidth
               />
             )}
@@ -252,7 +301,9 @@ export default function AdminUsersPage() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
+          <Button onClick={closeDialog} disabled={submitting}>
+            Cancel
+          </Button>
           <Button onClick={handleSubmitUser} variant="contained" disabled={submitting}>
             {submitting ? (editingUser ? 'Saving...' : 'Creating...') : (editingUser ? 'Save changes' : 'Create user')}
           </Button>

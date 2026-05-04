@@ -19,19 +19,6 @@ export function formatFileSize(bytes) {
   return `${size >= 10 || unitIndex === 0 ? size.toFixed(0) : size.toFixed(1)} ${units[unitIndex]}`
 }
 
-export function resolveKnownUser(knownUsers, sessionUser) {
-  const userId = String(sessionUser?.id || '').trim()
-  const email = String(sessionUser?.email || '').trim().toLowerCase()
-  const role = String(sessionUser?.role || '').trim().toLowerCase()
-
-  return (
-    knownUsers.find((knownUser) => knownUser.id === userId) ||
-    knownUsers.find((knownUser) => knownUser.email.toLowerCase() === email) ||
-    knownUsers.find((knownUser) => knownUser.role === role) ||
-    null
-  )
-}
-
 export function ownTeamForUser(teams, userId) {
   return teams.find((team) => (team.student_ids || []).includes(userId)) || null
 }

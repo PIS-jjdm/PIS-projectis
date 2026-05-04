@@ -8,6 +8,7 @@ import SubjectDetailPage from './pages/SubjectDetailPage'
 import ProjectsPage from './pages/ProjectsPage'
 import ProjectDetailPage from './pages/ProjectDetailPage'
 import NotificationsPage from './pages/NotificationsPage'
+import MyEvaluationsPage from './pages/MyEvaluationsPage'
 import AdminUsersPage from './pages/AdminUsersPage'
 import NotFoundPage from './pages/NotFoundPage'
 
@@ -29,6 +30,7 @@ export default function App() {
         <Route path="subjects/:subjectId" element={<SubjectDetailPage />} />
         <Route path="projects" element={<ProjectsPage />} />
         <Route path="projects/:projectId" element={<ProjectDetailPage />} />
+        <Route path="evaluations" element={<MyEvaluationsPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route
           path="admin/users"

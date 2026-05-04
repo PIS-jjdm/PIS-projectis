@@ -29,7 +29,7 @@ public class ProjectEntity extends BaseEntity {
     @Column(nullable = false)
     private Integer maxStudentsPerTeam;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "BIGINT NOT NULL DEFAULT 10485760")
     private Long submissionSizeLimit;
 
     @Column(nullable = false)

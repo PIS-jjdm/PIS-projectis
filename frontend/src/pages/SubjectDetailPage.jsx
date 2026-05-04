@@ -3,7 +3,8 @@ import {
   Box,
   Button,
   Chip,
-  Divider,
+  Collapse,
+  IconButton,
   MenuItem,
   Paper,
   Stack,
@@ -11,6 +12,8 @@ import {
   Typography,
 } from '@mui/material'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
+import ExpandLessRoundedIcon from '@mui/icons-material/ExpandLessRounded'
+import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded'
 import GroupRoundedIcon from '@mui/icons-material/GroupRounded'
 import LaunchRoundedIcon from '@mui/icons-material/LaunchRounded'
 import PersonAddRoundedIcon from '@mui/icons-material/PersonAddRounded'
@@ -99,8 +102,12 @@ export default function SubjectDetailPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [projectsExpanded, setProjectsExpanded] = useState(true)
 
   const isAdmin = user?.role === 'admin'
+  const isAssignedTeacher =
+    user?.role === 'teacher' && (subject?.teacher_ids || []).includes(user?.id)
+  const canManageStudents = isAdmin || isAssignedTeacher
   const knownUsersById = useMemo(
     () => new Map(knownUsers.map((knownUser) => [knownUser.id, knownUser])),
     [knownUsers],
@@ -158,7 +165,7 @@ export default function SubjectDetailPage() {
       const [subjectData, projectData, userData] = await Promise.all([
         api.getSubject(session, subjectId),
         api.listProjects(session),
-        api.listKnownUsers(session),
+        api.listUsers(session),
       ])
       setSubject(subjectData)
       setProjects(Array.isArray(projectData) ? projectData : projectData.projects || [])
@@ -341,7 +348,7 @@ export default function SubjectDetailPage() {
                 }
                 maxVisible={20}
                 users={filteredStudents}
-                removable={isAdmin}
+                removable={canManageStudents}
                 onRemove={handleRemoveStudent}
               />
             </Stack>
@@ -389,67 +396,110 @@ export default function SubjectDetailPage() {
 
         <Paper variant="outlined" sx={{ p: { xs: 2.5, md: 3 }, borderRadius: 3 }}>
           <Stack spacing={2}>
-            <Typography variant="h6">Projects</Typography>
-            {subjectProjects.length === 0 ? (
-              <EmptyState
-                title="No projects in this subject"
-                description="Projects attached to this subject will appear here."
-              />
-            ) : (
-              <Stack spacing={1.5} divider={<Divider flexItem />}>
-                {subjectProjects.map((project) => (
-                  <Stack
-                    key={project.id}
-                    direction={{ xs: 'column', md: 'row' }}
-                    spacing={1.5}
-                    justifyContent="space-between"
-                    alignItems={{ xs: 'flex-start', md: 'center' }}
-                  >
-                    <Box>
-                      <Typography variant="subtitle1" fontWeight={700}>
-                        {project.title}
-                      </Typography>
-                      <Typography color="text.secondary" sx={{ mt: 0.5 }}>
-                        {project.description}
-                      </Typography>
-                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
-                        <Chip
-                          label={`Teacher: ${userLabel(knownUsersById.get(project.teacher_id))}`}
-                          variant="outlined"
-                          size="small"
-                        />
-                        <Chip
-                          label={`Max ${project.max_students_per_team} / team`}
-                          variant="outlined"
-                          size="small"
-                        />
-                        {project.start_date && (
-                          <Chip
-                            label={`Start ${formatDateOnly(project.start_date)}`}
-                            variant="outlined"
-                            size="small"
-                          />
-                        )}
-                        {project.end_date && (
-                          <Chip
-                            label={`End ${formatDateOnly(project.end_date)}`}
-                            variant="outlined"
-                            size="small"
-                          />
-                        )}
-                      </Stack>
-                    </Box>
-                    <Button
+            <Stack
+              direction="row"
+              alignItems="center"
+              justifyContent="space-between"
+              spacing={1}
+            >
+              <Typography variant="h6">
+                Projects ({subjectProjects.length})
+              </Typography>
+              <IconButton
+                size="small"
+                onClick={() => setProjectsExpanded((value) => !value)}
+                aria-label={projectsExpanded ? 'Hide projects' : 'Show projects'}
+              >
+                {projectsExpanded ? <ExpandLessRoundedIcon /> : <ExpandMoreRoundedIcon />}
+              </IconButton>
+            </Stack>
+            <Collapse in={projectsExpanded} unmountOnExit>
+              {subjectProjects.length === 0 ? (
+                <EmptyState
+                  title="No projects in this subject"
+                  description="Projects attached to this subject will appear here."
+                />
+              ) : (
+                <Stack spacing={1.5}>
+                  {subjectProjects.map((project) => (
+                    <Paper
+                      key={project.id}
                       variant="outlined"
-                      startIcon={<LaunchRoundedIcon />}
-                      onClick={() => navigate(`/projects/${project.id}`)}
+                      sx={{
+                        p: 2,
+                        borderRadius: 2,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 1.5,
+                      }}
                     >
-                      Open details
-                    </Button>
-                  </Stack>
-                ))}
-              </Stack>
-            )}
+                      <Box
+                        sx={{
+                          display: 'grid',
+                          gridTemplateColumns: {
+                            xs: '1fr',
+                            sm: 'minmax(0, 1fr) 240px',
+                          },
+                          columnGap: 2.5,
+                          rowGap: 1.5,
+                          alignItems: 'start',
+                        }}
+                      >
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography variant="subtitle1" fontWeight={700}>
+                            {project.title}
+                          </Typography>
+                          <Typography color="text.secondary" sx={{ mt: 0.5 }}>
+                            {project.description}
+                          </Typography>
+                        </Box>
+                        <Stack
+                          spacing={1}
+                          sx={{ alignItems: { xs: 'flex-start', sm: 'flex-end' } }}
+                        >
+                          <Chip
+                            label={`Teacher: ${userLabel(knownUsersById.get(project.teacher_id))}`}
+                            variant="outlined"
+                            size="small"
+                          />
+                          <Chip
+                            label={`Max ${project.max_students_per_team} / team`}
+                            variant="outlined"
+                            size="small"
+                          />
+                          {(project.start_date || project.end_date) && (
+                            <Stack direction="row" spacing={1} useFlexGap flexWrap="nowrap">
+                              {project.start_date && (
+                                <Chip
+                                  label={`Start ${formatDateOnly(project.start_date)}`}
+                                  variant="outlined"
+                                  size="small"
+                                />
+                              )}
+                              {project.end_date && (
+                                <Chip
+                                  label={`End ${formatDateOnly(project.end_date)}`}
+                                  variant="outlined"
+                                  size="small"
+                                />
+                              )}
+                            </Stack>
+                          )}
+                        </Stack>
+                      </Box>
+                      <Button
+                        variant="outlined"
+                        startIcon={<LaunchRoundedIcon />}
+                        onClick={() => navigate(`/projects/${project.id}`)}
+                        sx={{ mt: 'auto', alignSelf: 'flex-start' }}
+                      >
+                        Open details
+                      </Button>
+                    </Paper>
+                  ))}
+                </Stack>
+              )}
+            </Collapse>
           </Stack>
         </Paper>
       </Stack>

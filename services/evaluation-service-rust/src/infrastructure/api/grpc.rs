@@ -170,8 +170,13 @@ struct Claims {
     pub role: String,
 }
 
-fn get_user_id(jwt: &str) -> Result<String, anyhow::Error> {
-    let data = jsonwebtoken::dangerous::insecure_decode::<Claims>(jwt)?;
+fn get_user_id(authorization: &str) -> Result<String, anyhow::Error> {
+    // The router forwards the full "Bearer <jwt>" header verbatim — strip the prefix before
+    // base64-decoding the JWT payload, otherwise the leading "Bearer " trips the decoder.
+    let token = authorization
+        .strip_prefix("Bearer ")
+        .unwrap_or(authorization);
+    let data = jsonwebtoken::dangerous::insecure_decode::<Claims>(token)?;
     Ok(data.claims.sub)
 }
 
