@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <title>Projekt PIS</title>
+    <style type="text/css">
+    	table { border-collapse: collapse; }
+    	td, th { border: 1px solid black; padding: 0.3em 0.5em; text-align: left; }
+    	dt { font-weight: bold; margin-top: 0.5em; }
+    </style>
+</head>
+<body>
+
+<!-- Nahraďte prosím názvem tématu -->
+<h1>Přihlašování na projekty</h1>
+
+<!-- Editujte jména a maily autorů a jejich činnost -->
+<dl>
+	<dt>Autoři</dt>
+	<dd>Jakub Kloub
+	    <a href="mailto:xkloub03@stud.fit.vutbr.cz">xkloub03@stud.fit.vutbr.cz</a> -
+		Evaluation service, telemetry
+	</dd>
+	<dd>Jakub Jeřábek
+	    <a href="mailto:xjerab28@stud.fit.vutbr.cz">xjerab28@stud.fit.vutbr.cz</a> -
+		Subject service, telemetry
+	</dd>
+	<dd>Matúš Moravčík
+	    <a href="mailto:xmorav48@stud.fit.vutbr.cz">xmorav48@stud.fit.vutbr.cz</a> -
+		Project service
+	</dd>
+	<dd>Le Duy Nguyen
+	    <a href="mailto:xnguye27@stud.fit.vutbr.cz">xnguye27@stud.fit.vutbr.cz</a> -
+		Auth service, Notification service, Router, Frontend
+	</dd>
+</dl>
+
+<!-- uživatelské účty -->
+<h2>Uživatelé systému pro testování</h2>
+<table>
+<tr><th>Login</th><th>Heslo</th><th>Role</th></tr>
+<tr><td>admin@example.com</td><td>admin123</td><td>Administrátor</td></tr>
+<tr><td>teacher@example.com</td><td>teacher123</td><td>Učitel</td></tr>
+<tr><td>student@example.com</td><td>student123</td><td>Student</td></tr>
+</table>
+
+<h2>Postup instalace</h2>
+<ul>
+  <li>Požadavky: <code>docker</code>, <code>docker-compose</code></li>
+  <li><code>docker-compose up --build</code></li>
+  <li>Přístup:
+    <ul>
+      <li>IS: <a href="http://localhost:3000/">http://localhost:3000/</a></li>
+      <li>Grafana: <a href="http://localhost:3001/">http://localhost:3001/</a></li>
+    </ul>
+  </li>
+</ul>
+
+</body>
+</html>
