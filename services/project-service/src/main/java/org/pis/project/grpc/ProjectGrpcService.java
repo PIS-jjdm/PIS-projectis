@@ -262,18 +262,22 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
             try {
                 var user = authClientService.getUser(request.getStudentId());
                 String studentName = String.format("%s %s", user.getFirstname(), user.getLastname());
+                String projectName = team.getProject().getTitle();
+                subject.SubjectOuterClass.Subject subject = subjectClientService
+                        .getSubject(team.getProject().getSubjectId());
 
                 if (ctx.userId() == request.getStudentId()) {
                     notificationClient.createNotification(
                             List.of(team.getLeaderStudentId()),
                             String.format(
-                                    "You have been promoted to leader in team '%s' because the previous leader left.",
-                                    team.getName()),
+                                    "You have been promoted to leader in team '%s' for project '%s' in subject %s because the previous leader left.",
+                                    team.getName(), projectName, subject.getName()),
                             ctx.userId(), null);
                 } else {
                     notificationClient.createNotification(
                             List.of(team.getLeaderStudentId()),
-                            String.format("Student %s has left your team '%s'.", studentName, team.getName()),
+                            String.format("Student %s has left your team '%s' for project '%s' in subject %s.",
+                                    studentName, team.getName(), projectName, subject.getName()),
                             ctx.userId(), null);
                 }
             } catch (Exception e) {
@@ -303,10 +307,14 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
         // Notify the new leader
         CompletableFuture.runAsync(() -> {
             try {
+                String projectName = abandonedTeam.getProject().getTitle();
+                subject.SubjectOuterClass.Subject subject = subjectClientService
+                        .getSubject(abandonedTeam.getProject().getSubjectId());
                 notificationClient.createNotification(
                         List.of(newLeaderStudentId),
-                        String.format("You have been appointed as the new team leader of '%s'.",
-                                abandonedTeam.getName()),
+                        String.format(
+                                "You have been appointed as the new team leader of '%s' for project '%s' in subject %s.",
+                                abandonedTeam.getName(), projectName, subject.getName()),
                         oldLeaderStudentId, null);
 
             } catch (Exception e) {
@@ -398,6 +406,8 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
         String leaderId = savedRequest.getTeam().getLeaderStudentId();
         String teamName = savedRequest.getTeam().getName();
         String requestorId = savedRequest.getRequestorStudentId();
+        String projectName = savedRequest.getTeam().getProject().getTitle();
+        String subjectId = savedRequest.getTeam().getProject().getSubjectId();
 
         JoinRequest response = teamJoinRequestMapper.toProto(savedRequest);
         responseObserver.onNext(response);
@@ -406,9 +416,12 @@ public class ProjectGrpcService extends ProjectServiceGrpc.ProjectServiceImplBas
         // 4. Async Notification
         CompletableFuture.runAsync(() -> {
             try {
+                subject.SubjectOuterClass.Subject subject = subjectClientService.getSubject(subjectId);
                 notificationClient.createNotification(
                         List.of(leaderId),
-                        String.format("New join request for team %s from student %s", teamName, requestorId),
+                        String.format(
+                                "New join request for team '%s' (project '%s' in subject %s) from student %s",
+                                teamName, projectName, subject.getName(), requestorId),
                         currentUserId, null);
             } catch (Exception e) {
                 log.error("Failed to send join request notification", e);
