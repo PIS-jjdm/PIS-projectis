@@ -2,211 +2,123 @@
 
 Microservice-based university project registration system.
 
-## Overview
+## Services
 
-The repository currently contains:
+- `frontend/` — React + Vite, served by nginx, talks to the router via gRPC-Web.
+- `services/router-rust/` — typed gRPC + gRPC-Web gateway (tonic).
+- `services/auth-service-rust/` — login, JWT issuance, user / avatar management.
+- `services/notification-service-rust/` — notifications (immediate + scheduled, streaming).
+- `services/subject-service-dotnet/` — subjects, enrollment, teacher assignment.
+- `services/project-service/` — projects, teams, submissions, join requests (Spring Boot).
+- `services/evaluation-service-rust/` — project evaluations.
+- `proto/` — shared protobuf contracts.
 
-- `frontend/`: React frontend served by nginx
-- `services/router-rust/`: Rust gRPC / gRPC-Web gateway for the frontend
-- `services/auth-service-rust/`: Rust authentication service
-- `services/notification-service-rust/`: Rust notification service
-- `proto/`: shared protobuf contracts
-- `services/subject-service-dotnet/`: subject-service implementation in .NET
-- `services/project-service-dotnet-template/`: project-service template
-
-The frontend talks to the router through gRPC-Web. Backend services communicate with each other over gRPC.
-
-## Current State
-
-Implemented and usable:
-
-- frontend in React + Vite
-- typed gRPC gateway in Rust with `tonic` and `tonic-web`
-- JWT-based authentication through `auth-service`
-- notification service in Rust
-- Docker Compose setup for local development
-- OpenTelemetry collector and Prometheus in the compose stack
-
-Not finished yet:
-
-- project service is still a .NET template
-- some frontend flows still degrade when project-service is unavailable
-
-In the current `docker-compose.yml`, `project-service` is still commented out. Project-related gateway calls will fail unless you provide that service yourself.
-
-## Architecture
-
-High-level flow:
-
-- `frontend` -> gRPC-Web -> `router-rust`
-- `router-rust` -> gRPC -> backend services
-- shared contracts live in `proto/*.proto`
-
-Current backend services:
-
-- `auth-service-rust`
-  - user registration
-  - login
-  - token validation
-  - logout / revocation
-- `notification-service-rust`
-  - create notifications
-  - list notifications
-  - mark notifications as read
-- `router-rust`
-  - exposes the typed `FrontendGateway`
-  - validates bearer tokens on protected RPCs
-  - forwards calls to internal services
-
-## Repository Layout
-
-```text
-.
-├── frontend/
-├── proto/
-├── services/
-│   ├── auth-service-rust/
-│   ├── notification-service-rust/
-│   ├── project-service-dotnet-template/
-│   ├── router-rust/
-│   └── subject-service-dotnet/
-├── docker-compose.yml
-├── grpc-web-generate.sh
-├── Makefile
-├── otel-collector-config.yaml
-└── README.md
-```
+The frontend reaches the router over gRPC-Web; backend services talk to each other over gRPC. The router validates the JWT and forwards the original `Authorization` header on every downstream call so internal services can identify the caller without round-tripping to auth-service.
 
 ## Prerequisites
 
-For Docker-based development:
+- Docker + Docker Compose (everything else lives in containers).
 
-- Docker
-- Docker Compose
-
-For local frontend / Rust development:
-
-- Node.js 22+
-- npm
-- Rust toolchain
-- `protoc`
+For local builds (optional): Node 22+, Rust toolchain, `protoc`, Java 25 + Maven, .NET 8 SDK.
 
 ## Quick Start
 
-Start the stack with Docker:
-
-```bash
-make up-build
-```
-
-Or directly:
+Build and start the full stack:
 
 ```bash
 docker compose up --build
 ```
 
-Main endpoints:
-
-- frontend: `http://localhost:3000`
-- router gRPC: `http://localhost:8081`
-- auth service gRPC: `http://localhost:50051`
-- notification service gRPC: `http://localhost:50052`
-- Prometheus: `http://localhost:9090`
-- Grafana: `http://localhost:3001` (`admin` / `admin`)
-- OTLP gRPC: `http://localhost:4317`
-
-Stop the stack:
+Stop:
 
 ```bash
-make down
+docker compose down
 ```
 
-## Common Commands
-
-List available tasks:
+Follow logs:
 
 ```bash
-make help
+docker compose logs -f
 ```
 
-Useful targets:
+Endpoints:
 
-- `make up-build`: build and start the compose stack
-- `make down`: stop the compose stack
-- `make logs`: follow compose logs
-- `make grpc`: regenerate frontend protobuf JavaScript
-- `make rust-check`: run `cargo check` in all Rust services
-- `make rust-test`: run `cargo test` in all Rust services
-- `make rust-fmt`: run `cargo fmt` in all Rust services
-- `make check`: regenerate gRPC files, build the frontend, and run Rust checks
+- frontend: <http://localhost:3000>
+- router gRPC / gRPC-Web: <http://localhost:8081>
+- Prometheus: <http://localhost:9090>
+- Grafana: <http://localhost:3001> (`admin` / `admin`)
 
-## Frontend Development
+Internal gRPC ports: auth `50051`, notification `50052`, subject `50053`, project `50054`, evaluation `50055`.
 
-Install dependencies:
-
-```bash
-make frontend-install
-```
-
-Run the Vite dev server:
-
-```bash
-make frontend-dev
-```
-
-Build the frontend:
-
-```bash
-make frontend-build
-```
-
-Environment variables are described in [frontend/.env.example](/home/tmokenc/workspace/vut/pis/projekt/frontend/.env.example).
-
-The frontend uses the nginx proxy in [frontend/nginx.conf](/home/tmokenc/workspace/vut/pis/projekt/frontend/nginx.conf) to reach the router at `/grpc`.
-
-## gRPC and Protobuf
-
-Frontend protobuf files are generated into:
-
-- [frontend/src/lib/grpc/generated](/home/tmokenc/workspace/vut/pis/projekt/frontend/src/lib/grpc/generated)
-
-That directory is a local build artifact and is ignored by git. The frontend regenerates it automatically during `npm run build` and `npm run dev`.
-
-Generation command:
-
-```bash
-make grpc
-```
-
-That runs [grpc-web-generate.sh](/home/tmokenc/workspace/vut/pis/projekt/grpc-web-generate.sh), which compiles the shared `.proto` files for the frontend grpc-web client.
-
-## Authentication
-
-The router expects bearer tokens in gRPC metadata:
-
-```text
-authorization: Bearer <jwt>
-```
-
-Protected gateway methods are validated through `AuthService.ValidateToken`.
-
-Demo users are seeded by `auth-service` in local development:
+Demo users seeded by `auth-service`:
 
 - `student@example.com` / `student123`
 - `teacher@example.com` / `teacher123`
 - `admin@example.com` / `admin123`
 
+## Local development
+
+Frontend (Vite dev server, proxies to a running router):
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Production build of the frontend:
+
+```bash
+cd frontend
+npm run build
+```
+
+Regenerate the frontend protobuf bindings (auto-runs on `npm run build` / `npm run dev`):
+
+```bash
+bash grpc-web-generate.sh
+```
+
+Per-service Rust checks (run inside each `services/*-rust/` directory):
+
+```bash
+cargo check
+cargo test
+cargo fmt
+```
+
+Project-service (Java / Spring Boot):
+
+```bash
+cd services/project-service
+./mvnw -DskipTests package
+```
+
+Subject-service (.NET):
+
+```bash
+cd services/subject-service-dotnet
+dotnet build
+```
+
+## Authentication
+
+The router expects bearer tokens in gRPC metadata:
+
+```
+authorization: Bearer <jwt>
+```
+
+Protected gateway methods are validated via `AuthService.ValidateToken`. JWT claims include `sub` (user id) and `role` (`student` / `teacher` / `admin`). The router attaches the same header on every downstream call so internal services can decode the JWT directly.
+
+## File uploads
+
+Submissions are capped at 10 MB. The transport chain (nginx → axum → tonic → Spring gRPC) is configured for 12 MiB to leave protobuf framing headroom.
+
 ## Observability
 
-The compose stack includes:
-
-- OpenTelemetry Collector
-- Prometheus
-
-Services are configured to export traces to the collector at `http://otel-collector:4317`.
+Compose includes OpenTelemetry Collector, Prometheus, Grafana, and Loki + Alloy. Services export traces and metrics to `otel-collector:4317`; logs are pushed via Alloy to Loki.
 
 ## Notes
 
-- The router is gRPC-only now. There is no REST API, Swagger UI, or `/health` endpoint in the router.
-- The project service is not active by default in the current compose file.
-- The shared service boundary is the protobuf contract in `proto/`. Services should not share internal code or storage models.
+- The router is gRPC / gRPC-Web only — no REST. Health probe at `/health` on the router HTTP port.
