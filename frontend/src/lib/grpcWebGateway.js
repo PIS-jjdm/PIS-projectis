@@ -221,6 +221,11 @@ const methods = {
     gatewayPb.CreateProjectGatewayRequest,
     projectPb.Project,
   ),
+  updateProject: unaryDescriptor(
+    '/gateway.FrontendGateway/UpdateProject',
+    projectPb.UpdateProjectRequest,
+    projectPb.Project,
+  ),
   getProject: unaryDescriptor(
     '/gateway.FrontendGateway/GetProject',
     projectPb.GetProjectRequest,
@@ -486,6 +491,8 @@ export const gatewayClient = {
     request.setDescription(payload.description || '')
     request.setMaxStudentsPerTeam(Number(payload.max_students_per_team) || 0)
     request.setSubjectId(payload.subject_id || '')
+    const maxPoints = Number(payload.max_points)
+    request.setMaxPoints(Number.isFinite(maxPoints) && maxPoints > 0 ? maxPoints : 100)
 
     const startDate = toTimestamp(payload.start_date)
     if (startDate) request.setStartDate(startDate)
@@ -494,6 +501,29 @@ export const gatewayClient = {
     if (endDate) request.setEndDate(endDate)
 
     return client.unary(methods.createProject, request, accessToken)
+  },
+
+  updateProject(accessToken, payload) {
+    const request = new projectPb.UpdateProjectRequest()
+    request.setProjectId(payload.project_id || '')
+    request.setTitle(payload.title || '')
+    request.setDescription(payload.description || '')
+    request.setMaxStudentsPerTeam(Number(payload.max_students_per_team) || 0)
+
+    const startDate = toTimestamp(payload.start_date)
+    if (startDate) request.setStartDate(startDate)
+    const endDate = toTimestamp(payload.end_date)
+    if (endDate) request.setEndDate(endDate)
+
+    // optional: only set when provided so the project-service can treat absence as "leave unchanged"
+    if (payload.max_points !== undefined && payload.max_points !== null) {
+      const maxPoints = Number(payload.max_points)
+      if (Number.isFinite(maxPoints) && maxPoints > 0) {
+        request.setMaxPoints(maxPoints)
+      }
+    }
+
+    return client.unary(methods.updateProject, request, accessToken)
   },
 
   getProject(accessToken, projectId) {

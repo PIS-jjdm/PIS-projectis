@@ -47,6 +47,13 @@ function dateAtTime(date, hours, minutes, seconds) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(hours)}:${pad(minutes)}:${pad(seconds)}`
 }
 
+function toDateTimeLocalInputValue(isoString) {
+  if (!isoString) return ''
+  const date = new Date(isoString)
+  if (Number.isNaN(date.getTime())) return ''
+  return dateAtTime(date, date.getHours(), date.getMinutes(), date.getSeconds())
+}
+
 function defaultProjectForm() {
   const today = new Date()
   return {
@@ -54,6 +61,7 @@ function defaultProjectForm() {
     description: '',
     subject_id: '',
     max_students_per_team: 3,
+    max_points: 100,
     start_date: dateAtTime(today, 0, 0, 0),
     end_date: dateAtTime(today, 23, 59, 59),
   }
@@ -82,6 +90,7 @@ export default function SubjectsPage() {
   const [subjectDialogOpen, setSubjectDialogOpen] = useState(false)
   const [projectDialogOpen, setProjectDialogOpen] = useState(false)
   const [editingSubject, setEditingSubject] = useState(null)
+  const [editingProject, setEditingProject] = useState(null)
   const [subjectForm, setSubjectForm] = useState(initialSubjectForm)
   const [projectForm, setProjectForm] = useState(defaultProjectForm())
   const [subjectFormError, setSubjectFormError] = useState('')
@@ -245,6 +254,10 @@ export default function SubjectsPage() {
     if (!Number.isFinite(max) || max < 1) {
       return 'Max students per team must be at least 1.'
     }
+    const maxPoints = Number(projectForm.max_points)
+    if (!Number.isFinite(maxPoints) || maxPoints <= 0) {
+      return 'Max points must be greater than 0.'
+    }
     if (projectForm.start_date && projectForm.end_date) {
       const start = new Date(projectForm.start_date)
       const end = new Date(projectForm.end_date)
@@ -257,11 +270,12 @@ export default function SubjectsPage() {
 
   function closeProjectDialog() {
     setProjectDialogOpen(false)
+    setEditingProject(null)
     setProjectForm(defaultProjectForm())
     setProjectFormError('')
   }
 
-  async function handleCreateProject() {
+  async function handleSaveProject() {
     setProjectFormError('')
     const validationError = validateProjectForm()
     if (validationError) {
@@ -270,16 +284,33 @@ export default function SubjectsPage() {
     }
     setProjectSubmitting(true)
     try {
-      await api.createProject(session, {
-        ...projectForm,
-        title: projectForm.title.trim(),
-        description: projectForm.description.trim(),
-      })
-      closeProjectDialog()
-      setSuccess('Project created.')
+      if (editingProject) {
+        await api.updateProject(session, {
+          project_id: editingProject.id,
+          title: projectForm.title.trim(),
+          description: projectForm.description.trim(),
+          max_students_per_team: projectForm.max_students_per_team,
+          max_points: projectForm.max_points,
+          start_date: projectForm.start_date,
+          end_date: projectForm.end_date,
+        })
+        closeProjectDialog()
+        setSuccess('Project updated.')
+      } else {
+        await api.createProject(session, {
+          ...projectForm,
+          title: projectForm.title.trim(),
+          description: projectForm.description.trim(),
+        })
+        closeProjectDialog()
+        setSuccess('Project created.')
+      }
       await loadData()
-    } catch (createError) {
-      setProjectFormError(createError.message || 'Project was not created.')
+    } catch (saveError) {
+      setProjectFormError(
+        saveError.message ||
+          (editingProject ? 'Failed to update project.' : 'Project was not created.'),
+      )
     } finally {
       setProjectSubmitting(false)
     }
@@ -338,9 +369,30 @@ export default function SubjectsPage() {
 
   function openProjectCreator(subjectId = '') {
     setProjectFormError('')
+    setEditingProject(null)
     setProjectForm({
       ...defaultProjectForm(),
       subject_id: subjectId || subjects[0]?.id || '',
+    })
+    setProjectDialogOpen(true)
+  }
+
+  function openProjectEditor(project) {
+    setProjectFormError('')
+    setEditingProject(project)
+    setProjectForm({
+      title: project.title || '',
+      description: project.description || '',
+      subject_id: project.subject_id || '',
+      max_students_per_team: project.max_students_per_team || 1,
+      max_points:
+        project.max_points !== undefined && project.max_points !== null
+          ? project.max_points
+          : 100,
+      start_date: project.start_date
+        ? toDateTimeLocalInputValue(project.start_date)
+        : '',
+      end_date: project.end_date ? toDateTimeLocalInputValue(project.end_date) : '',
     })
     setProjectDialogOpen(true)
   }
@@ -661,6 +713,15 @@ export default function SubjectsPage() {
                                     >
                                       View teams
                                     </Button>
+                                    {['teacher', 'admin'].includes(user?.role) && (
+                                      <Button
+                                        variant="outlined"
+                                        startIcon={<EditRoundedIcon />}
+                                        onClick={() => openProjectEditor(project)}
+                                      >
+                                        Edit project
+                                      </Button>
+                                    )}
                                     {user?.role === 'student' &&
                                       !ownTeam &&
                                       (subject.user_ids || []).includes(user?.id) && (
@@ -746,7 +807,7 @@ export default function SubjectsPage() {
       </Dialog>
 
       <Dialog open={projectDialogOpen} onClose={closeProjectDialog} fullWidth maxWidth="sm">
-        <DialogTitle>Create project</DialogTitle>
+        <DialogTitle>{editingProject ? 'Edit project' : 'Create project'}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             {projectFormError && (
@@ -782,6 +843,8 @@ export default function SubjectsPage() {
               onChange={(event) =>
                 setProjectForm((current) => ({ ...current, subject_id: event.target.value }))
               }
+              disabled={!!editingProject}
+              helperText={editingProject ? 'Subject cannot be changed after creation.' : undefined}
               fullWidth
             >
               {subjects.map((subject) => (
@@ -800,6 +863,21 @@ export default function SubjectsPage() {
                 setProjectForm((current) => ({
                   ...current,
                   max_students_per_team: Math.max(Number(event.target.value) || 1, 1),
+                }))
+              }
+              fullWidth
+            />
+            <TextField
+              required
+              label="Max points"
+              type="number"
+              inputProps={{ min: 0, step: 0.5 }}
+              helperText="Upper bound applied when teachers grade submissions."
+              value={projectForm.max_points}
+              onChange={(event) =>
+                setProjectForm((current) => ({
+                  ...current,
+                  max_points: Number(event.target.value),
                 }))
               }
               fullWidth
@@ -830,8 +908,14 @@ export default function SubjectsPage() {
           <Button onClick={closeProjectDialog} disabled={projectSubmitting}>
             Cancel
           </Button>
-          <Button onClick={handleCreateProject} variant="contained" disabled={projectSubmitting}>
-            {projectSubmitting ? 'Creating…' : 'Save project'}
+          <Button onClick={handleSaveProject} variant="contained" disabled={projectSubmitting}>
+            {projectSubmitting
+              ? editingProject
+                ? 'Saving…'
+                : 'Creating…'
+              : editingProject
+                ? 'Save changes'
+                : 'Save project'}
           </Button>
         </DialogActions>
       </Dialog>
