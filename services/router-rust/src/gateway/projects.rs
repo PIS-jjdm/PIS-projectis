@@ -4,10 +4,16 @@ use std::pin::Pin;
 
 type DownloadStream = Pin<Box<dyn Stream<Item = Result<FileChunk, Status>> + Send>>;
 
+use std::collections::HashMap;
+
 use crate::auth_context::CurrentUser;
 use crate::proto::common::{Ack, UserRole};
+use crate::proto::eval::{ListProjectEvaluationsRequest, ProjectEvaluation};
 
-use crate::proto::gateway::{CreateProjectGatewayRequest, ListTeamsByProjectGatewayResponse};
+use crate::proto::gateway::{
+    CreateProjectGatewayRequest, ListProjectTeamDetailsGatewayRequest,
+    ListProjectTeamDetailsGatewayResponse, ListTeamsByProjectGatewayResponse,
+};
 
 use crate::proto::project::{
     AddTeamMemberRequest, ChangeTeamLeaderRequest, CreateJoinRequestRequest, CreateProjectRequest,
@@ -55,14 +61,52 @@ pub(super) async fn list_projects(
     service: &FrontendGatewayService,
     request: Request<ListProjectsRequest>,
 ) -> Result<Response<ListProjectsResponse>, Status> {
-    let response = service
-        .state
-        .project_client()
-        .list_projects(request)
-        .await?
-        .into_inner();
+    let ctx = ForwardContext::from_request(&request);
+    let body = request.into_inner();
 
-    Ok(Response::new(response))
+    // Specific subject — single forwarded call.
+    if !body.subject_id.trim().is_empty() {
+        let response = service
+            .state
+            .project_client()
+            .list_projects(ctx.into_request(body)?)
+            .await?
+            .into_inner();
+        return Ok(Response::new(response));
+    }
+
+    // No subject filter — fan out per subject on the server so the browser doesn't have to.
+    let subjects = service
+        .state
+        .subject_client()
+        .list_subjects(ctx.clone().into_request(crate::proto::subject::ListSubjectsRequest {})?)
+        .await?
+        .into_inner()
+        .subjects;
+
+    let mut projects = Vec::new();
+    for subject in subjects {
+        match service
+            .state
+            .project_client()
+            .list_projects(ctx.clone().into_request(ListProjectsRequest {
+                subject_id: subject.id.clone(),
+            })?)
+            .await
+        {
+            Ok(response) => projects.extend(response.into_inner().projects),
+            Err(status) => {
+                tracing::warn!(
+                    subject_id = %subject.id,
+                    code = ?status.code(),
+                    message = status.message(),
+                    "list_projects fan-out: per-subject call failed; skipping"
+                );
+            }
+        }
+    }
+
+    Ok(Response::new(ListProjectsResponse { projects }))
 }
 
 pub(super) async fn get_project(
@@ -185,6 +229,99 @@ pub(super) async fn get_team(
         .into_inner();
 
     Ok(Response::new(response))
+}
+
+pub(super) async fn list_project_team_details(
+    service: &FrontendGatewayService,
+    request: Request<ListProjectTeamDetailsGatewayRequest>,
+) -> Result<Response<ListProjectTeamDetailsGatewayResponse>, Status> {
+    let current_user = FrontendGatewayService::current_user(&request)?;
+    let ctx = ForwardContext::from_request(&request);
+    let body = request.into_inner();
+    FrontendGatewayService::require_non_empty(&body.project_id, "project id")?;
+
+    let project_id = body.project_id.clone();
+    let listing = service
+        .state
+        .project_client()
+        .list_teams_by_project(ctx.clone().into_request(ListTeamsByProjectRequest {
+            project_id: project_id.clone(),
+        })?)
+        .await?
+        .into_inner();
+
+    // Fetch all evaluations for the project in one shot from eval-service so we can merge them
+    // into each TeamDetail directly. We do this in the router rather than relying on the
+    // project-service's per-team eval pass-through (which sometimes returns empty), so the
+    // teacher's submissions list always sees scores and feedback as soon as they exist.
+    let evaluations_by_team: HashMap<String, ProjectEvaluation> = match service
+        .state
+        .eval_client()
+        .list_project_evaluations(Request::new(ListProjectEvaluationsRequest {
+            project_id: Some(project_id.clone()),
+            student_id: None,
+            evaluator_teacher_id: None,
+        }))
+        .await
+    {
+        Ok(response) => response
+            .into_inner()
+            .evaluations
+            .into_iter()
+            .map(|evaluation| (evaluation.team_id.clone(), evaluation))
+            .collect(),
+        Err(status) => {
+            tracing::warn!(
+                project_id = %project_id,
+                code = ?status.code(),
+                message = status.message(),
+                "list_project_evaluations failed during list_project_team_details; \
+                 evaluations will be missing from the response"
+            );
+            HashMap::new()
+        }
+    };
+
+    let is_student = current_user.role == UserRole::Student;
+    let mut teams = Vec::with_capacity(listing.teams.len());
+    for team in listing.teams {
+        match service
+            .state
+            .project_client()
+            .get_team(ctx.clone().into_request(GetTeamRequest {
+                team_id: team.team_id.clone(),
+            })?)
+            .await
+        {
+            Ok(response) => {
+                let mut detail = response.into_inner();
+                if is_student {
+                    let belongs = detail.leader_student_id == current_user.user_id
+                        || detail
+                            .students
+                            .iter()
+                            .any(|user| user.id == current_user.user_id);
+                    if !belongs {
+                        continue;
+                    }
+                }
+                if let Some(evaluation) = evaluations_by_team.get(&detail.team_id) {
+                    detail.evaluation = Some(evaluation.clone());
+                }
+                teams.push(detail);
+            }
+            Err(status) => {
+                tracing::warn!(
+                    team_id = %team.team_id,
+                    code = ?status.code(),
+                    message = status.message(),
+                    "get_team failed during list_project_team_details; skipping"
+                );
+            }
+        }
+    }
+
+    Ok(Response::new(ListProjectTeamDetailsGatewayResponse { teams }))
 }
 
 pub(super) async fn list_teams_by_project(

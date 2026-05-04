@@ -19,7 +19,8 @@ use crate::proto::{
         frontend_gateway_server::FrontendGateway, CancelScheduledNotificationGatewayRequest,
         ChangePasswordGatewayRequest, CreateNotificationGatewayRequest,
         CreateNotificationGatewayResponse, CreateProjectGatewayRequest,
-        ListNotificationsGatewayResponse, ListTeamsByProjectGatewayResponse,
+        ListNotificationsGatewayResponse, ListProjectTeamDetailsGatewayRequest,
+        ListProjectTeamDetailsGatewayResponse, ListTeamsByProjectGatewayResponse,
         NotificationWithSender, RegisterSubjectGatewayRequest,
         RescheduleScheduledNotificationGatewayRequest,
     },
@@ -363,6 +364,13 @@ impl FrontendGateway for FrontendGatewayService {
         request: Request<ListTeamsByProjectRequest>,
     ) -> Result<Response<ListTeamsByProjectGatewayResponse>, Status> {
         projects::list_teams_by_project(self, request).await
+    }
+
+    async fn list_project_team_details(
+        &self,
+        request: Request<ListProjectTeamDetailsGatewayRequest>,
+    ) -> Result<Response<ListProjectTeamDetailsGatewayResponse>, Status> {
+        projects::list_project_team_details(self, request).await
     }
 
     async fn leave_team(

@@ -109,7 +109,8 @@ async fn main() -> anyhow::Result<()> {
 
     let app = file_http::routes(state)
         .route("/health", axum::routing::get(health))
-        .fallback_service(grpc_service);
+        .fallback_service(grpc_service)
+        .layer(axum::extract::DefaultBodyLimit::max(MAX_GRPC_MESSAGE_SIZE));
     let listener = TcpListener::bind(&config.grpc_addr).await?;
 
     axum::serve(listener, app)
