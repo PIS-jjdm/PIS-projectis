@@ -25,7 +25,7 @@ impl Present<uc::CreateResult> for Presenter {
             uc::create::Error::Repo(save_error) => match save_error {
                 SaveError::Connection(conn) => models::Error::Internal(conn.into()),
             },
-            uc::create::Error::Invalid => models::Error::Internal(e.into()),
+            uc::create::Error::Invalid(e) => models::Error::InvalidArgument(e.into()),
         })
     }
 }
@@ -71,6 +71,7 @@ impl Present<uc::UpdateResult> for Presenter {
         t.map_err(|e| match e {
             uc::update::Error::Repo(conn) => models::Error::Internal(conn.into()),
             uc::update::Error::NotFound => models::Error::NotFound(e.into()),
+            uc::update::Error::Invalid(error) => models::Error::InvalidArgument(error.into()),
         })
     }
 }

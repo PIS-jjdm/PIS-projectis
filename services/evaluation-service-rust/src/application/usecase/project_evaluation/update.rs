@@ -4,7 +4,7 @@ use crate::{
     application::{
         gateway::*,
         repository::project_evaluation::{self as proj_eval, GetError, SaveError},
-        usecase::project_evaluation::UpdateResult,
+        usecase::project_evaluation::{self as usecase, UpdateResult},
     },
     domain::{Id, ProjectEvaluation},
 };
@@ -24,6 +24,8 @@ pub enum Error {
     Repo(#[from] proj_eval::ConnectionError),
     #[error("Project evaluation to update was not found")]
     NotFound,
+    #[error("Project evaluation update request validation failed: {0}")]
+    Invalid(#[from] usecase::validate::Error),
 }
 
 impl From<GetError> for Error {
@@ -61,14 +63,23 @@ where
     pub async fn exec(&self, req: Request) -> UpdateResult {
         log::debug!("Update project evaluation: {:?}", req);
 
+        // Change the existing domain record
         let mut eval = self.repo.get(req.evaluation_id.clone()).await?;
         eval.total_score = req.total_score.unwrap_or(eval.total_score);
         eval.feedback = req.feedback.unwrap_or(eval.feedback);
 
+        // Validate
+        usecase::Validate::new(self.repo, self.gateways)
+            .exec(&eval)
+            .await?;
+
+        // Save the changed domain record
         self.repo.save(eval).await?;
 
+        // Get new
         let eval = self.repo.get(req.evaluation_id).await?;
 
+        // Notify
         if let Err(e) = self.notify(&eval).await {
             log::error!("Notification creation failed: {e}");
         }

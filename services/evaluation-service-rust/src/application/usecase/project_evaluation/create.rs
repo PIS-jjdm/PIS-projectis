@@ -4,7 +4,7 @@ use crate::{
     application::{
         gateway::*,
         repository::project_evaluation::{self as proj_eval, ConnectionError},
-        usecase::project_evaluation::CreateResult,
+        usecase::project_evaluation::{self as usecase, CreateResult},
     },
     domain::{Id, ProjectEvaluation},
 };
@@ -24,8 +24,8 @@ pub type Response = ProjectEvaluation;
 pub enum Error {
     #[error("{0}")]
     Repo(#[from] proj_eval::SaveError),
-    #[error("Project evaluation create request has invalid fields")]
-    Invalid,
+    #[error("Project evaluation create request validation failed: {0}")]
+    Invalid(#[from] usecase::validate::Error),
 }
 
 #[derive(Debug)]
@@ -46,6 +46,7 @@ where
     pub async fn exec(&self, req: Request) -> CreateResult {
         log::debug!("Create new project evaluation: {:?}", req);
 
+        // Create domain record
         let id = self.repo.make_id(&req.project_id, &req.team_id).await;
         let record = ProjectEvaluation {
             id: id.clone(),
@@ -56,14 +57,23 @@ where
             feedback: req.feedback,
             created_at_utc: chrono::Utc::now(),
         };
+
+        // Validate
+        usecase::Validate::new(self.repo, self.gateways)
+            .exec(&record)
+            .await?;
+
+        // Save
         self.repo.save(record).await?;
 
+        // Get new
         let eval = self
             .repo
             .get(id)
             .await
             .map_err(|_| Error::Repo(ConnectionError.into()))?;
 
+        // Notify
         if let Err(e) = self.notify(&eval).await {
             log::error!("Notification creation failed: {e}");
         }

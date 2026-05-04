@@ -51,6 +51,7 @@ impl From<grpc::Project> for models::Project {
         Self {
             name: proj.title,
             subject_id: proj.subject_id,
+            max_points: proj.max_points,
         }
     }
 }
